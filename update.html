@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>อัปเดตสถานะ Ticket - PEA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f1923;
+  --surface: #162030;
+  --surface2: #1e2d3d;
+  --border: #2a3f55;
+  --accent: #f5a623;
+  --accent2: #e05c2a;
+  --blue: #3b9ede;
+  --green: #2ecc71;
+  --red: #e74c3c;
+  --yellow: #f39c12;
+  --text: #e8f0f8;
+  --text2: #8aa0b8;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'Sarabun', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--text); font-family: var(--sans);
+  font-size: 15px; min-height: 100vh; display: flex; align-items: flex-start;
+  justify-content: center; padding: 24px 16px;
+}
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  max-width: 460px; width: 100%; overflow: hidden;
+}
+.card-header {
+  padding: 20px 22px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.logo-badge {
+  background: var(--accent); color: #000; font-family: var(--mono); font-weight: 600;
+  font-size: 13px; padding: 4px 9px; border-radius: 4px; letter-spacing: 1px;
+}
+.card-title { font-size: 15px; font-weight: 600; color: var(--text2); }
+.card-body { padding: 22px; }
+
+.state-loading, .state-error {
+  text-align: center; padding: 40px 20px; color: var(--text2);
+}
+.state-error .icon { font-size: 42px; margin-bottom: 12px; }
+.state-error .msg { font-size: 16px; font-weight: 600; color: var(--red); margin-bottom: 6px; }
+.state-error .sub { font-size: 13px; color: var(--text2); }
+
+.ticket-id-row {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px;
+}
+.ticket-id { font-family: var(--mono); font-size: 20px; font-weight: 600; color: var(--accent); }
+.status-pill {
+  font-size: 12px; font-weight: 600; padding: 4px 11px; border-radius: 20px;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.status-open { background: rgba(231,76,60,0.15); color: var(--red); }
+.status-progress { background: rgba(243,156,18,0.15); color: var(--yellow); }
+.status-done { background: rgba(46,204,113,0.15); color: var(--green); }
+
+.info-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 22px; }
+.info-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; padding: 11px 13px; }
+.info-key { font-size: 11px; color: var(--text2); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+.info-val { font-size: 14.5px; line-height: 1.45; }
+.info-val.mono { font-family: var(--mono); }
+
+.section-label { font-size: 12px; color: var(--text2); margin-bottom: 10px; font-weight: 600; }
+
+.status-buttons { display: flex; flex-direction: column; gap: 9px; margin-bottom: 8px; }
+.status-btn {
+  border: 1px solid var(--border); background: var(--surface2); color: var(--text);
+  font-family: var(--sans); font-size: 14.5px; font-weight: 600; padding: 13px 16px;
+  border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 10px;
+  transition: all 0.15s ease;
+}
+.status-btn:active { transform: scale(0.98); }
+.status-btn.current { border-color: var(--accent); background: rgba(245,166,35,0.1); }
+.status-btn .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.dot-open { background: var(--red); }
+.dot-progress { background: var(--yellow); }
+.dot-done { background: var(--green); }
+.status-btn .check { margin-left: auto; color: var(--accent); font-size: 16px; }
+
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px);
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  padding: 12px 20px; border-radius: 10px; font-size: 14px; z-index: 999;
+  transition: transform 0.25s ease; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.success { border-color: var(--green); }
+.toast.error { border-color: var(--red); }
+
+.map-link {
+  display: inline-flex; align-items: center; gap: 6px; color: var(--blue);
+  text-decoration: none; font-size: 13.5px; margin-top: 4px;
+}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-header">
+    <span class="logo-badge">PEA</span>
+    <span class="card-title">อัปเดตสถานะแจ้งเหตุไฟดับ</span>
+  </div>
+  <div class="card-body" id="card-body">
+    <div class="state-loading">กำลังโหลดข้อมูล...</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, query, where, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyC7bzImCV7c89fLGhIq8OycWKQWRYdvZvE",
+    authDomain: "pea-system.firebaseapp.com",
+    projectId: "pea-system",
+    storageBucket: "pea-system.firebasestorage.app",
+    messagingSenderId: "1006235611544",
+    appId: "1:1006235611544:web:a7453d71ff56748166fbed",
+    measurementId: "G-V5NPYZ4KZW"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const params = new URLSearchParams(window.location.search);
+  const ticketId = params.get('id');
+  const token = params.get('token');
+
+  const body = document.getElementById('card-body');
+  const toastEl = document.getElementById('toast');
+
+  function showToast(msg, type='') {
+    toastEl.textContent = msg;
+    toastEl.className = 'toast show ' + type;
+    setTimeout(() => { toastEl.className = 'toast'; }, 2800);
+  }
+
+  function renderError(title, sub) {
+    body.innerHTML = `
+      <div class="state-error">
+        <div class="icon">⚠️</div>
+        <div class="msg">${title}</div>
+        <div class="sub">${sub}</div>
+      </div>`;
+  }
+
+  function statusLabel(s) {
+    return s === 'open' ? '🔴 รอดำเนินการ' : s === 'progress' ? '🟡 กำลังดำเนินการ' : '🟢 แก้ไขแล้ว';
+  }
+
+  let currentDocId = null;
+  let currentData = null;
+
+  async function loadTicket() {
+    if(!ticketId || !token) {
+      renderError('ลิงก์ไม่ถูกต้อง', 'ไม่พบรหัส ticket หรือ token ใน URL กรุณาตรวจสอบลิงก์อีกครั้ง');
+      return;
+    }
+    try {
+      const q = query(collection(db, "tickets"), where("id", "==", ticketId));
+      const snap = await getDocs(q);
+      if(snap.empty) {
+        renderError('ไม่พบ Ticket นี้', `รหัส ${ticketId} อาจถูกลบหรือไม่มีอยู่จริง`);
+        return;
+      }
+      const docSnap = snap.docs[0];
+      const data = docSnap.data();
+      if(!data.token || data.token !== token) {
+        renderError('ไม่มีสิทธิ์เข้าถึง', 'Token ไม่ถูกต้อง กรุณาใช้ลิงก์ที่ได้รับจากระบบเท่านั้น');
+        return;
+      }
+      currentDocId = docSnap.id;
+      currentData = data;
+      renderTicket(data);
+    } catch(e) {
+      console.error(e);
+      renderError('เกิดข้อผิดพลาด', 'ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง');
+    }
+  }
+
+  function renderTicket(t) {
+    const statusClass = t.status === 'open' ? 'status-open' : t.status === 'progress' ? 'status-progress' : 'status-done';
+    const mapLink = (t.lat && t.lng) ? `<a class="map-link" href="https://www.google.com/maps?q=${t.lat},${t.lng}" target="_blank">📍 เปิดแผนที่นำทาง</a>` : '';
+    body.innerHTML = `
+      <div class="ticket-id-row">
+        <span class="ticket-id">${t.id}</span>
+        <span class="status-pill ${statusClass}" id="status-pill">${statusLabel(t.status)}</span>
+      </div>
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-key">ผู้แจ้ง</div>
+          <div class="info-val">${t.name}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-key">CA / PEANO</div>
+          <div class="info-val mono">${t.ca} / ${t.peano}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-key">ที่อยู่</div>
+          <div class="info-val">${t.addr}${mapLink}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-key">เหตุการณ์</div>
+          <div class="info-val">${t.note}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-key">เบอร์โทรผู้แจ้ง</div>
+          <div class="info-val mono">${t.tel || '—'}</div>
+        </div>
+      </div>
+      <div class="section-label">เปลี่ยนสถานะ</div>
+      <div class="status-buttons" id="status-buttons">
+        ${renderStatusButtons(t.status)}
+      </div>
+    `;
+    attachButtonHandlers();
+  }
+
+  function renderStatusButtons(current) {
+    const opts = [
+      {key:'open', dot:'dot-open', label:'รอดำเนินการ'},
+      {key:'progress', dot:'dot-progress', label:'กำลังดำเนินการ'},
+      {key:'done', dot:'dot-done', label:'แก้ไขแล้ว'}
+    ];
+    return opts.map(o => `
+      <button class="status-btn ${o.key===current?'current':''}" data-status="${o.key}">
+        <span class="dot ${o.dot}"></span>
+        ${o.label}
+        ${o.key===current?'<span class="check">✓</span>':''}
+      </button>
+    `).join('');
+  }
+
+  function attachButtonHandlers() {
+    document.querySelectorAll('.status-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const newStatus = btn.dataset.status;
+        if(newStatus === currentData.status) return;
+        btn.disabled = true;
+        try {
+          await updateDoc(doc(db, "tickets", currentDocId), { status: newStatus });
+          currentData.status = newStatus;
+          document.getElementById('status-buttons').innerHTML = renderStatusButtons(newStatus);
+          document.getElementById('status-pill').textContent = statusLabel(newStatus);
+          document.getElementById('status-pill').className = 'status-pill ' + (newStatus==='open'?'status-open':newStatus==='progress'?'status-progress':'status-done');
+          attachButtonHandlers();
+          showToast('อัปเดตสถานะเรียบร้อย ✓', 'success');
+        } catch(e) {
+          console.error(e);
+          showToast('อัปเดตไม่สำเร็จ กรุณาลองใหม่', 'error');
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
+  loadTicket();
+</script>
+</body>
+</html>

@@ -925,6 +925,13 @@ function createTicketFromModal() {
   if(modalUser) selectTicketUser(modalUser);
 }
 
+function genTicketToken() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let token = '';
+  for(let i=0;i<10;i++) token += chars[Math.floor(Math.random()*chars.length)];
+  return token;
+}
+
 function createTicket() {
   if(!ticketSelectedUser) { showToast('กรุณาค้นหาและเลือกผู้แจ้งก่อน', 'error'); return; }
   const note = document.getElementById('ticket-note').value.trim();
@@ -934,6 +941,7 @@ function createTicket() {
   const addr = [r.ADDRESSNO, r.MOO?'ม.'+r.MOO:'', r.TUMBOL, r.AMPHOE, r.CHANGWAT].filter(Boolean).join(' ');
   const ticket = {
     id: 'TK' + String(ticketCounter++).padStart(4,'0'),
+    token: genTicketToken(),
     ca: r.CA, name, addr, tel: r.MOBILE_NO||'—',
     peano: r.PEANO||'—', metertype: r.METERTYPE||'—',
     lat: r.LATITUDE||null, lng: r.LONGITUDE||null,
@@ -1013,7 +1021,8 @@ function shareLocation(id) {
   const t = tickets.find(x=>x.id===id);
   if(!t) return;
   const gmaps = `https://www.google.com/maps?q=${t.lat},${t.lng}`;
-  const msg = `[PEA แจ้งเหตุ] ${t.id}%0aผู้แจ้ง: ${t.name}%0aCA: ${t.ca}%0aPEANO: ${t.peano}%0aที่อยู่: ${t.addr}%0aเหตุการณ์: ${t.note}%0aพิกัด: ${gmaps}`;
+  const updateLink = `${window.location.origin}${window.location.pathname.replace('index.html','')}update.html?id=${t.id}&token=${t.token||''}`;
+  const msg = `[PEA แจ้งเหตุ] ${t.id}%0aผู้แจ้ง: ${t.name}%0aCA: ${t.ca}%0aPEANO: ${t.peano}%0aที่อยู่: ${t.addr}%0aเหตุการณ์: ${t.note}%0aพิกัด: ${gmaps}%0a%0aอัปเดตสถานะ: ${updateLink}`;
   const lineUrl = `https://line.me/R/msg/text/?${msg}`;
   navigator.clipboard.writeText(decodeURIComponent(msg.replace(/%0a/g,'\n')));
   showToast('คัดลอกข้อความแล้ว สามารถวางใน LINE ได้เลย ✓', 'success');
