@@ -100,6 +100,53 @@ body {
   display: inline-flex; align-items: center; gap: 6px; color: var(--blue);
   text-decoration: none; font-size: 13.5px; margin-top: 4px;
 }
+
+.repair-section { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+.field-group { margin-bottom: 20px; }
+.field-label { font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 9px; }
+
+.chip-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.chip {
+  border: 1px solid var(--border); background: var(--surface2); color: var(--text);
+  font-family: var(--sans); font-size: 13.5px; padding: 8px 13px; border-radius: 20px;
+  cursor: pointer; transition: all 0.15s ease; user-select: none;
+}
+.chip:active { transform: scale(0.96); }
+.chip.selected { border-color: var(--accent); background: rgba(245,166,35,0.15); color: var(--accent); font-weight: 600; }
+
+.custom-input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--sans); font-size: 14px; padding: 11px 13px; border-radius: 9px;
+  margin-top: 8px; outline: none;
+}
+.custom-input:focus { border-color: var(--accent); }
+.custom-input::placeholder { color: var(--text2); }
+
+.material-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.material-row {
+  display: flex; align-items: center; gap: 8px; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px;
+}
+.material-row .mat-name { flex: 1; font-size: 14px; }
+.material-row input[type="number"] {
+  width: 56px; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--mono); font-size: 14px; padding: 7px 6px; border-radius: 6px;
+  text-align: center; outline: none;
+}
+.material-row input[type="number"]:focus { border-color: var(--accent); }
+.material-row .mat-unit { font-size: 12.5px; color: var(--text2); min-width: 30px; }
+.material-row .mat-remove {
+  background: none; border: none; color: var(--red); font-size: 18px; cursor: pointer;
+  padding: 2px 6px; line-height: 1;
+}
+
+.save-btn {
+  width: 100%; background: var(--blue); color: #fff; border: none;
+  font-family: var(--sans); font-size: 14.5px; font-weight: 600; padding: 13px;
+  border-radius: 10px; cursor: pointer; margin-top: 18px;
+}
+.save-btn:active { transform: scale(0.98); }
+.save-btn:disabled { opacity: 0.6; }
 </style>
 </head>
 <body>
@@ -159,6 +206,27 @@ body {
     return s === 'open' ? '🔴 รอดำเนินการ' : s === 'progress' ? '🟡 กำลังดำเนินการ' : '🟢 แก้ไขแล้ว';
   }
 
+  // ===== ตัวเลือกสำเร็จรูป =====
+  const CAUSE_OPTIONS = ['สายไฟขาด','ฟิวส์ขาด','หม้อแปลงเสีย/ระเบิด','ลูกถ้วยแตก/ชำรุด','ต้นไม้ทับสาย','อุปกรณ์ป้องกันทำงาน (Recloser/Cutout)','สายหลุดจากจุดต่อ','มิเตอร์ชำรุด','ภัยธรรมชาติ (พายุ/ฟ้าผ่า)'];
+  const FIX_OPTIONS = ['เปลี่ยนฟิวส์','ต่อสายใหม่/ซ่อมจุดต่อ','เปลี่ยนลูกถ้วย','ตัดกิ่งไม้/ต้นไม้','Reset อุปกรณ์ป้องกัน','เปลี่ยนหม้อแปลง','เปลี่ยนมิเตอร์','ปรับตั้งค่าใหม่'];
+  const MATERIAL_OPTIONS = [
+    {name:'ฟิวส์', unit:'ตัว'},
+    {name:'สาย', unit:'เมตร'},
+    {name:'ลูกถ้วย', unit:'ตัว'},
+    {name:'เทปพันสาย', unit:'ม้วน'},
+    {name:'คัทเอาท์', unit:'ตัว'},
+    {name:'หม้อแปลง', unit:'เครื่อง'},
+    {name:'มิเตอร์', unit:'เครื่อง'},
+    {name:'อุปกรณ์ต่อสาย (Connector/Sleeve)', unit:'ตัว'}
+  ];
+
+  // ===== state ของฟอร์มซ่อมบำรุง =====
+  let selectedCauses = [];
+  let customCause = '';
+  let selectedFixes = [];
+  let customFix = '';
+  let selectedMaterials = []; // [{name, unit, qty}]
+
   let currentDocId = null;
   let currentData = null;
 
@@ -182,6 +250,12 @@ body {
       }
       currentDocId = docSnap.id;
       currentData = data;
+      // โหลดข้อมูลซ่อมบำรุงเดิม (ถ้ามี) เข้า state
+      selectedCauses = data.causes || [];
+      customCause = data.customCause || '';
+      selectedFixes = data.fixes || [];
+      customFix = data.customFix || '';
+      selectedMaterials = data.materials || [];
       renderTicket(data);
     } catch(e) {
       console.error(e);
@@ -223,8 +297,61 @@ body {
       <div class="status-buttons" id="status-buttons">
         ${renderStatusButtons(t.status)}
       </div>
+
+      <div class="repair-section">
+        <div class="field-group">
+          <div class="field-label">สาเหตุที่ทำให้ไฟฟ้าขัดข้อง</div>
+          <div class="chip-list" id="cause-chips">${renderChips(CAUSE_OPTIONS, selectedCauses, 'cause')}</div>
+          <input type="text" class="custom-input" id="custom-cause-input" placeholder="อื่นๆ (ระบุ)" value="${escapeAttr(customCause)}">
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">วิธีแก้ไข</div>
+          <div class="chip-list" id="fix-chips">${renderChips(FIX_OPTIONS, selectedFixes, 'fix')}</div>
+          <input type="text" class="custom-input" id="custom-fix-input" placeholder="อื่นๆ (ระบุ)" value="${escapeAttr(customFix)}">
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">วัสดุ/อุปกรณ์ที่ใช้</div>
+          <div class="chip-list" id="material-chips">${renderMaterialChips()}</div>
+          <input type="text" class="custom-input" id="custom-material-input" placeholder="วัสดุอื่นๆ (ระบุชื่อแล้วกด Enter)">
+          <div class="material-list" id="material-list">${renderMaterialList()}</div>
+        </div>
+
+        <button class="save-btn" id="save-repair-btn">💾 บันทึกรายละเอียดการซ่อม</button>
+      </div>
     `;
     attachButtonHandlers();
+    attachRepairHandlers();
+  }
+
+  function escapeAttr(s) {
+    return (s||'').replace(/"/g,'&quot;');
+  }
+
+  function renderChips(options, selected, group) {
+    return options.map(opt => `
+      <span class="chip ${selected.includes(opt)?'selected':''}" data-group="${group}" data-value="${escapeAttr(opt)}">${opt}</span>
+    `).join('');
+  }
+
+  function renderMaterialChips() {
+    return MATERIAL_OPTIONS.map(m => {
+      const isSelected = selectedMaterials.some(sm => sm.name === m.name);
+      return `<span class="chip ${isSelected?'selected':''}" data-material="${escapeAttr(m.name)}" data-unit="${escapeAttr(m.unit)}">${m.name}</span>`;
+    }).join('');
+  }
+
+  function renderMaterialList() {
+    if(!selectedMaterials.length) return '';
+    return selectedMaterials.map((m, i) => `
+      <div class="material-row">
+        <span class="mat-name">${m.name}</span>
+        <input type="number" min="0" step="0.1" value="${m.qty}" data-mat-index="${i}" class="mat-qty-input">
+        <span class="mat-unit">${m.unit}</span>
+        <button class="mat-remove" data-mat-remove="${i}">✕</button>
+      </div>
+    `).join('');
   }
 
   function renderStatusButtons(current) {
@@ -263,6 +390,103 @@ body {
         }
       });
     });
+  }
+
+  function attachRepairHandlers() {
+    // chip: สาเหตุ
+    document.querySelectorAll('#cause-chips .chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const val = chip.dataset.value;
+        const idx = selectedCauses.indexOf(val);
+        if(idx >= 0) selectedCauses.splice(idx,1); else selectedCauses.push(val);
+        chip.classList.toggle('selected');
+      });
+    });
+    // chip: วิธีแก้ไข
+    document.querySelectorAll('#fix-chips .chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const val = chip.dataset.value;
+        const idx = selectedFixes.indexOf(val);
+        if(idx >= 0) selectedFixes.splice(idx,1); else selectedFixes.push(val);
+        chip.classList.toggle('selected');
+      });
+    });
+    // chip: วัสดุ (preset) — เพิ่ม/ลบออกจาก selectedMaterials
+    document.querySelectorAll('#material-chips .chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const name = chip.dataset.material;
+        const unit = chip.dataset.unit;
+        const idx = selectedMaterials.findIndex(m => m.name === name);
+        if(idx >= 0) {
+          selectedMaterials.splice(idx,1);
+        } else {
+          selectedMaterials.push({name, unit, qty: 1});
+        }
+        document.getElementById('material-chips').innerHTML = renderMaterialChips();
+        document.getElementById('material-list').innerHTML = renderMaterialList();
+        attachRepairHandlers();
+      });
+    });
+    // custom input: วัสดุอื่นๆ (กด Enter เพื่อเพิ่ม)
+    const customMatInput = document.getElementById('custom-material-input');
+    if(customMatInput) {
+      customMatInput.addEventListener('keydown', (e) => {
+        if(e.key === 'Enter') {
+          e.preventDefault();
+          const name = customMatInput.value.trim();
+          if(!name) return;
+          if(selectedMaterials.some(m => m.name === name)) { showToast('มีรายการนี้อยู่แล้ว', 'error'); return; }
+          selectedMaterials.push({name, unit: 'หน่วย', qty: 1});
+          customMatInput.value = '';
+          document.getElementById('material-chips').innerHTML = renderMaterialChips();
+          document.getElementById('material-list').innerHTML = renderMaterialList();
+          attachRepairHandlers();
+        }
+      });
+    }
+    // จำนวนวัสดุ
+    document.querySelectorAll('.mat-qty-input').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const i = parseInt(inp.dataset.matIndex);
+        const val = parseFloat(inp.value);
+        selectedMaterials[i].qty = isNaN(val) ? 0 : val;
+      });
+    });
+    // ลบวัสดุ
+    document.querySelectorAll('.mat-remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = parseInt(btn.dataset.matRemove);
+        selectedMaterials.splice(i,1);
+        document.getElementById('material-chips').innerHTML = renderMaterialChips();
+        document.getElementById('material-list').innerHTML = renderMaterialList();
+        attachRepairHandlers();
+      });
+    });
+    // ปุ่มบันทึก
+    const saveBtn = document.getElementById('save-repair-btn');
+    if(saveBtn) {
+      saveBtn.addEventListener('click', async () => {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'กำลังบันทึก...';
+        customCause = document.getElementById('custom-cause-input').value.trim();
+        customFix = document.getElementById('custom-fix-input').value.trim();
+        try {
+          await updateDoc(doc(db, "tickets", currentDocId), {
+            causes: selectedCauses,
+            customCause,
+            fixes: selectedFixes,
+            customFix,
+            materials: selectedMaterials
+          });
+          showToast('บันทึกรายละเอียดการซ่อมเรียบร้อย ✓', 'success');
+        } catch(e) {
+          console.error(e);
+          showToast('บันทึกไม่สำเร็จ กรุณาลองใหม่', 'error');
+        }
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 บันทึกรายละเอียดการซ่อม';
+      });
+    }
   }
 
   loadTicket();
