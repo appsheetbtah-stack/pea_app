@@ -6,6 +6,9 @@
 <title>PEA - ระบบจัดการผู้ใช้ไฟฟ้า</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -1041,12 +1044,20 @@ function initMap() {
 
 function renderUserMarkers() {
   if(userLayer) mapFull.removeLayer(userLayer);
-  const sample = ALL_RECORDS.filter(r=>r.LATITUDE&&r.LONGITUDE).slice(0,2000);
+  const all = ALL_RECORDS.filter(r=>r.LATITUDE&&r.LONGITUDE);
   const icon = L.divIcon({className:'', html:`<div style="width:8px;height:8px;border-radius:50%;background:#3b9ede;border:1.5px solid #fff;opacity:0.8"></div>`, iconSize:[8,8], iconAnchor:[4,4]});
-  userLayer = L.layerGroup(sample.map(r=>
-    L.marker([r.LATITUDE,r.LONGITUDE],{icon})
-      .bindPopup(`<b>${r.PREFIX||''} ${r.CUSTOMERNAME} ${r.CUSTOMERSIRNAME}</b><br>CA: ${r.CA}<br>PEANO: ${r.PEANO||'—'}<br>${r.TUMBOL} ${r.AMPHOE}`)
-  ));
+  userLayer = L.markerClusterGroup({
+    chunkedLoading: true,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    maxClusterRadius: 60
+  });
+  all.forEach(r => {
+    userLayer.addLayer(
+      L.marker([r.LATITUDE,r.LONGITUDE],{icon})
+        .bindPopup(`<b>${r.PREFIX||''} ${r.CUSTOMERNAME} ${r.CUSTOMERSIRNAME}</b><br>CA: ${r.CA}<br>PEANO: ${r.PEANO||'—'}<br>${r.TUMBOL} ${r.AMPHOE}`)
+    );
+  });
   if(userLayerVisible) userLayer.addTo(mapFull);
 }
 
@@ -1086,7 +1097,19 @@ window.addEventListener('resize', () => {
 
 function focusMapUser(r) {
   if(!mapFull || !r.LATITUDE) return;
-  mapFull.setView([r.LATITUDE, r.LONGITUDE], 16);
+  mapFull.setView([r.LATITUDE, r.LONGITUDE], 17);
+  if(userLayer) {
+    userLayer.eachLayer(m => {
+      const ll = m.getLatLng();
+      if(Math.abs(ll.lat - r.LATITUDE) < 0.00001 && Math.abs(ll.lng - r.LONGITUDE) < 0.00001) {
+        if(userLayer.zoomToShowLayer) {
+          userLayer.zoomToShowLayer(m, () => m.openPopup());
+        } else {
+          m.openPopup();
+        }
+      }
+    });
+  }
 }
 
 // ======= TOAST =======
