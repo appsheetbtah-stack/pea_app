@@ -723,7 +723,12 @@ function showPage(name, el) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   if (el) el.classList.add('active');
-  if(name === 'map') setTimeout(initMap, 100);
+  if(name === 'map') {
+    setTimeout(() => {
+      initMap();
+      if(mapFull) mapFull.invalidateSize();
+    }, 100);
+  }
   // ปิด sidebar บน mobile หลังเลือกเมนู
   if(window.innerWidth <= 768) closeSidebar();
 }
@@ -845,7 +850,7 @@ function openUserModal(r) {
     <div class="info-item"><div class="info-key">ประเภทมิเตอร์</div><div class="info-val">${r.METERTYPE||'—'}</div></div>
     <div class="info-item"><div class="info-key">พิกัด</div><div class="info-val mono" style="font-size:12px">${r.LATITUDE?.toFixed(6)||'—'}, ${r.LONGITUDE?.toFixed(6)||'—'}</div></div>
   `;
-  document.getElementById('modal-map-btn').onclick = () => { closeModal('modal-user'); const mapNav = document.querySelector('.nav-item:nth-child(4)'); showPage('map', mapNav); setTimeout(()=>focusMapUser(r),300); };
+  document.getElementById('modal-map-btn').onclick = () => { closeModal('modal-user'); const mapNav = document.querySelector('.nav-item:nth-child(4)'); showPage('map', mapNav); setTimeout(()=>{ if(mapFull) mapFull.invalidateSize(); focusMapUser(r); },350); };
   document.getElementById('modal-user').classList.add('show');
   setTimeout(()=>initMiniMap(r), 100);
 }
@@ -1072,6 +1077,12 @@ function fitMapBounds() {
   if(!mapFull) return;
   mapFull.setView([16.75, 99.95], 11);
 }
+
+window.addEventListener('resize', () => {
+  if(mapFull && document.getElementById('page-map').classList.contains('active')) {
+    mapFull.invalidateSize();
+  }
+});
 
 function focusMapUser(r) {
   if(!mapFull || !r.LATITUDE) return;
