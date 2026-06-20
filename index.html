@@ -742,18 +742,18 @@ function closeSidebar() {
 
 // ======= SEARCH =======
 function doSearch() {
-  const q = document.getElementById('search-input').value.trim().toLowerCase();
-  if(!q) { searchResults = []; renderTable(); return; }
-  searchResults = ALL_RECORDS.filter(r =>
-    (r.CA+'').toLowerCase().includes(q) ||
-    (r.PEANO+'').toLowerCase().includes(q) ||
-    (r.CUSTOMERNAME+'').toLowerCase().includes(q) ||
-    (r.CUSTOMERSIRNAME+'').toLowerCase().includes(q) ||
-    (r.TUMBOL+'').toLowerCase().includes(q) ||
-    (r.AMPHOE+'').toLowerCase().includes(q) ||
-    (r.MOBILE_NO+'').toLowerCase().includes(q) ||
-    (r.ADDRESSNO+'').toLowerCase().includes(q)
-  );
+  const raw = document.getElementById('search-input').value.trim().toLowerCase();
+  if(!raw) { searchResults = []; renderTable(); return; }
+  // Split into words so "สมพงษ์ ส" matches name=สมพงษ์ AND surname starting with ส
+  const terms = raw.split(/\s+/).filter(Boolean);
+  searchResults = ALL_RECORDS.filter(r => {
+    const haystack = [
+      r.CA, r.PEANO, r.CUSTOMERNAME, r.CUSTOMERSIRNAME,
+      r.TUMBOL, r.AMPHOE, r.MOBILE_NO, r.ADDRESSNO
+    ].map(v => (v+'').toLowerCase());
+    // every typed word must match at least one field (AND across words, OR across fields)
+    return terms.every(term => haystack.some(field => field.includes(term)));
+  });
   currentPage = 1;
   renderTable();
 }
@@ -878,15 +878,14 @@ function copyGoogleMaps() {
 let ticketSelectedUser = null;
 
 function ticketSearchUser() {
-  const q = document.getElementById('ticket-search').value.trim().toLowerCase();
+  const raw = document.getElementById('ticket-search').value.trim().toLowerCase();
   const box = document.getElementById('ticket-suggest');
-  if(!q || q.length < 2) { box.innerHTML=''; return; }
-  const matches = ALL_RECORDS.filter(r =>
-    (r.CA+'').includes(q) ||
-    (r.PEANO+'').includes(q) ||
-    (r.CUSTOMERNAME+'').toLowerCase().includes(q) ||
-    (r.CUSTOMERSIRNAME+'').toLowerCase().includes(q)
-  ).slice(0,6);
+  if(!raw || raw.length < 2) { box.innerHTML=''; return; }
+  const terms = raw.split(/\s+/).filter(Boolean);
+  const matches = ALL_RECORDS.filter(r => {
+    const haystack = [r.CA, r.PEANO, r.CUSTOMERNAME, r.CUSTOMERSIRNAME].map(v => (v+'').toLowerCase());
+    return terms.every(term => haystack.some(field => field.includes(term)));
+  }).slice(0,6);
   if(!matches.length) { box.innerHTML=''; return; }
   box.innerHTML = `<div style="position:absolute;top:2px;left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:6px;z-index:500;overflow:hidden;">
     ${matches.map(r => `<div onclick='selectTicketUser(${JSON.stringify(r)})' style="padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background=''">
