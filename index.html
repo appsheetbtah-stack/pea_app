@@ -545,8 +545,13 @@ textarea.form-control { resize: vertical; min-height: 80px; }
       <button class="btn btn-danger" onclick="createTicket()">⚡ สร้าง Ticket</button>
     </div>
 
-    <div style="font-size:14px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">
-      รายการแจ้งเหตุ
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap;">
+      <div style="font-size:14px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">
+        รายการแจ้งเหตุ
+      </div>
+      <a href="list.html" target="_blank" rel="noopener" class="btn btn-blue" style="text-decoration:none;font-size:13px;padding:8px 14px;">
+        📝 บันทึกรายละเอียดงานซ่อม
+      </a>
     </div>
     <div id="ticket-list"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">ยังไม่มีรายการแจ้งเหตุ</div></div></div>
   </div>

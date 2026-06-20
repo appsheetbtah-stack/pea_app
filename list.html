@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>รายการแจ้งเหตุทั้งหมด - PEA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f1923;
+  --surface: #162030;
+  --surface2: #1e2d3d;
+  --border: #2a3f55;
+  --accent: #f5a623;
+  --accent2: #e05c2a;
+  --blue: #3b9ede;
+  --green: #2ecc71;
+  --red: #e74c3c;
+  --yellow: #f39c12;
+  --text: #e8f0f8;
+  --text2: #8aa0b8;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'Sarabun', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--text); font-family: var(--sans);
+  font-size: 15px; min-height: 100vh; padding: 0 0 40px;
+}
+.topbar {
+  position: sticky; top: 0; z-index: 50; background: var(--surface);
+  border-bottom: 1px solid var(--border); padding: 16px 18px;
+}
+.topbar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.logo-badge {
+  background: var(--accent); color: #000; font-family: var(--mono); font-weight: 600;
+  font-size: 13px; padding: 4px 9px; border-radius: 4px; letter-spacing: 1px;
+}
+.topbar-title { font-size: 15px; font-weight: 600; color: var(--text2); }
+.topbar-count { font-size: 12.5px; color: var(--text2); margin-top: 2px; }
+
+.filter-row { display: flex; gap: 8px; padding: 14px 18px 4px; overflow-x: auto; }
+.filter-chip {
+  flex-shrink: 0; border: 1px solid var(--border); background: var(--surface2); color: var(--text2);
+  font-family: var(--sans); font-size: 13px; font-weight: 600; padding: 7px 14px;
+  border-radius: 20px; cursor: pointer; white-space: nowrap; transition: all 0.15s ease;
+}
+.filter-chip.active { border-color: var(--accent); background: rgba(245,166,35,0.15); color: var(--accent); }
+
+.list-container { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+
+.state-loading, .state-empty {
+  text-align: center; padding: 60px 20px; color: var(--text2);
+}
+.state-empty .icon { font-size: 42px; margin-bottom: 10px; }
+
+.ticket-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 16px; text-decoration: none; color: var(--text); display: block;
+  transition: border-color 0.15s ease;
+}
+.ticket-card:active { border-color: var(--accent); }
+
+.tc-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.tc-id { font-family: var(--mono); font-weight: 600; font-size: 15px; color: var(--accent); }
+.tc-time { font-size: 11.5px; color: var(--text2); }
+
+.status-pill {
+  font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 20px;
+  display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+}
+.status-open { background: rgba(231,76,60,0.15); color: var(--red); }
+.status-progress { background: rgba(243,156,18,0.15); color: var(--yellow); }
+.status-done { background: rgba(46,204,113,0.15); color: var(--green); }
+
+.tc-name { font-size: 14.5px; font-weight: 600; margin-bottom: 3px; }
+.tc-addr { font-size: 13px; color: var(--text2); margin-bottom: 6px; }
+.tc-note { font-size: 13px; color: var(--text); line-height: 1.4; }
+
+.tc-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 9px; font-size: 12px; color: var(--text2); }
+
+.no-token-badge {
+  font-size: 11px; color: var(--text2); background: var(--surface2);
+  padding: 2px 8px; border-radius: 10px; margin-top: 8px; display: inline-block;
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-row">
+    <span class="logo-badge">PEA</span>
+    <span class="topbar-title">รายการแจ้งเหตุไฟดับทั้งหมด</span>
+  </div>
+  <div class="topbar-count" id="topbar-count">กำลังโหลด...</div>
+</div>
+
+<div class="filter-row" id="filter-row">
+  <button class="filter-chip active" data-filter="all">ทั้งหมด</button>
+  <button class="filter-chip" data-filter="open">🔴 รอดำเนินการ</button>
+  <button class="filter-chip" data-filter="progress">🟡 กำลังดำเนินการ</button>
+  <button class="filter-chip" data-filter="done">🟢 แก้ไขแล้ว</button>
+</div>
+
+<div class="list-container" id="list-container">
+  <div class="state-loading">กำลังโหลดรายการ...</div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyC7bzImCV7c89fLGhIq8OycWKQWRYdvZvE",
+    authDomain: "pea-system.firebaseapp.com",
+    projectId: "pea-system",
+    storageBucket: "pea-system.firebasestorage.app",
+    messagingSenderId: "1006235611544",
+    appId: "1:1006235611544:web:a7453d71ff56748166fbed",
+    measurementId: "G-V5NPYZ4KZW"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const listEl = document.getElementById('list-container');
+  const countEl = document.getElementById('topbar-count');
+
+  let allTickets = [];
+  let currentFilter = 'all';
+
+  function statusInfo(s) {
+    if(s === 'open') return {cls:'status-open', label:'🔴 รอดำเนินการ'};
+    if(s === 'progress') return {cls:'status-progress', label:'🟡 กำลังดำเนินการ'};
+    return {cls:'status-done', label:'🟢 แก้ไขแล้ว'};
+  }
+
+  function updateLinkFor(t) {
+    if(!t.token) return null;
+    return `update.html?id=${encodeURIComponent(t.id)}&token=${encodeURIComponent(t.token)}`;
+  }
+
+  function render() {
+    const filtered = currentFilter === 'all' ? allTickets : allTickets.filter(t => t.status === currentFilter);
+
+    if(!filtered.length) {
+      listEl.innerHTML = `
+        <div class="state-empty">
+          <div class="icon">📋</div>
+          <div>ไม่พบรายการแจ้งเหตุ${currentFilter!=='all'?'ในสถานะนี้':''}</div>
+        </div>`;
+      return;
+    }
+
+    listEl.innerHTML = filtered.map(t => {
+      const st = statusInfo(t.status);
+      const link = updateLinkFor(t);
+      const inner = `
+        <div class="tc-top">
+          <span class="tc-id">${t.id}</span>
+          <span class="status-pill ${st.cls}">${st.label}</span>
+        </div>
+        <div class="tc-name">${t.name || '—'}</div>
+        <div class="tc-addr">📍 ${t.addr || '—'}</div>
+        <div class="tc-note">${t.note || ''}</div>
+        <div class="tc-meta">
+          <span>🕒 ${t.time || ''}</span>
+          ${t.ca ? `<span>CA: ${t.ca}</span>` : ''}
+        </div>
+        ${!link ? '<span class="no-token-badge">⚠️ ไม่มีลิงก์อัปเดต (ticket เก่า)</span>' : ''}
+      `;
+      return link
+        ? `<a class="ticket-card" href="${link}">${inner}</a>`
+        : `<div class="ticket-card" style="opacity:0.7">${inner}</div>`;
+    }).join('');
+  }
+
+  function updateCount() {
+    const open = allTickets.filter(t=>t.status==='open').length;
+    const progress = allTickets.filter(t=>t.status==='progress').length;
+    const done = allTickets.filter(t=>t.status==='done').length;
+    countEl.textContent = `ทั้งหมด ${allTickets.length} รายการ · รอดำเนินการ ${open} · กำลังทำ ${progress} · เสร็จแล้ว ${done}`;
+  }
+
+  async function loadTickets() {
+    try {
+      const snap = await getDocs(collection(db, "tickets"));
+      allTickets = snap.docs.map(d => d.data());
+      // เรียงล่าสุดก่อน โดยใช้ createdAt ถ้ามี ไม่งั้นใช้ id ย้อนกลับ
+      allTickets.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+      updateCount();
+      render();
+    } catch(e) {
+      console.error(e);
+      listEl.innerHTML = `<div class="state-empty"><div class="icon">⚠️</div><div>โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่</div></div>`;
+      countEl.textContent = 'เกิดข้อผิดพลาด';
+    }
+  }
+
+  document.getElementById('filter-row').addEventListener('click', (e) => {
+    const btn = e.target.closest('.filter-chip');
+    if(!btn) return;
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.filter;
+    render();
+  });
+
+  loadTickets();
+</script>
+</body>
+</html>
