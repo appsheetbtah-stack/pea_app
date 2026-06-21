@@ -146,11 +146,18 @@ body {
 .popup-sheet.show { display: flex; }
 .popup-header { padding: 18px 18px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .popup-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+.popup-search-row { display: flex; gap: 8px; }
 .popup-search {
-  width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
   font-family: var(--sans); font-size: 14px; padding: 11px 14px; border-radius: 10px; outline: none;
 }
 .popup-search:focus { border-color: var(--accent); }
+.popup-add-btn {
+  flex-shrink: 0; background: var(--accent); color: #000; border: none;
+  font-family: var(--sans); font-size: 13.5px; font-weight: 700; padding: 0 16px;
+  border-radius: 10px; cursor: pointer;
+}
+.popup-add-btn:active { opacity: 0.8; }
 .popup-list { flex: 1; overflow-y: auto; padding: 6px 0; -webkit-overflow-scrolling: touch; }
 .popup-item-wrap { border-bottom: 1px solid rgba(255,255,255,0.04); }
 .popup-item {
@@ -213,7 +220,10 @@ body {
 <div class="popup-sheet" id="popup-sheet">
   <div class="popup-header">
     <div class="popup-title" id="popup-title">เลือกรายการ</div>
-    <input type="text" class="popup-search" id="popup-search" placeholder="ค้นหา หรือพิมพ์รายการใหม่..." oninput="filterPicker()">
+    <div class="popup-search-row">
+      <input type="text" class="popup-search" id="popup-search" placeholder="ค้นหา หรือพิมพ์รายการใหม่..." oninput="filterPicker()">
+      <button class="popup-add-btn" id="popup-add-btn" onclick="addCustomItem()">เพิ่ม</button>
+    </div>
   </div>
   <div class="popup-list" id="popup-list"></div>
   <div class="popup-footer">
@@ -408,7 +418,7 @@ body {
 
     if(!filtered.length) {
       const canAddNew = query.length > 0;
-      listEl.innerHTML = `<div class="popup-empty">ไม่พบรายการ${canAddNew?' — กด Enter เพื่อเพิ่ม "'+escapeHtml(query)+'"':''}</div>`;
+      listEl.innerHTML = `<div class="popup-empty">ไม่พบรายการ${canAddNew?' — กดปุ่ม "เพิ่ม" ด้านบนเพื่อเพิ่ม "'+escapeHtml(query)+'"':''}</div>`;
       return;
     }
 
@@ -446,22 +456,36 @@ body {
     });
   }
 
-  // กด Enter ในช่องค้นหา = เพิ่มรายการใหม่ (ถ้าพิมพ์ข้อความที่ไม่อยู่ในลิสต์)
+  function addCustomItem() {
+    if(!currentPickerType) return;
+    const searchInput = document.getElementById('popup-search');
+    const val = searchInput.value.trim();
+    if(!val) return;
+    const type = currentPickerType;
+    if(getAllOptions(type).includes(val)) {
+      // มีอยู่แล้ว แค่ติ๊กเลือกให้แทนที่จะเพิ่มซ้ำ
+      if(!isSelected(type, val)) toggleSelection(type, val);
+      searchInput.value = '';
+      renderPickerList();
+      return;
+    }
+    if(type === 'cause') customCauses.push(val);
+    else if(type === 'fix') customFixes.push(val);
+    toggleSelection(type, val);
+    searchInput.value = '';
+    renderPickerList();
+  }
+  window.addCustomItem = addCustomItem;
+
+  // กด Enter ในช่องค้นหา = เพิ่มรายการใหม่ (ปุ่ม "เพิ่ม" ข้างๆ คือทางหลักที่เชื่อถือได้บนมือถือทุกรุ่น
+  // ส่วน Enter เป็นทางลัดเสริมสำหรับคีย์บอร์ดที่รายงาน key event ถูกต้อง)
   document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('popup-search');
     if(searchInput) {
-      searchInput.addEventListener('keydown', (e) => {
+      searchInput.addEventListener('keyup', (e) => {
         if(e.key !== 'Enter' || !currentPickerType) return;
         e.preventDefault();
-        const val = searchInput.value.trim();
-        if(!val) return;
-        const type = currentPickerType;
-        if(getAllOptions(type).includes(val)) return; // มีอยู่แล้ว ไม่ต้องเพิ่มซ้ำ
-        if(type === 'cause') customCauses.push(val);
-        else if(type === 'fix') customFixes.push(val);
-        toggleSelection(type, val);
-        searchInput.value = '';
-        renderPickerList();
+        addCustomItem();
       });
     }
   });
