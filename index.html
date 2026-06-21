@@ -1174,13 +1174,8 @@ function renderTickets() {
         </div>
       </div>
       <div class="ticket-actions">
-        <select class="status-select" onchange="changeStatus('${t.id}', this.value)">
-          <option value="open" ${t.status==='open'?'selected':''}>รอดำเนินการ</option>
-          <option value="progress" ${t.status==='progress'?'selected':''}>กำลังดำเนินการ</option>
-          <option value="done" ${t.status==='done'?'selected':''}>แก้ไขแล้ว</option>
-        </select>
         ${t.lat?`<button class="btn btn-blue" style="font-size:12px;padding:6px 10px;" onclick="shareLocation('${t.id}')">📍 แชร์พิกัดช่าง</button>`:''}`+
-        `${t.token?`<a href="update.html?id=${t.id}&token=${t.token}" target="_blank" rel="noopener" class="btn btn-ghost" style="font-size:12px;padding:6px 10px;text-decoration:none;display:inline-flex;align-items:center;">📝 บันทึกรายละเอียดซ่อม</a>`:''}`+
+        `${t.token?`<a href="update.html?id=${t.id}&token=${t.token}" target="_blank" rel="noopener" class="btn btn-ghost" style="font-size:12px;padding:6px 10px;text-decoration:none;display:inline-flex;align-items:center;">📝 รายละเอียดงาน</a>`:''}`+
         `<button class="btn btn-ghost" style="font-size:12px;padding:6px 10px;" onclick="deleteTicket('${t.id}')">🗑️</button>
       </div>
     </div>
