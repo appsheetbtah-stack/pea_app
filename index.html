@@ -155,6 +155,7 @@ nav { flex: 1; padding: 10px 0; overflow-y: auto; }
 .btn-success:hover { background: #27ae60; }
 .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
 .btn-ghost:hover { background: var(--border); }
+.btn-ghost.active-filter { border-color: var(--green); background: rgba(46,204,113,0.12); color: var(--green); }
 .btn-blue { background: var(--blue); color: #fff; }
 .btn-blue:hover { background: #2980b9; }
 .results-info { font-size: 13px; color: var(--text2); margin-bottom: 12px; font-family: var(--mono); }
@@ -644,7 +645,13 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     <div class="map-controls">
       <button class="btn btn-ghost" onclick="toggleLayer('users')" id="btn-users">👤 ผู้ใช้ไฟฟ้า (แสดง)</button>
       <button class="btn btn-ghost" onclick="toggleLayer('tickets')" id="btn-tickets">🔴 จุดแจ้งเหตุ (แสดง)</button>
+      <button class="btn btn-ghost" onclick="toggleHideDoneTickets()" id="btn-hide-done">🟢 แสดงงานเสร็จสิ้นทั้งหมด</button>
       <button class="btn btn-primary" onclick="fitMapBounds()">🎯 ดูภาพรวม</button>
+    </div>
+    <div class="map-legend" style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;margin-bottom:4px;font-size:12.5px;color:var(--text2);">
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#e74c3c;margin-right:5px;"></span>รอดำเนินการ</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f39c12;margin-right:5px;"></span>กำลังดำเนินการ</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#2ecc71;margin-right:5px;"></span>แก้ไขแล้ว</span>
     </div>
     <div id="map-full"></div>
   </div>
@@ -725,6 +732,7 @@ let mapFull = null;
 let userLayer = null;
 let ticketLayer = null;
 let userLayerVisible = true, ticketLayerVisible = true;
+let hideDoneTickets = false;
 
 // ======= INIT =======
 function saveTickets() {
@@ -1254,13 +1262,27 @@ function renderUserMarkers() {
   if(userLayerVisible) userLayer.addTo(mapFull);
 }
 
+function ticketStatusColor(status) {
+  if(status === 'progress') return '#f39c12'; // เหลือง = กำลังดำเนินการ
+  if(status === 'done') return '#2ecc71';     // เขียว = แก้ไขแล้ว
+  return '#e74c3c';                            // แดง = รอดำเนินการ (default)
+}
+
+function ticketStatusLabel(status) {
+  if(status === 'progress') return '🟡 กำลังดำเนินการ';
+  if(status === 'done') return '🟢 แก้ไขแล้ว';
+  return '🔴 รอดำเนินการ';
+}
+
 function renderTicketMarkers() {
   if(ticketLayer) mapFull.removeLayer(ticketLayer);
-  const redIcon = L.divIcon({className:'', html:`<div style="width:14px;height:14px;border-radius:50%;background:#e74c3c;border:2px solid #fff;box-shadow:0 0 8px #e74c3c"></div>`, iconSize:[14,14], iconAnchor:[7,7]});
-  ticketLayer = L.layerGroup(tickets.filter(t=>t.lat&&t.lng).map(t=>
-    L.marker([t.lat,t.lng],{icon:redIcon})
-      .bindPopup(`<b>${t.id}</b><br>${t.name}<br>${t.note}<br><small>${t.time}</small>`)
-  ));
+  const visibleTickets = tickets.filter(t => t.lat && t.lng && !(hideDoneTickets && t.status === 'done'));
+  ticketLayer = L.layerGroup(visibleTickets.map(t => {
+    const color = ticketStatusColor(t.status);
+    const icon = L.divIcon({className:'', html:`<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 8px ${color}"></div>`, iconSize:[14,14], iconAnchor:[7,7]});
+    return L.marker([t.lat,t.lng],{icon})
+      .bindPopup(`<b>${t.id}</b><br>${t.name}<br>${t.note}<br>${ticketStatusLabel(t.status)}<br><small>${t.time}</small>`);
+  }));
   if(ticketLayerVisible) ticketLayer.addTo(mapFull);
 }
 
@@ -1275,6 +1297,13 @@ function toggleLayer(type) {
     ticketLayerVisible ? ticketLayer.addTo(mapFull) : mapFull.removeLayer(ticketLayer);
     document.getElementById('btn-tickets').textContent = `🔴 จุดแจ้งเหตุ (${ticketLayerVisible?'แสดง':'ซ่อน'})`;
   }
+}
+
+function toggleHideDoneTickets() {
+  hideDoneTickets = !hideDoneTickets;
+  document.getElementById('btn-hide-done').textContent = hideDoneTickets ? '✅ ซ่อนงานเสร็จสิ้นอยู่' : '🟢 แสดงงานเสร็จสิ้นทั้งหมด';
+  document.getElementById('btn-hide-done').classList.toggle('active-filter', hideDoneTickets);
+  renderTicketMarkers();
 }
 
 function fitMapBounds() {
