@@ -645,7 +645,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     <div class="map-controls">
       <button class="btn btn-ghost" onclick="toggleLayer('users')" id="btn-users">👤 ผู้ใช้ไฟฟ้า (แสดง)</button>
       <button class="btn btn-ghost" onclick="toggleLayer('tickets')" id="btn-tickets">🔴 จุดแจ้งเหตุ (แสดง)</button>
-      <button class="btn btn-ghost" onclick="toggleHideDoneTickets()" id="btn-hide-done">🟢 แสดงงานเสร็จสิ้นทั้งหมด</button>
+      <button class="btn btn-ghost" onclick="toggleHideDoneTickets()" id="btn-hide-done">🟢 งานเสร็จสิ้น (แสดง)</button>
       <button class="btn btn-primary" onclick="fitMapBounds()">🎯 ดูภาพรวม</button>
     </div>
     <div class="map-legend" style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;margin-bottom:4px;font-size:12.5px;color:var(--text2);">
@@ -1301,7 +1301,7 @@ function toggleLayer(type) {
 
 function toggleHideDoneTickets() {
   hideDoneTickets = !hideDoneTickets;
-  document.getElementById('btn-hide-done').textContent = hideDoneTickets ? '✅ ซ่อนงานเสร็จสิ้นอยู่' : '🟢 แสดงงานเสร็จสิ้นทั้งหมด';
+  document.getElementById('btn-hide-done').textContent = hideDoneTickets ? '🟢 งานเสร็จสิ้น (ซ่อน)' : '🟢 งานเสร็จสิ้น (แสดง)';
   document.getElementById('btn-hide-done').classList.toggle('active-filter', hideDoneTickets);
   renderTicketMarkers();
 }
