@@ -303,7 +303,8 @@ body {
   function getCustomList(type) {
     if(type === 'cause') return customCauses;
     if(type === 'fix') return customFixes;
-    return []; // วัสดุ custom จะถูกเพิ่มเข้า selectedMaterials โดยตรงแทน
+    // วัสดุ: รายการ custom คือชื่อใน selectedMaterials ที่ไม่ได้อยู่ใน preset
+    return selectedMaterials.map(m => m.name);
   }
 
   function getAllOptions(type) {
