@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>อุปกรณ์ในระบบจำหน่าย - PEA</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f1923">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0f1923; --surface:#162030; --surface2:#1e2d3d; --border:#2a3f55;
+  --accent:#f5a623; --blue:#3b9ede; --green:#2ecc71; --red:#e74c3c;
+  --yellow:#f39c12; --purple:#9b59b6; --cyan:#00b4d8;
+  --text:#e8f0f8; --text2:#8aa0b8;
+  --mono:'IBM Plex Mono',monospace; --sans:'Sarabun',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;min-height:100vh}
+
+/* ── TOPBAR ── */
+.topbar{
+  position:sticky;top:0;z-index:500;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;padding:0 16px;height:52px;
+}
+.back-btn{
+  color:var(--text2);text-decoration:none;font-size:13px;
+  display:flex;align-items:center;gap:4px;white-space:nowrap;
+  padding:6px 10px;border:1px solid var(--border);border-radius:6px;
+  transition:color .15s;flex-shrink:0;
+}
+.back-btn:hover{color:var(--accent);border-color:var(--accent)}
+.topbar-title{font-size:15px;font-weight:700;flex:1;text-align:center}
+.topbar-count{
+  font-family:var(--mono);font-size:12px;color:var(--text2);
+  background:var(--surface2);padding:3px 9px;border-radius:10px;
+  flex-shrink:0;white-space:nowrap;
+}
+
+/* ── STATS ── */
+.stats-row{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+  padding:14px 14px 0;
+}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:12px 14px;cursor:pointer;transition:border-color .15s;position:relative;overflow:hidden;
+}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--c,var(--accent))}
+.stat-card.active{border-color:var(--c,var(--accent));background:color-mix(in srgb,var(--c,var(--accent)) 10%,var(--surface))}
+.stat-label{font-size:12px;color:var(--text2);margin-bottom:4px}
+.stat-num{font-size:26px;font-weight:700;font-family:var(--mono);line-height:1}
+.stat-sub{font-size:11px;color:var(--text2);margin-top:4px}
+
+/* ── FILTER BAR ── */
+.filter-bar{
+  display:flex;gap:8px;padding:12px 14px 8px;overflow-x:auto;align-items:center;flex-wrap:wrap;
+}
+.filter-bar select, .filter-bar input{
+  background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  font-family:var(--sans);font-size:13px;padding:7px 10px;border-radius:6px;
+  outline:none;flex-shrink:0;
+}
+.filter-bar select:focus,.filter-bar input:focus{border-color:var(--accent)}
+#search{flex:1;min-width:160px}
+.clear-btn{
+  background:none;border:1px solid var(--border);color:var(--text2);
+  font-family:var(--sans);font-size:12px;padding:7px 12px;border-radius:6px;
+  cursor:pointer;white-space:nowrap;flex-shrink:0;
+}
+.clear-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── LEGEND ── */
+.legend{
+  display:flex;flex-wrap:wrap;gap:10px;padding:0 14px 10px;align-items:center;
+}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2)}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* ── MAIN CONTENT ── */
+.content{display:flex;gap:0;height:calc(100vh - 52px - 80px - 50px - 40px - 30px)}
+#map{flex:3;min-height:260px}
+.table-panel{
+  flex:2;overflow-y:auto;background:var(--surface);
+  border-left:1px solid var(--border);display:flex;flex-direction:column;
+}
+.table-wrap{flex:1;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{
+  position:sticky;top:0;background:var(--surface2);padding:10px 12px;
+  text-align:left;font-weight:600;color:var(--text2);font-size:12px;
+  border-bottom:1px solid var(--border);white-space:nowrap;
+}
+td{padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top;word-break:break-all}
+tr.active-row td{background:rgba(245,166,35,.12)}
+tr:hover td{background:var(--surface2);cursor:pointer}
+.t-type{
+  display:inline-block;font-size:11px;font-weight:600;padding:2px 7px;
+  border-radius:10px;white-space:nowrap;
+}
+.t-id{font-family:var(--mono);font-size:12px;color:var(--accent)}
+.t-loc{font-size:12px;color:var(--text2);margin-top:2px}
+.t-kva{font-family:var(--mono);font-size:12px;color:var(--blue)}
+
+/* ── PAGINATION ── */
+.pagination{
+  display:flex;align-items:center;gap:8px;padding:10px 12px;
+  border-top:1px solid var(--border);background:var(--surface);
+  flex-shrink:0;justify-content:space-between;font-size:12px;color:var(--text2);
+}
+.pg-btn{
+  background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  font-size:13px;width:30px;height:30px;border-radius:6px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.pg-btn:disabled{opacity:.35;cursor:not-allowed}
+.pg-btn:not(:disabled):hover{border-color:var(--accent);color:var(--accent)}
+.pg-info{font-family:var(--mono)}
+
+/* ── POPUP ── */
+.leaflet-popup-content-wrapper{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.5)}
+.leaflet-popup-tip{background:var(--surface)}
+.leaflet-popup-content{margin:10px 14px;font-family:var(--sans);font-size:13px;line-height:1.6}
+.popup-title{font-weight:700;color:var(--accent);font-family:var(--mono);margin-bottom:6px}
+.popup-row{display:flex;gap:8px}
+.popup-label{color:var(--text2);flex-shrink:0;min-width:60px}
+
+/* ── MOBILE ── */
+@media(max-width:768px){
+  .content{flex-direction:column;height:auto}
+  #map{height:52vw;min-height:220px;max-height:300px}
+  .table-panel{border-left:none;border-top:1px solid var(--border);max-height:320px}
+  .stats-row{grid-template-columns:repeat(3,1fr)}
+  .stat-num{font-size:20px}
+  .filter-bar{flex-wrap:nowrap}
+  .filter-bar select{min-width:0;padding:6px 8px}
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <a class="back-btn" href="index.html">← กลับ</a>
+  <span class="topbar-title">⚡ อุปกรณ์ในระบบจำหน่าย</span>
+  <span class="topbar-count" id="count-badge">519 รายการ</span>
+</div>
+
+<!-- STATS -->
+<div class="stats-row">
+  <div class="stat-card" style="--c:var(--red)" data-tp="recloser" onclick="toggleTypeFilter('recloser',this)">
+    <div class="stat-label">Recloser</div>
+    <div class="stat-num">3</div>
+    <div class="stat-sub">ฉนวนก๊าซ / น้ำมัน / แข็ง</div>
+  </div>
+  <div class="stat-card" style="--c:var(--accent)" data-tp="switch" onclick="toggleTypeFilter('switch',this)">
+    <div class="stat-label">Switch</div>
+    <div class="stat-num">84</div>
+    <div class="stat-sub">Fuse / Disc. / LBS SF6</div>
+  </div>
+  <div class="stat-card" style="--c:var(--blue)" data-tp="transformer" onclick="toggleTypeFilter('transformer',this)">
+    <div class="stat-label">Transformer</div>
+    <div class="stat-num">432</div>
+    <div class="stat-sub">1Ph / 3Ph · PEA / Customer</div>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar">
+  <select id="sel-type" onchange="applyFilters()">
+    <option value="">ทุกประเภท</option>
+    <option value="recloser">Recloser</option>
+    <option value="switch-Fuse Dropout">Fuse Dropout</option>
+    <option value="switch-Disconnecting">Disconnecting</option>
+    <option value="switch-LoadBreak Switch SF6">LBS SF6</option>
+    <option value="transformer-1Ph-PEA">Tx 1Phase PEA</option>
+    <option value="transformer-3Ph-PEA">Tx 3Phase PEA</option>
+    <option value="transformer-1Ph-Customer">Tx 1Phase Customer</option>
+    <option value="transformer-3Ph-Customer">Tx 3Phase Customer</option>
+  </select>
+  <select id="sel-feeder" onchange="applyFilters()">
+    <option value="">ทุกสายป้อน</option>
+    <option value="PLZ03">PLZ03</option>
+    <option value="LKA02">LKA02</option>
+  </select>
+  <select id="sel-owner" onchange="applyFilters()">
+    <option value="">เจ้าของทั้งหมด</option>
+    <option value="PEA">PEA</option>
+    <option value="Customer">Customer</option>
+  </select>
+  <select id="sel-kva" onchange="applyFilters()">
+    <option value="">kVA ทั้งหมด</option>
+    <option value="10">10 kVA</option>
+    <option value="20">20 kVA</option>
+    <option value="30">30 kVA</option>
+    <option value="50">50 kVA</option>
+    <option value="100">100 kVA</option>
+    <option value="160">160 kVA</option>
+    <option value="250">250 kVA</option>
+    <option value="315">315 kVA</option>
+    <option value="500">500 kVA</option>
+    <option value="800">800 kVA</option>
+  </select>
+  <input id="search" type="search" placeholder="🔍 ค้นหา รหัส / สถานที่..." oninput="applyFilters()">
+  <button class="clear-btn" onclick="clearFilters()">✕ ล้าง</button>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="leg-item"><div class="leg-dot" style="background:#e74c3c"></div>Recloser</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#f5a623"></div>Fuse Dropout</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#f39c12"></div>Disconnecting</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#2ecc71"></div>LBS SF6</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#3b9ede"></div>Tx PEA 1Ph</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#00b4d8"></div>Tx PEA 3Ph</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#9b59b6"></div>Tx Customer</div>
+</div>
+
+<!-- MAP + TABLE -->
+<div class="content">
+  <div id="map"></div>
+  <div class="table-panel">
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>ประเภท</th>
+          <th>รหัส / PEANO</th>
+          <th>รายละเอียด</th>
+          <th>kVA</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <div class="pg-info" id="pg-info">-</div>
+      <div style="display:flex;gap:6px">
+        <button class="pg-btn" id="btn-prev" onclick="changePage(-1)">‹</button>
+        <button class="pg-btn" id="btn-next" onclick="changePage(1)">›</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="equipment-data.js"></script>
+<script>
+const RAW = typeof EQUIPMENT !== "undefined" ? EQUIPMENT : [];
+
+const PER_PAGE = 20;
+let filtered = [...RAW];
+let page = 0;
+let map, cluster, activeRow = null, activeMarker = null;
+let markers = []; // parallel array: markers[i] corresponds to filtered[i]
+
+// ── COLOR / LABEL ──────────────────────────────
+function getColor(d) {
+  if(d.tp === 'recloser') return '#e74c3c';
+  if(d.tp === 'switch') {
+    if(d.st === 'Fuse Dropout') return '#f5a623';
+    if(d.st === 'Disconnecting') return '#f39c12';
+    if(d.st.includes('LoadBreak') || d.st.includes('LBS')) return '#2ecc71';
+    return '#f5a623';
+  }
+  if(d.tp === 'transformer') {
+    if(d.own === 'Customer') return '#9b59b6';
+    return d.st.includes('3') ? '#00b4d8' : '#3b9ede';
+  }
+  return '#8aa0b8';
+}
+
+function getLabel(d) {
+  if(d.tp === 'recloser') return 'Recloser';
+  if(d.tp === 'switch') return d.st || 'Switch';
+  if(d.tp === 'transformer') {
+    const ph = d.st.includes('3') ? '3Ph' : '1Ph';
+    return `Tx ${ph} ${d.own||''}`;
+  }
+  return d.tp;
+}
+
+function getLabelColor(d) {
+  const c = getColor(d);
+  const bg = c + '22';
+  return `background:${bg};color:${c};border:1px solid ${c}44`;
+}
+
+// ── POPUP ──────────────────────────────────────
+function buildPopup(d) {
+  let rows = '';
+  if(d.tp === 'recloser') {
+    rows = `<div class="popup-row"><span class="popup-label">รหัส</span><span style="font-family:var(--mono);color:var(--accent)">${d.id}</span></div>
+            <div class="popup-row"><span class="popup-label">ฉนวน</span><span>${d.st}</span></div>
+            <div class="popup-row"><span class="popup-label">เฟส</span><span>${d.ph}</span></div>`;
+  } else if(d.tp === 'switch') {
+    rows = `<div class="popup-row"><span class="popup-label">รหัส</span><span style="font-family:var(--mono);color:var(--accent)">${d.id}</span></div>
+            <div class="popup-row"><span class="popup-label">ประเภท</span><span>${d.st}</span></div>
+            <div class="popup-row"><span class="popup-label">เฟส</span><span>${d.ph}</span></div>
+            <div class="popup-row"><span class="popup-label">สายป้อน</span><span>${d.fd}</span></div>
+            ${d.loc ? `<div class="popup-row"><span class="popup-label">สถานที่</span><span>${d.loc}</span></div>` : ''}`;
+  } else {
+    rows = `<div class="popup-row"><span class="popup-label">PEANO</span><span style="font-family:var(--mono);color:var(--accent)">${d.id}</span></div>
+            <div class="popup-row"><span class="popup-label">เฟสระบบ</span><span>${d.st}</span></div>
+            <div class="popup-row"><span class="popup-label">kVA</span><span style="color:var(--blue);font-weight:700">${d.kva} kVA</span></div>
+            <div class="popup-row"><span class="popup-label">เจ้าของ</span><span>${d.own}</span></div>
+            <div class="popup-row"><span class="popup-label">ผู้ใช้ไฟ</span><span>${d.ut}</span></div>
+            ${d.loc ? `<div class="popup-row"><span class="popup-label">สถานที่</span><span>${d.loc}</span></div>` : ''}
+            ${d.it ? `<div class="popup-row"><span class="popup-label">การติดตั้ง</span><span style="font-size:12px">${d.it}</span></div>` : ''}`;
+  }
+  return `<div class="popup-title">${getLabel(d)}</div>${rows}`;
+}
+
+// ── MAP INIT ───────────────────────────────────
+function initMap() {
+  map = L.map('map').setView([16.80, 99.98], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution:'© OpenStreetMap',maxZoom:19
+  }).addTo(map);
+  cluster = L.markerClusterGroup({
+    maxClusterRadius: 40,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false
+  }).addTo(map);
+  renderMarkers();
+}
+
+function renderMarkers() {
+  cluster.clearLayers();
+  markers = [];
+  filtered.forEach((d, i) => {
+    if(!d.la || !d.ln) { markers.push(null); return; }
+    const color = getColor(d);
+    const m = L.circleMarker([d.la, d.ln], {
+      radius: d.tp === 'recloser' ? 10 : d.tp === 'switch' ? 7 : 5,
+      color: '#0f1923', weight: 1.5,
+      fillColor: color, fillOpacity: 0.9
+    }).bindPopup(buildPopup(d), {maxWidth:240});
+    m.on('click', () => highlightRow(i));
+    cluster.addLayer(m);
+    markers.push(m);
+  });
+}
+
+// ── FILTER LOGIC ──────────────────────────────
+function applyFilters() {
+  const typeVal = document.getElementById('sel-type').value;
+  const feeder = document.getElementById('sel-feeder').value;
+  const owner = document.getElementById('sel-owner').value;
+  const kva = document.getElementById('sel-kva').value;
+  const q = document.getElementById('search').value.trim().toLowerCase();
+
+  filtered = RAW.filter(d => {
+    if(typeVal) {
+      if(typeVal === 'recloser' && d.tp !== 'recloser') return false;
+      if(typeVal.startsWith('switch-') && (d.tp !== 'switch' || d.st !== typeVal.slice(7))) return false;
+      if(typeVal === 'transformer-1Ph-PEA' && !(d.tp==='transformer' && d.st.includes('1') && d.own==='PEA')) return false;
+      if(typeVal === 'transformer-3Ph-PEA' && !(d.tp==='transformer' && d.st.includes('3') && d.own==='PEA')) return false;
+      if(typeVal === 'transformer-1Ph-Customer' && !(d.tp==='transformer' && d.st.includes('1') && d.own==='Customer')) return false;
+      if(typeVal === 'transformer-3Ph-Customer' && !(d.tp==='transformer' && d.st.includes('3') && d.own==='Customer')) return false;
+    }
+    if(feeder && d.fd !== feeder) return false;
+    if(owner && d.own !== owner) return false;
+    if(kva && d.kva !== kva) return false;
+    if(q) {
+      const hay = (d.id + d.loc + d.st + d.fd + d.own + d.ut).toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  page = 0;
+  document.getElementById('count-badge').textContent = filtered.length + ' รายการ';
+  renderTable();
+  renderMarkers();
+}
+
+function toggleTypeFilter(tp, card) {
+  const cards = document.querySelectorAll('.stat-card');
+  const wasActive = card.classList.contains('active');
+  cards.forEach(c => c.classList.remove('active'));
+  const sel = document.getElementById('sel-type');
+  if(wasActive) { sel.value = ''; }
+  else { card.classList.add('active'); sel.value = tp; }
+  applyFilters();
+}
+
+function clearFilters() {
+  document.getElementById('sel-type').value = '';
+  document.getElementById('sel-feeder').value = '';
+  document.getElementById('sel-owner').value = '';
+  document.getElementById('sel-kva').value = '';
+  document.getElementById('search').value = '';
+  document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+  filtered = [...RAW];
+  page = 0;
+  document.getElementById('count-badge').textContent = RAW.length + ' รายการ';
+  renderTable();
+  renderMarkers();
+}
+
+// ── TABLE ──────────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById('tbody');
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+  const start = page * PER_PAGE;
+  const end = Math.min(start + PER_PAGE, total);
+  const slice = filtered.slice(start, end);
+
+  document.getElementById('pg-info').textContent = total ? `${start+1}–${end} / ${total}` : '0 รายการ';
+  document.getElementById('btn-prev').disabled = page === 0;
+  document.getElementById('btn-next').disabled = page >= totalPages - 1;
+
+  if(!slice.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text2);padding:24px">ไม่พบข้อมูล</td></tr>'; return; }
+
+  tbody.innerHTML = slice.map((d, ri) => {
+    const gi = start + ri; // global index in filtered
+    const loc = d.loc ? `<div class="t-loc">${d.loc.slice(0,40)}${d.loc.length>40?'…':''}</div>` : '';
+    const fd = d.fd ? `<div class="t-loc">สายป้อน: ${d.fd}</div>` : '';
+    const detail = d.tp==='transformer' ? `${d.st}<br><span style="font-size:11px;color:var(--text2)">${d.ut||''} ${d.it ? '· '+d.it.slice(0,12) : ''}</span>` : (d.tp==='switch' ? `${d.st}${fd}` : `${d.st}`);
+    return `<tr data-gi="${gi}" onclick="rowClick(${gi},this)">
+      <td><span class="t-type" style="${getLabelColor(d)}">${getLabel(d)}</span></td>
+      <td><div class="t-id">${d.id||'—'}</div>${loc}</td>
+      <td>${detail}</td>
+      <td class="t-kva">${d.kva||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function changePage(dir) {
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total/PER_PAGE));
+  page = Math.max(0, Math.min(page + dir, totalPages - 1));
+  renderTable();
+}
+
+function rowClick(gi, tr) {
+  // highlight row
+  document.querySelectorAll('#tbody tr').forEach(r=>r.classList.remove('active-row'));
+  tr.classList.add('active-row');
+  // zoom map to marker
+  const d = filtered[gi];
+  if(!d || !d.la || !d.ln) return;
+  const m = markers[gi];
+  if(m) {
+    cluster.zoomToShowLayer(m, () => {
+      map.setView([d.la, d.ln], 16);
+      m.openPopup();
+    });
+  } else {
+    map.setView([d.la, d.ln], 16);
+  }
+}
+
+function highlightRow(gi) {
+  // gi = index in filtered → find which page and highlight
+  const pg = Math.floor(gi / PER_PAGE);
+  if(pg !== page) { page = pg; renderTable(); }
+  setTimeout(() => {
+    const tr = document.querySelector(`#tbody tr[data-gi="${gi}"]`);
+    if(tr) {
+      document.querySelectorAll('#tbody tr').forEach(r=>r.classList.remove('active-row'));
+      tr.classList.add('active-row');
+      tr.scrollIntoView({block:'nearest'});
+    }
+  }, 50);
+}
+
+// ── INIT ──────────────────────────────────────
+renderTable();
+initMap();
+</script>
+</body>
+</html>
