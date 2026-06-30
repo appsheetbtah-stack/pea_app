@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>งานขยายเขต & ปรับปรุงระบบจำหน่าย - PEA</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f1923">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0f1923; --surface:#162030; --surface2:#1e2d3d; --border:#2a3f55;
+  --accent:#f5a623; --accent2:#e05c2a; --blue:#3b9ede; --green:#2ecc71;
+  --red:#e74c3c; --yellow:#f39c12;
+  --text:#e8f0f8; --text2:#8aa0b8;
+  --mono:'IBM Plex Mono',monospace; --sans:'Sarabun',sans-serif;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:15px; min-height:100vh; padding-bottom:90px; }
+
+/* ── TOPBAR ── */
+.topbar { position:sticky; top:0; z-index:50; background:var(--surface); border-bottom:1px solid var(--border); padding:14px 16px; }
+.topbar-row { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+.back-btn {
+  color:var(--text2); text-decoration:none; font-size:13px;
+  display:flex; align-items:center; gap:4px; flex-shrink:0;
+  padding:6px 10px; border:1px solid var(--border); border-radius:6px; transition:color .15s;
+}
+.back-btn:hover { color:var(--accent); border-color:var(--accent); }
+.topbar-title { font-size:14.5px; font-weight:700; flex:1; }
+.topbar-count {
+  font-family:var(--mono); font-size:11.5px; color:var(--text2);
+  background:var(--surface2); padding:3px 9px; border-radius:10px; flex-shrink:0; white-space:nowrap;
+}
+
+/* ── CATEGORY TABS ── */
+.tab-switch {
+  display:flex; gap:8px; padding:12px 16px 0; background:var(--surface);
+  border-bottom:1px solid var(--border);
+}
+.tab-btn {
+  flex:1; background:none; border:none; color:var(--text2); font-family:var(--sans);
+  font-size:13.5px; font-weight:600; padding:10px 6px; cursor:pointer;
+  border-bottom:3px solid transparent; transition:all .15s; display:flex; align-items:center;
+  justify-content:center; gap:6px;
+}
+.tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+
+/* ── STATUS FILTER ── */
+.filter-row { display:flex; gap:8px; padding:14px 16px 4px; overflow-x:auto; }
+.filter-row::-webkit-scrollbar { display:none; }
+.filter-chip {
+  flex-shrink:0; border:1px solid var(--border); background:var(--surface2); color:var(--text2);
+  font-family:var(--sans); font-size:12.5px; font-weight:600; padding:7px 14px;
+  border-radius:20px; cursor:pointer; white-space:nowrap; transition:all .15s;
+}
+.filter-chip.active { border-color:var(--accent); background:rgba(245,166,35,.15); color:var(--accent); }
+
+/* ── LIST ── */
+.list-container { padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
+.state-loading, .state-empty { text-align:center; padding:60px 20px; color:var(--text2); }
+.state-empty .icon { font-size:42px; margin-bottom:10px; }
+
+.work-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px;
+}
+.wc-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:6px; }
+.wc-drawing { font-family:var(--mono); font-weight:600; font-size:13.5px; color:var(--accent); }
+.wc-job { font-size:14.5px; font-weight:600; margin:4px 0 6px; line-height:1.4; }
+.wc-wbs { font-family:var(--mono); font-size:11.5px; color:var(--text2); margin-bottom:8px; word-break:break-all; }
+
+.status-pill {
+  font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px;
+  display:inline-flex; align-items:center; gap:5px; flex-shrink:0; white-space:nowrap;
+}
+.status-survey   { background:rgba(59,158,222,.15);  color:var(--blue); }
+.status-estimate { background:rgba(243,156,18,.15);  color:var(--yellow); }
+.status-approval { background:rgba(231,76,60,.15);   color:var(--red); }
+.status-done     { background:rgba(46,204,113,.15);  color:var(--green); }
+
+.wc-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
+.icon-btn {
+  background:var(--surface2); border:1px solid var(--border); color:var(--text2);
+  width:34px; height:34px; border-radius:8px; cursor:pointer; font-size:15px;
+  display:flex; align-items:center; justify-content:center; transition:all .15s;
+}
+.icon-btn:active { border-color:var(--accent); color:var(--accent); }
+.icon-btn.del:active { border-color:var(--red); color:var(--red); }
+
+/* ── FAB ── */
+.fab {
+  position:fixed; right:18px; bottom:24px; width:56px; height:56px; border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),var(--accent2)); border:none; color:#0f1923;
+  font-size:26px; font-weight:700; cursor:pointer; box-shadow:0 4px 16px rgba(245,166,35,.4);
+  display:flex; align-items:center; justify-content:center; z-index:100;
+}
+.fab:active { transform:scale(.93); }
+
+/* ── MODAL ── */
+.modal-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:200;
+  display:none; align-items:flex-end; justify-content:center;
+}
+.modal-overlay.open { display:flex; }
+.modal-sheet {
+  background:var(--surface); width:100%; max-width:480px; border-radius:18px 18px 0 0;
+  max-height:88vh; display:flex; flex-direction:column; animation:slideUp .2s ease;
+}
+@keyframes slideUp { from{transform:translateY(30px);opacity:0} to{transform:translateY(0);opacity:1} }
+.modal-header {
+  display:flex; align-items:center; justify-content:space-between; padding:18px 18px 12px;
+  border-bottom:1px solid var(--border);
+}
+.modal-header span { font-size:16px; font-weight:700; }
+.modal-close {
+  background:var(--surface2); border:1px solid var(--border); color:var(--text2);
+  width:30px; height:30px; border-radius:8px; cursor:pointer; font-size:14px;
+}
+.modal-body { padding:16px 18px; overflow-y:auto; display:flex; flex-direction:column; gap:14px; }
+.field-label { font-size:12.5px; color:var(--text2); margin-bottom:6px; display:block; }
+.field-input, .field-select {
+  width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--text);
+  font-family:var(--sans); font-size:14.5px; padding:11px 12px; border-radius:8px; outline:none;
+}
+.field-input:focus, .field-select:focus { border-color:var(--accent); }
+.field-input[readonly] {
+  color:var(--accent); font-family:var(--mono); font-weight:600;
+  background:var(--surface); cursor:not-allowed;
+}
+.field-hint { font-size:11px; color:var(--text2); margin-top:5px; }
+.modal-footer {
+  display:flex; gap:10px; padding:14px 18px; border-top:1px solid var(--border);
+}
+.btn-cancel, .btn-save {
+  flex:1; padding:12px; border-radius:8px; font-family:var(--sans); font-size:14px;
+  font-weight:600; cursor:pointer; border:1px solid var(--border);
+}
+.btn-cancel { background:var(--surface2); color:var(--text2); }
+.btn-save { background:var(--accent); color:#0f1923; border:none; }
+.btn-save:disabled { opacity:.5; }
+
+.toast {
+  position:fixed; bottom:90px; left:50%; transform:translateX(-50%);
+  background:var(--surface2); border:1px solid var(--border); padding:10px 18px;
+  border-radius:20px; font-size:13px; z-index:300; opacity:0; transition:opacity .2s;
+  pointer-events:none;
+}
+.toast.show { opacity:1; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-row">
+    <a class="back-btn" href="index.html">← กลับ</a>
+    <span class="topbar-title">📋 ขยายเขต / ปรับปรุงระบบจำหน่าย</span>
+  </div>
+  <div class="topbar-count" id="topbar-count">กำลังโหลด...</div>
+</div>
+
+<div class="tab-switch">
+  <button class="tab-btn active" data-cat="expansion" onclick="switchCategory('expansion')">⚡ ขยายเขต</button>
+  <button class="tab-btn" data-cat="improvement" onclick="switchCategory('improvement')">🔧 ปรับปรุงระบบจำหน่าย</button>
+</div>
+
+<div class="filter-row" id="filter-row">
+  <button class="filter-chip active" data-status="all">ทั้งหมด</button>
+  <button class="filter-chip" data-status="survey">🔵 สำรวจออกแบบ</button>
+  <button class="filter-chip" data-status="estimate">🟡 ประมาณการ</button>
+  <button class="filter-chip" data-status="approval">🔴 รออนุมัติ</button>
+  <button class="filter-chip" data-status="done">🟢 ก่อสร้างแล้วเสร็จ</button>
+</div>
+
+<div class="list-container" id="list-container">
+  <div class="state-loading">กำลังโหลดรายการ...</div>
+</div>
+
+<button class="fab" onclick="openForm()">+</button>
+
+<!-- MODAL FORM -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span id="modal-title">เพิ่มงานใหม่</span>
+      <button class="modal-close" onclick="closeForm()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div>
+        <label class="field-label">เลขผัง</label>
+        <input class="field-input" id="f-drawing" placeholder="เช่น PD30-011/69">
+        <div class="field-hint" id="f-drawing-hint"></div>
+      </div>
+      <div>
+        <label class="field-label">ชื่องาน</label>
+        <input class="field-input" id="f-job" placeholder="เช่น C140ม. บ.หนองอ้อ (นายเอกชัย ต้นน้อย) หรือ งานปรับปรุงไฟตก บ้าน...">
+      </div>
+      <div id="worktype-wrap" style="display:none">
+        <label class="field-label">ลักษณะงาน</label>
+        <select class="field-select" id="f-worktype">
+          <option value="01.1">01.1 — PEA ลงทุน แล้วเป็นทรัพย์สิน PEA</option>
+          <option value="02.1">02.1 — ผู้ใช้ไฟฟ้าลงทุน แล้วเป็นทรัพย์สิน PEA</option>
+          <option value="03.1">03.1 — ผู้ใช้ไฟกับ PEA ลงทุนคนละครึ่ง แล้วเป็นทรัพย์สิน PEA</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label">เลข WBS</label>
+        <input class="field-input" id="f-wbs" placeholder="เช่น C-69-B-BRKCM.0XXX.XX.X">
+        <div class="field-hint" id="f-wbs-hint"></div>
+      </div>
+      <div>
+        <label class="field-label">สถานะ</label>
+        <select class="field-select" id="f-status">
+          <option value="survey">🔵 อยู่ระหว่างสำรวจออกแบบ</option>
+          <option value="estimate">🟡 อยู่ระหว่างการประมาณการ</option>
+          <option value="approval">🔴 ส่ง กฟส.บรก. รออนุมัติ</option>
+          <option value="done">🟢 งานก่อสร้างแล้วเสร็จ</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeForm()">ยกเลิก</button>
+      <button class="btn-save" id="btn-save" onclick="saveItem()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyC7bzImCV7c89fLGhIq8OycWKQWRYdvZvE",
+    authDomain: "pea-system.firebaseapp.com",
+    projectId: "pea-system",
+    storageBucket: "pea-system.firebasestorage.app",
+    messagingSenderId: "1006235611544",
+    appId: "1:1006235611544:web:a7453d71ff56748166fbed",
+    measurementId: "G-V5NPYZ4KZW"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const COLLECTION = "site_works";
+
+  const listEl = document.getElementById('list-container');
+  const countEl = document.getElementById('topbar-count');
+  const filterRow = document.getElementById('filter-row');
+  const overlay = document.getElementById('modal-overlay');
+  const toastEl = document.getElementById('toast');
+
+  let allWorks = [];
+  let currentCat = 'expansion';
+  let currentStatus = 'all';
+  let editingId = null;
+
+  function statusInfo(s) {
+    if (s === 'survey')   return { cls: 'status-survey',   label: '🔵 อยู่ระหว่างสำรวจออกแบบ' };
+    if (s === 'estimate') return { cls: 'status-estimate', label: '🟡 อยู่ระหว่างการประมาณการ' };
+    if (s === 'approval') return { cls: 'status-approval', label: '🔴 ส่ง กฟส.บรก. รออนุมัติ' };
+    return { cls: 'status-done', label: '🟢 งานก่อสร้างแล้วเสร็จ' };
+  }
+
+  // ── เลขผัง อัตโนมัติ ──
+  const DRAWING_PREFIX = { expansion: 'PD30-011', improvement: 'PD30-015' };
+
+  function getYearSuffix() {
+    const be = new Date().getFullYear() + 543;
+    return String(be).slice(-2);
+  }
+
+  function generateDrawingNo(cat) {
+    const prefix = DRAWING_PREFIX[cat] || 'PD30-000';
+    const base = `${prefix}/${getYearSuffix()}`;
+    let maxNum = 0;
+    allWorks.filter(w => w.category === cat && (w.drawingNo || '').startsWith(base)).forEach(w => {
+      const tail = w.drawingNo.slice(base.length);
+      const num = parseInt(tail, 10);
+      if (!isNaN(num) && num > maxNum) maxNum = num;
+    });
+    return base + String(maxNum + 1).padStart(4, '0');
+  }
+
+  // ── เลข WBS อัตโนมัติ ──
+  // ขยายเขต:    C-69-B-BRKCM.0001.01.1     → prefix.ลำดับงาน.ลักษณะงาน
+  // ปรับปรุง:   I-69-B-BRKTH.00.0001.1     → prefix.00.ลำดับงาน.1 (ทรัพย์สิน PEA เสมอ)
+  const WBS_AREA = {
+    expansion:   { code: 'C', area: 'BRKCM' },
+    improvement: { code: 'I', area: 'BRKTH' }
+  };
+
+  function getWbsPrefix(cat) {
+    const cfg = WBS_AREA[cat];
+    if (!cfg) return null;
+    return `${cfg.code}-${getYearSuffix()}-B-${cfg.area}`;
+  }
+
+  function getWbsRunningNumber(cat) {
+    const prefix = getWbsPrefix(cat);
+    if (!prefix) return 1;
+    const base = (cat === 'improvement') ? `${prefix}.00.` : `${prefix}.`;
+    let maxNum = 0;
+    allWorks.filter(w => w.category === cat && (w.wbs || '').startsWith(base)).forEach(w => {
+      const rest = w.wbs.slice(base.length); // e.g. "0007.01.1" หรือ "0007.1"
+      const num = parseInt(rest.split('.')[0], 10);
+      if (!isNaN(num) && num > maxNum) maxNum = num;
+    });
+    return maxNum + 1;
+  }
+
+  function buildWbs(cat, worktype) {
+    const prefix = getWbsPrefix(cat);
+    if (!prefix) return '';
+    const running = String(getWbsRunningNumber(cat)).padStart(4, '0');
+    if (cat === 'improvement') return `${prefix}.00.${running}.1`;
+    return `${prefix}.${running}.${worktype}`;
+  }
+
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    setTimeout(() => toastEl.classList.remove('show'), 1800);
+  }
+
+  function render() {
+    const catItems = allWorks.filter(w => w.category === currentCat);
+    const filtered = currentStatus === 'all' ? catItems : catItems.filter(w => w.status === currentStatus);
+
+    const counts = {
+      survey: catItems.filter(w => w.status === 'survey').length,
+      estimate: catItems.filter(w => w.status === 'estimate').length,
+      approval: catItems.filter(w => w.status === 'approval').length,
+      done: catItems.filter(w => w.status === 'done').length
+    };
+    countEl.textContent = `ทั้งหมด ${catItems.length} · สำรวจ ${counts.survey} · ประมาณการ ${counts.estimate} · รออนุมัติ ${counts.approval} · เสร็จ ${counts.done}`;
+
+    if (!filtered.length) {
+      listEl.innerHTML = `
+        <div class="state-empty">
+          <div class="icon">📋</div>
+          <div>ไม่พบรายการ${currentStatus !== 'all' ? 'ในสถานะนี้' : ''}</div>
+        </div>`;
+      return;
+    }
+
+    listEl.innerHTML = filtered.map(w => {
+      const st = statusInfo(w.status);
+      return `
+        <div class="work-card">
+          <div class="wc-top">
+            <span class="wc-drawing">${w.drawingNo || '—'}</span>
+            <span class="status-pill ${st.cls}">${st.label}</span>
+          </div>
+          <div class="wc-job">${w.jobName || '—'}</div>
+          <div class="wc-wbs">WBS: ${w.wbs || '—'}</div>
+          <div class="wc-actions">
+            <button class="icon-btn" onclick="window.editItem('${w._id}')">✏️</button>
+            <button class="icon-btn del" onclick="window.deleteItem('${w._id}')">🗑️</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  async function loadWorks() {
+    try {
+      const snap = await getDocs(collection(db, COLLECTION));
+      allWorks = snap.docs.map(d => ({ ...d.data(), _id: d.id }));
+      render();
+    } catch (e) {
+      console.error(e);
+      listEl.innerHTML = `<div class="state-empty"><div class="icon">⚠️</div><div>โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่</div></div>`;
+      countEl.textContent = 'เกิดข้อผิดพลาด';
+    }
+  }
+
+  // ── TAB / FILTER ──
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentCat = btn.dataset.cat;
+      render();
+    });
+  });
+
+  filterRow.addEventListener('click', (e) => {
+    const chip = e.target.closest('.filter-chip');
+    if (!chip) return;
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    currentStatus = chip.dataset.status;
+    render();
+  });
+
+  // ── MODAL FORM ──
+  window.openForm = function() {
+    editingId = null;
+    document.getElementById('modal-title').textContent = 'เพิ่มงานใหม่';
+    const drawingInput = document.getElementById('f-drawing');
+    drawingInput.value = generateDrawingNo(currentCat);
+    drawingInput.readOnly = false;
+    document.getElementById('f-drawing-hint').textContent = 'สร้างอัตโนมัติ — แก้ไขได้หากต้องการ';
+    document.getElementById('f-job').value = '';
+    document.getElementById('f-job').placeholder = (currentCat === 'improvement')
+      ? 'เช่น งานปรับปรุงไฟตก บ้าน...'
+      : 'เช่น C140ม. บ.หนองอ้อ (นายเอกชัย ต้นน้อย)';
+    document.getElementById('f-status').value = 'survey';
+
+    const wbsInput = document.getElementById('f-wbs');
+    const worktypeWrap = document.getElementById('worktype-wrap');
+    const worktypeSelect = document.getElementById('f-worktype');
+    const wbsHint = document.getElementById('f-wbs-hint');
+
+    if (currentCat === 'expansion') {
+      worktypeWrap.style.display = 'block';
+      worktypeSelect.value = '01.1';
+      wbsInput.value = buildWbs(currentCat, worktypeSelect.value);
+      wbsInput.readOnly = false;
+      wbsHint.textContent = 'สร้างอัตโนมัติ — แก้ไขเองได้ หรือเลือกลักษณะงานด้านบนเพื่อสร้างใหม่';
+      worktypeSelect.onchange = () => {
+        wbsInput.value = buildWbs(currentCat, worktypeSelect.value);
+      };
+    } else if (currentCat === 'improvement') {
+      worktypeWrap.style.display = 'none';
+      wbsInput.value = buildWbs(currentCat);
+      wbsInput.readOnly = false;
+      wbsHint.textContent = 'สร้างอัตโนมัติ — แก้ไขได้หากต้องการ';
+    } else {
+      worktypeWrap.style.display = 'none';
+      wbsInput.value = '';
+      wbsInput.readOnly = false;
+      wbsHint.textContent = '';
+    }
+    overlay.classList.add('open');
+  };
+
+  window.closeForm = function() {
+    overlay.classList.remove('open');
+  };
+
+  window.editItem = function(id) {
+    const w = allWorks.find(x => x._id === id);
+    if (!w) return;
+    editingId = id;
+    document.getElementById('modal-title').textContent = 'แก้ไขงาน';
+    const drawingInput = document.getElementById('f-drawing');
+    drawingInput.value = w.drawingNo || '';
+    drawingInput.readOnly = false;
+    document.getElementById('f-drawing-hint').textContent = 'แก้ไขเลขผังได้หากจำเป็น';
+    document.getElementById('f-job').value = w.jobName || '';
+    document.getElementById('f-status').value = w.status || 'survey';
+
+    document.getElementById('worktype-wrap').style.display = 'none';
+    const wbsInput = document.getElementById('f-wbs');
+    wbsInput.value = w.wbs || '';
+    wbsInput.readOnly = false;
+    document.getElementById('f-wbs-hint').textContent = 'แก้ไขเลข WBS ได้หากจำเป็น';
+    overlay.classList.add('open');
+  };
+
+
+  window.saveItem = async function() {
+    const drawingNo = document.getElementById('f-drawing').value.trim();
+    const jobName = document.getElementById('f-job').value.trim();
+    const wbs = document.getElementById('f-wbs').value.trim();
+    const status = document.getElementById('f-status').value;
+
+    if (!drawingNo || !jobName) {
+      showToast('กรุณากรอกเลขผังและชื่องาน');
+      return;
+    }
+
+    const btn = document.getElementById('btn-save');
+    btn.disabled = true;
+    btn.textContent = 'กำลังบันทึก...';
+
+    try {
+      if (editingId) {
+        await updateDoc(doc(db, COLLECTION, editingId), { drawingNo, jobName, wbs, status });
+        const idx = allWorks.findIndex(w => w._id === editingId);
+        if (idx > -1) allWorks[idx] = { ...allWorks[idx], drawingNo, jobName, wbs, status };
+        showToast('บันทึกการแก้ไขแล้ว');
+      } else {
+        const docRef = await addDoc(collection(db, COLLECTION), {
+          category: currentCat, drawingNo, jobName, wbs, status,
+          createdAt: Date.now()
+        });
+        allWorks.push({ _id: docRef.id, category: currentCat, drawingNo, jobName, wbs, status, createdAt: Date.now() });
+        showToast('เพิ่มงานใหม่แล้ว');
+      }
+      closeForm();
+      render();
+    } catch (e) {
+      console.error(e);
+      showToast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'บันทึก';
+    }
+  };
+
+  window.deleteItem = async function(id) {
+    if (!confirm('ยืนยันลบรายการนี้?')) return;
+    try {
+      await deleteDoc(doc(db, COLLECTION, id));
+      allWorks = allWorks.filter(w => w._id !== id);
+      render();
+      showToast('ลบรายการแล้ว');
+    } catch (e) {
+      console.error(e);
+      showToast('ลบไม่สำเร็จ ลองใหม่อีกครั้ง');
+    }
+  };
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeForm();
+  });
+
+  loadWorks();
+</script>
+</body>
+</html>
