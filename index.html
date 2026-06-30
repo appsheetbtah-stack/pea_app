@@ -1268,7 +1268,7 @@ function renderUserMarkers() {
   all.forEach(r => {
     userLayer.addLayer(
       L.marker([r.LATITUDE,r.LONGITUDE],{icon})
-        .bindPopup(`<b>${r.PREFIX||''} ${r.CUSTOMERNAME} ${r.CUSTOMERSIRNAME}</b><br>CA: ${r.CA}<br>PEANO: ${r.PEANO||'—'}<br>${r.TUMBOL} ${r.AMPHOE}`)
+        .bindPopup(`<b>${r.PREFIX||''} ${r.CUSTOMERNAME} ${r.CUSTOMERSIRNAME}</b><br>CA: ${r.CA}<br>PEANO: ${r.PEANO||'—'}<br>${r.TUMBOL} ${r.AMPHOE}<br><button onclick='openUserModal(${JSON.stringify(r)})' style="margin-top:8px;width:100%;background:#f5a623;color:#0f1923;border:none;border-radius:6px;padding:7px 10px;font-family:Sarabun,sans-serif;font-size:12.5px;font-weight:700;cursor:pointer">ดูข้อมูลผู้ใช้ไฟ →</button>`)
     );
   });
   if(userLayerVisible) userLayer.addTo(mapFull);
