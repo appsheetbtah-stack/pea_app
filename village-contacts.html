@@ -318,7 +318,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
         : `ม.${d.moo} ${d.village} · ${d.tambon}`;
       return `
         <div class="card${isPending(d)?' pending':''}">
-          <div class="avatar ${isKamnan ? 'avatar-kamnan' : isPending(d) ? 'avatar-pending' : 'avatar-puyai'}" style="font-size:${fontSize};font-family:var(--mono);letter-spacing:-0.5px;">${avatar}</div>
+          <div class="avatar ${isKamnan ? 'avatar-kamnan' : 'avatar-puyai'}" style="font-size:${fontSize};font-family:var(--mono);letter-spacing:-0.5px;">${avatar}</div>
           <div class="card-info">
             <div class="card-name">${isPending(d) ? '<span style="color:var(--text2);font-style:italic;">รอข้อมูล</span>' : d.name}</div>
             <div class="card-role-row">
