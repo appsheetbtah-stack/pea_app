@@ -79,40 +79,34 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
 /* ── DASHBOARD ── */
 .db-wrap { padding:14px 14px 20px; display:flex; flex-direction:column; gap:14px; }
-.db-total {
-  background:var(--surface); border:1px solid var(--border); border-radius:10px;
-  padding:14px 16px; display:flex; align-items:center; justify-content:space-between;
-}
-.db-total-num { font-size:32px; font-weight:700; font-family:var(--mono); color:var(--accent); }
-.db-total-label { font-size:13px; color:var(--text2); }
-.db-total-right { text-align:right; }
-.db-total-sub { font-size:12px; color:var(--text2); margin-top:2px; }
 
-.db-section {
+.db-stat-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+.db-stat-card {
   background:var(--surface); border:1px solid var(--border); border-radius:10px;
-  overflow:hidden;
+  padding:14px 16px; position:relative; overflow:hidden;
 }
-.db-section-head {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:12px 16px; border-bottom:1px solid var(--border);
-}
-.db-section-title { font-size:14px; font-weight:700; display:flex; align-items:center; gap:8px; }
-.db-section-num { font-size:22px; font-weight:700; font-family:var(--mono); }
-.db-rows { padding:12px 16px; display:flex; flex-direction:column; gap:10px; }
+.db-stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--c,var(--accent)); }
+.db-stat-label { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:8px; }
+.db-stat-value { font-family:var(--mono); font-size:30px; font-weight:600; color:var(--text); line-height:1; }
+.db-stat-unit { font-size:11.5px; color:var(--text2); margin-top:5px; }
 
-.bd-row { display:flex; align-items:center; gap:10px; }
-.bd-label { font-size:13px; color:var(--text2); min-width:120px; flex-shrink:0; }
-.bd-bar-wrap { flex:1; background:var(--surface2); border-radius:4px; height:8px; overflow:hidden; }
+.db-chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.db-chart-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px;
+}
+.db-chart-title { font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:12px; }
+
+.bd-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.bd-row:last-child { margin-bottom:0; }
+.bd-label { font-size:12px; color:var(--text2); width:90px; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bd-bar-wrap { flex:1; background:var(--surface2); border-radius:4px; height:7px; overflow:hidden; }
 .bd-bar { height:100%; border-radius:4px; transition:width .4s ease; }
-.bd-count { font-family:var(--mono); font-size:12px; color:var(--text); min-width:36px; text-align:right; }
+.bd-count { font-family:var(--mono); font-size:12px; color:var(--text); min-width:28px; text-align:right; }
 
-.kva-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:12px 16px; }
-.kva-item {
-  background:var(--surface2); border-radius:8px; padding:10px 12px;
-  display:flex; align-items:center; justify-content:space-between;
-}
+.kva-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.kva-item { background:var(--surface2); border-radius:7px; padding:8px 10px; display:flex; align-items:center; justify-content:space-between; }
 .kva-label { font-size:12px; color:var(--text2); }
-.kva-count { font-family:var(--mono); font-size:14px; font-weight:600; color:var(--blue); }
+.kva-count { font-family:var(--mono); font-size:13px; font-weight:600; color:var(--blue); }
 
 /* ── MAP TAB ── */
 .map-chips {
@@ -425,7 +419,6 @@ function renderDashboard() {
   const txOwner = count(tx.map(d => d.own));
   const txPhase = count(tx.map(d => d.st.includes('3') ? '3 Phase' : '1 Phase'));
   const txKva   = count(tx.map(d => d.kva));
-  const rcIns   = count(rec.map(d => d.st));
 
   const sortedKva = Object.entries(txKva)
     .filter(([k]) => k)
@@ -433,64 +426,52 @@ function renderDashboard() {
     .slice(0, 8);
 
   document.getElementById('db-wrap').innerHTML = `
-    <!-- TOTAL -->
-    <div class="db-total">
-      <div>
-        <div class="db-total-label">อุปกรณ์ทั้งหมด</div>
-        <div class="db-total-num">${DATA.length}</div>
+    <!-- STAT CARDS 4 ใบ -->
+    <div class="db-stat-grid">
+      <div class="db-stat-card" style="--c:var(--accent)">
+        <div class="db-stat-label">อุปกรณ์ทั้งหมด</div>
+        <div class="db-stat-value">${DATA.length}</div>
+        <div class="db-stat-unit">รายการ</div>
       </div>
-      <div class="db-total-right">
-        <div class="db-total-sub">Recloser ${rec.length} รายการ</div>
-        <div class="db-total-sub">Switch ${sw.length} รายการ</div>
-        <div class="db-total-sub">Transformer ${tx.length} รายการ</div>
+      <div class="db-stat-card" style="--c:#e74c3c">
+        <div class="db-stat-label">Recloser</div>
+        <div class="db-stat-value" style="color:#e74c3c">${rec.length}</div>
+        <div class="db-stat-unit">เครื่อง</div>
       </div>
-    </div>
-
-    <!-- RECLOSER -->
-    <div class="db-section">
-      <div class="db-section-head">
-        <div class="db-section-title">
-          <span style="color:#e74c3c">●</span> Recloser
-        </div>
-        <div class="db-section-num" style="color:#e74c3c">${rec.length}</div>
+      <div class="db-stat-card" style="--c:var(--accent)">
+        <div class="db-stat-label">Switch</div>
+        <div class="db-stat-value" style="color:var(--accent)">${sw.length}</div>
+        <div class="db-stat-unit">เครื่อง</div>
       </div>
-      <div class="db-rows">
-        ${Object.entries(rcIns).map(([k,v]) => barRow(k, v, rec.length, '#e74c3c')).join('')}
+      <div class="db-stat-card" style="--c:var(--blue)">
+        <div class="db-stat-label">Transformer</div>
+        <div class="db-stat-value" style="color:var(--blue)">${tx.length}</div>
+        <div class="db-stat-unit">เครื่อง</div>
       </div>
     </div>
 
-    <!-- SWITCH -->
-    <div class="db-section">
-      <div class="db-section-head">
-        <div class="db-section-title">
-          <span style="color:#f5a623">●</span> Switch
-        </div>
-        <div class="db-section-num" style="color:#f5a623">${sw.length}</div>
+    <!-- CHART ROW 1: Switch + Transformer เจ้าของ -->
+    <div class="db-chart-grid">
+      <div class="db-chart-card">
+        <div class="db-chart-title">Switch ตามประเภท</div>
+        ${barRow('Fuse Dropout',  swTypes['Fuse Dropout']||0,  sw.length, '#f5a623')}
+        ${barRow('Disconnecting', swTypes['Disconnecting']||0, sw.length, '#f39c12')}
+        ${barRow('LBS SF6',       swTypes['LoadBreak Switch SF6']||0, sw.length, '#2ecc71')}
       </div>
-      <div class="db-rows">
-        ${barRow('Fuse Dropout',   swTypes['Fuse Dropout']||0,   sw.length, '#f5a623')}
-        ${barRow('Disconnecting',  swTypes['Disconnecting']||0,  sw.length, '#f39c12')}
-        ${barRow('LBS SF6',        swTypes['LoadBreak Switch SF6']||0, sw.length, '#2ecc71')}
-      </div>
-    </div>
-
-    <!-- TRANSFORMER -->
-    <div class="db-section">
-      <div class="db-section-head">
-        <div class="db-section-title">
-          <span style="color:#3b9ede">●</span> Transformer
-        </div>
-        <div class="db-section-num" style="color:#3b9ede">${tx.length}</div>
-      </div>
-      <div class="db-rows">
-        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">เจ้าของ</div>
+      <div class="db-chart-card">
+        <div class="db-chart-title">Transformer เจ้าของ</div>
         ${barRow('PEA',      txOwner['PEA']||0,      tx.length, '#3b9ede')}
         ${barRow('Customer', txOwner['Customer']||0,  tx.length, '#9b59b6')}
-        <div style="font-size:12px;color:var(--text2);margin:8px 0 4px">ระบบเฟส</div>
+        <div style="height:10px"></div>
+        <div class="db-chart-title">ระบบเฟส</div>
         ${barRow('1 Phase', txPhase['1 Phase']||0, tx.length, '#3b9ede')}
         ${barRow('3 Phase', txPhase['3 Phase']||0, tx.length, '#00b4d8')}
       </div>
-      <div style="padding:0 16px 6px;font-size:12px;color:var(--text2)">ขนาด kVA (เรียงตามจำนวน)</div>
+    </div>
+
+    <!-- CHART ROW 2: kVA -->
+    <div class="db-chart-card">
+      <div class="db-chart-title">ขนาด kVA (เรียงตามจำนวน)</div>
       <div class="kva-grid">
         ${sortedKva.map(([k,v]) => `
           <div class="kva-item">
