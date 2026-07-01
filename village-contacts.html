@@ -82,6 +82,72 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
 
 .empty { text-align: center; padding: 60px 20px; color: var(--text2); font-size: 14px; }
 .empty .icon { font-size: 40px; margin-bottom: 10px; }
+.loading { text-align: center; padding: 60px 20px; color: var(--text2); font-size: 14px; }
+
+/* === CARD EDIT/DELETE BUTTONS === */
+.card-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+.icon-btn {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text2);
+  width: 34px; height: 34px; border-radius: 8px; cursor: pointer; font-size: 14px;
+  display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+}
+.icon-btn:active { border-color: var(--accent); color: var(--accent); }
+.icon-btn.del:active { border-color: #e74c3c; color: #e74c3c; }
+
+/* === FAB === */
+.fab {
+  position: fixed; right: 18px; bottom: 24px; width: 56px; height: 56px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #e05c2a); border: none; color: #0f1923;
+  font-size: 26px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 16px rgba(245,166,35,.4);
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.fab:active { transform: scale(.93); }
+body { padding-bottom: 90px; }
+
+/* === MODAL === */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 200;
+  display: none; align-items: flex-end; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal-sheet {
+  background: var(--surface); width: 100%; max-width: 480px; border-radius: 18px 18px 0 0;
+  max-height: 88vh; display: flex; flex-direction: column; animation: slideUp .2s ease;
+}
+@keyframes slideUp { from{transform:translateY(30px);opacity:0} to{transform:translateY(0);opacity:1} }
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between; padding: 18px 18px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-header span { font-size: 16px; font-weight: 700; }
+.modal-close {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text2);
+  width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 14px;
+}
+.modal-body { padding: 16px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+.field-label { font-size: 12.5px; color: var(--text2); margin-bottom: 6px; display: block; }
+.field-input, .field-select {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--sans); font-size: 14.5px; padding: 11px 12px; border-radius: 8px; outline: none;
+}
+.field-input:focus, .field-select:focus { border-color: var(--accent); }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.modal-footer { display: flex; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--border); }
+.btn-cancel, .btn-save {
+  flex: 1; padding: 12px; border-radius: 8px; font-family: var(--sans); font-size: 14px;
+  font-weight: 600; cursor: pointer; border: 1px solid var(--border);
+}
+.btn-cancel { background: var(--surface2); color: var(--text2); }
+.btn-save { background: var(--accent); color: #0f1923; border: none; }
+.btn-save:disabled { opacity: .5; }
+
+.toast {
+  position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+  background: var(--surface2); border: 1px solid var(--border); padding: 10px 18px;
+  border-radius: 20px; font-size: 13px; z-index: 300; opacity: 0; transition: opacity .2s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; }
 </style>
 </head>
 <body>
@@ -90,7 +156,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
   <a class="back-btn" href="index.html">←</a>
   <span class="topbar-badge">PEA</span>
   <span class="topbar-title">กำนัน-ผู้ใหญ่บ้าน</span>
-  <span class="topbar-count" id="count-text">70 ราย</span>
+  <span class="topbar-count" id="count-text">กำลังโหลด...</span>
 </div>
 
 <div class="search-section">
@@ -106,82 +172,317 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
   </div>
 </div>
 
-<div class="list" id="list"></div>
+<div class="list" id="list"><div class="loading">กำลังโหลดข้อมูล...</div></div>
 
-<script>
-const DATA = [{"tambon": "ต.ชุมแสงสงคราม", "moo": "1", "village": "บางบ้า", "name": "นายเพ็ชรรุ่ง สุขประเสิฐ", "role": "กำนัน", "tel": "087-2005223"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "2", "village": "ชุมแสงสงคราม", "name": "นายวิรัตน์ พุทธโกษา", "role": "ผู้ใหญ่บ้าน", "tel": "087-7384096"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "3", "village": "วังแร่", "name": "นายดิเรก ทุยพูน", "role": "ผู้ใหญ่บ้าน", "tel": "082-3932168"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "4", "village": "หนองพยอม", "name": "นายธนกฤต โชติแสงสุวรรณ", "role": "ผู้ใหญ่บ้าน", "tel": "086-9365607"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "5", "village": "วัดแตน", "name": "นายกฤษดา เขียวแจ่ม", "role": "ผู้ใหญ่บ้าน", "tel": "098-6609283"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "6", "village": "ห้วงกระได", "name": "นายโอภาส มากเมือง", "role": "ผู้ใหญ่บ้าน", "tel": "0613466552"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "7", "village": "หนองอ้อ", "name": "นายนาวิน พุ่มนาค", "role": "ผู้ใหญ่บ้าน", "tel": "092-6549926"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "8", "village": "หนองแพงพวย", "name": "นายพิตตินันท์ ออมสิน", "role": "ผู้ใหญ่บ้าน", "tel": "089-4516775"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "9", "village": "ตะแบกงาม", "name": "นายสุชาติ กันขาว", "role": "ผู้ใหญ่บ้าน", "tel": "087-2059484"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "10", "village": "คลองลึก", "name": "นายชวลิต ยังเจริญ", "role": "ผู้ใหญ่บ้าน", "tel": "061-3563882"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "11", "village": "ฟากคลอง", "name": "นายธรโชติ น้อยมั่น", "role": "ผู้ใหญ่บ้าน", "tel": "084-4938868"}, {"tambon": "ต.คุยม่วง", "moo": "1", "village": "คุยม่วง", "name": "นางสาวกรรภิรมย์ กลองชัย", "role": "ผู้ใหญ่บ้าน", "tel": "080-6858443"}, {"tambon": "ต.คุยม่วง", "moo": "2", "village": "คุยขวาง", "name": "นายบวรนันท์ เชื้อเพ็ชร", "role": "ผู้ใหญ่บ้าน", "tel": "083-9553290"}, {"tambon": "ต.คุยม่วง", "moo": "3", "village": "เกาะกลางนา", "name": "นายนิวาส อิ่มเกิด", "role": "ผู้ใหญ่บ้าน", "tel": "0943298742"}, {"tambon": "ต.คุยม่วง", "moo": "4", "village": "ดง", "name": "นายวันดี อินพรม", "role": "ผู้ใหญ่บ้าน", "tel": "082-4022779"}, {"tambon": "ต.คุยม่วง", "moo": "5", "village": "โปร่งกระโดน", "name": "นายบัณฑิต เผ่าผาง", "role": "ผู้ใหญ่บ้าน", "tel": "063-7498295"}, {"tambon": "ต.คุยม่วง", "moo": "6", "village": "หนองขานาง", "name": "นายสมส่วน แร่เพ็ชร", "role": "ผู้ใหญ่บ้าน", "tel": "088-1647314"}, {"tambon": "ต.คุยม่วง", "moo": "7", "village": "เรียงกระดก", "name": "นายมานิตย์ แป้นจาก", "role": "ผู้ใหญ่บ้าน", "tel": "095-3511159"}, {"tambon": "ต.คุยม่วง", "moo": "8", "village": "ทุ่งสาวน้อย", "name": "นางวันทนา ดีจาก", "role": "ผู้ใหญ่บ้าน", "tel": "086-9326248"}, {"tambon": "ต.คุยม่วง", "moo": "9", "village": "ทุ่งพัฒนา", "name": "นายศรีนวล ลอสวัสดิ์", "role": "ผู้ใหญ่บ้าน", "tel": ""}, {"tambon": "ต.คุยม่วง", "moo": "10", "village": "นางพญา", "name": "นายอานนท์ เทียนดำ", "role": "ผู้ใหญ่บ้าน", "tel": "087-7329509"}, {"tambon": "ต.คุยม่วง", "moo": "11", "village": "ยิ่งเจริญ", "name": "นายจรัญ อ่อนหนู", "role": "กำนัน", "tel": "099-2436543"}, {"tambon": "ต.คุยม่วง", "moo": "12", "village": "คุยม่วงมีสุข", "name": "นางสารีแก้ว หนูดอนทราย", "role": "ผู้ใหญ่บ้าน", "tel": "095-6321999"}, {"tambon": "ต.บึงกอก", "moo": "1", "village": "บึงกอก", "name": "นายบุญสม บางยิ้ม", "role": "ผู้ใหญ่บ้าน", "tel": "064-8930893"}, {"tambon": "ต.บึงกอก", "moo": "2", "village": "ปรือกระเทียม", "name": "นายสมพร  สมองดี", "role": "ผู้ใหญ่บ้าน", "tel": "087-8264294"}, {"tambon": "ต.บึงกอก", "moo": "3", "village": "เกาะจันทร์", "name": "นายบุญช่วย สวัสดิ์นะที", "role": "ผู้ใหญ่บ้าน", "tel": "087-2082757"}, {"tambon": "ต.บึงกอก", "moo": "4", "village": "คุยมะตูม", "name": "นายสุนทร หิรัญทับทิม", "role": "กำนัน", "tel": "094-8795956"}, {"tambon": "ต.บึงกอก", "moo": "5", "village": "โคกสว่าง", "name": "นายทองใบ ตรีเพ็ชร", "role": "ผู้ใหญ่บ้าน", "tel": "086-2109241"}, {"tambon": "ต.บึงกอก", "moo": "6", "village": "คลองเตย", "name": "นายฤทธิณรงค์ ไชยพาลี", "role": "ผู้ใหญ่บ้าน", "tel": "094-7543329"}, {"tambon": "ต.บึงกอก", "moo": "7", "village": "เสวยซุง", "name": "นายสันติ อุปะมาโน", "role": "ผู้ใหญ่บ้าน", "tel": "081-2865968"}, {"tambon": "ต.บึงกอก", "moo": "8", "village": "ประดา", "name": "นายมารุต ลาภปัญญา", "role": "ผู้ใหญ่บ้าน", "tel": "081-9533015"}, {"tambon": "ต.บึงกอก", "moo": "9", "village": "หนองบัว", "name": "นายนันต์ มังมี", "role": "ผู้ใหญ่บ้าน", "tel": "089-9076433"}, {"tambon": "ต.บึงกอก", "moo": "10", "village": "บึงกอกพัฒนา", "name": "นายปราณี มากอยู่", "role": "ผู้ใหญ่บ้าน", "tel": "088-8024495"}, {"tambon": "ต.บึงกอก", "moo": "11", "village": "ปรือกระเทียมใต้", "name": "นายตรีโรจน์ โตสิน", "role": "ผู้ใหญ่บ้าน", "tel": "084-8193240"}, {"tambon": "ต.บึงกอก", "moo": "12", "village": "สุขสมบูรณ์", "name": "นายกนกพล จีนไข่", "role": "ผู้ใหญ่บ้าน", "tel": "061-3390045"}, {"tambon": "ต.นิคมพัฒนา", "moo": "1", "village": "ทุ่งอ้ายโห้", "name": "นายธนาธิป กลองชัย", "role": "ผู้ใหญ่บ้าน", "tel": "086-0671603"}, {"tambon": "ต.นิคมพัฒนา", "moo": "2", "village": "ใหม่เจริญผล", "name": "นายวรวิทย์ จิตพินิจ", "role": "ผู้ใหญ่บ้าน", "tel": "087-2101372"}, {"tambon": "ต.นิคมพัฒนา", "moo": "3", "village": "ใหม่เจริญธรรม", "name": "นายประสิทธิ์ ทองมี", "role": "ผู้ใหญ่บ้าน", "tel": "091-2908344"}, {"tambon": "ต.นิคมพัฒนา", "moo": "4", "village": "คลองน้ำเย็น", "name": "นายสุมิตร  แสงอรุณ", "role": "ผู้ใหญ่บ้าน", "tel": "082-7204158"}, {"tambon": "ต.นิคมพัฒนา", "moo": "5", "village": "นิคมพัฒนา", "name": "นายธรพงษ์ บุญเมือง", "role": "กำนัน", "tel": "065-4584699"}, {"tambon": "ต.นิคมพัฒนา", "moo": "6", "village": "ป่าสัก", "name": "นายเสนาะ อ้นน้อย", "role": "ผู้ใหญ่บ้าน", "tel": "097-9398670"}, {"tambon": "ต.นิคมพัฒนา", "moo": "7", "village": "ท่ามะเกลือ", "name": "นางเฉลียว ชูเชิด", "role": "ผู้ใหญ่บ้าน", "tel": "095-9361769"}, {"tambon": "ต.นิคมพัฒนา", "moo": "8", "village": "ทุ่งใหญ่", "name": "ว่าที่ร้อยตรีวิทยา เจนไชย", "role": "ผู้ใหญ่บ้าน", "tel": "099-6254125"}, {"tambon": "ต.นิคมพัฒนา", "moo": "9", "village": "พรสวรรค์", "name": "นางนะพาพร  เพริศพริ้ง", "role": "ผู้ใหญ่บ้าน", "tel": "087-1722145"}, {"tambon": "ต.นิคมพัฒนา", "moo": "10", "village": "หนองบัวนา", "name": "นายอารมณ์ บุญดี", "role": "ผู้ใหญ่บ้าน", "tel": "094-7239111"}, {"tambon": "ต.นิคมพัฒนา", "moo": "11", "village": "ศรีนครินทร์", "name": "นายสมาน บุญทองดี", "role": "ผู้ใหญ่บ้าน", "tel": "093-2797259"}, {"tambon": "ต.นิคมพัฒนา", "moo": "12", "village": "บ่อไทรงาม", "name": "นายรุ่ง ม่วงแก้ว", "role": "ผู้ใหญ่บ้าน", "tel": "093-8305890"}, {"tambon": "ต.นิคมพัฒนา", "moo": "13", "village": "เจริญผลพัฒนา", "name": "นายภูวดล ตองอ่อน", "role": "ผู้ใหญ่บ้าน", "tel": "082-4921860"}, {"tambon": "ต.หนองกุลา", "moo": "1", "village": "หนองกรับ", "name": "นายมนตรี มั่นคง", "role": "ผู้ใหญ่บ้าน", "tel": "089-7932426"}, {"tambon": "ต.หนองกุลา", "moo": "2", "village": "หนองไผ่", "name": "นายชิด ด้วงฟู", "role": "ผู้ใหญ่บ้าน", "tel": "081-1810417"}, {"tambon": "ต.หนองกุลา", "moo": "3", "village": "ดงกวาง", "name": "นายเสกสรร คำวักไทร", "role": "ผู้ใหญ่บ้าน", "tel": "087-5725591"}, {"tambon": "ต.หนองกุลา", "moo": "4", "village": "หนองกุลา", "name": "นายล้อม อำพรม", "role": "กำนัน", "tel": "061-7389399"}, {"tambon": "ต.หนองกุลา", "moo": "5", "village": "หนองหลวง", "name": "นายทัตพงศ์ เรืองปาน", "role": "ผู้ใหญ่บ้าน", "tel": "094-6916191"}, {"tambon": "ต.หนองกุลา", "moo": "6", "village": "บึงบอน", "name": "นายอภิสิทธิ์ ทองเครือ", "role": "ผู้ใหญ่บ้าน", "tel": "091-2851390"}, {"tambon": "ต.หนองกุลา", "moo": "7", "village": "บึงจำกา", "name": "นายสำเนา เทศป่าน", "role": "ผู้ใหญ่บ้าน", "tel": "082-3937624"}, {"tambon": "ต.หนองกุลา", "moo": "8", "village": "หนองนา", "name": "นายสมพร ดาวเรือง", "role": "ผู้ใหญ่บ้าน", "tel": "099-2711170"}, {"tambon": "ต.หนองกุลา", "moo": "9", "village": "หนองตะเคียน", "name": "นายพรภวิษย์ กันอยู่", "role": "ผู้ใหญ่บ้าน", "tel": "093-2388498"}, {"tambon": "ต.หนองกุลา", "moo": "10", "village": "บึงพิง", "name": "นายสันติ ธีระกุล", "role": "ผู้ใหญ่บ้าน", "tel": "087-8382882"}, {"tambon": "ต.หนองกุลา", "moo": "11", "village": "ใหม่คลองเจริญ", "name": "ผู้ใหญ่ กุ้ง", "role": "ผู้ใหญ่บ้าน", "tel": "094-6389263"}, {"tambon": "ต.หนองกุลา", "moo": "12", "village": "ท่าไม้งาม", "name": "นายณัฐพงษ์ มาสอน", "role": "ผู้ใหญ่บ้าน", "tel": "088-1511542"}, {"tambon": "ต.หนองกุลา", "moo": "13", "village": "หนองโพง", "name": "นายพีรวัฒน์ ลอบุญ", "role": "ผู้ใหญ่บ้าน", "tel": "088-1774199"}, {"tambon": "ต.หนองกุลา", "moo": "14", "village": "หนองปลวก", "name": "นายสำฤทธิ์ บุญล้ำ", "role": "ผู้ใหญ่บ้าน", "tel": "087-8434785"}, {"tambon": "ต.หนองกุลา", "moo": "15", "village": "มณเทียรทอง", "name": "นายพยุง พู่กัน", "role": "ผู้ใหญ่บ้าน", "tel": "087-1957949"}, {"tambon": "ต.หนองกุลา", "moo": "16", "village": "ห้วยน้ำเย็น", "name": "นายบวร เกิดแพร", "role": "ผู้ใหญ่บ้าน", "tel": "093-4612466"}, {"tambon": "ต.หนองกุลา", "moo": "17", "village": "ปลายนา", "name": "นายบุญจง คงอยู่เย็น", "role": "ผู้ใหญ่บ้าน", "tel": "080-5102460"}, {"tambon": "ต.หนองกุลา", "moo": "18", "village": "เกาะกร่าง", "name": "นายเรวัฒนะ มาเขียว", "role": "ผู้ใหญ่บ้าน", "tel": "087-2049860"}, {"tambon": "ต.หนองกุลา", "moo": "19", "village": "ห้วยใหญ่", "name": "นายโปรด นกน้อย", "role": "ผู้ใหญ่บ้าน", "tel": "094-8400508"}, {"tambon": "ต.หนองกุลา", "moo": "20", "village": "หนองคต", "name": "นางภัทรียา หนูน้อย (ลาออกแล้ว)", "role": "ผู้ใหญ่บ้าน", "tel": "087-5734309"}, {"tambon": "ต.หนองกุลา", "moo": "21", "village": "หนองชุมแสง", "name": "นายบุญธรรม ใหม่เอี่ยม", "role": "ผู้ใหญ่บ้าน", "tel": "088-1595756"}, {"tambon": "ต.กง", "moo": "?", "village": "เนินหว้า", "name": "รอข้อมูล", "role": "ผู้ใหญ่บ้าน", "tel": "", "amphoe": "อ.กงไกรลาศ", "changwat": "จ.สุโขทัย"}, {"tambon": "ต.ทุ่งยางเมือง", "moo": "4", "village": "วังกร่าง", "name": "นายเดโช เปรมใจ", "role": "ผู้ใหญ่บ้าน", "tel": "", "amphoe": "อ.คีรีมาศ", "changwat": "จ.สุโขทัย"}, {"tambon": "ต.บึงทับแรด", "moo": "2", "village": "หนองท่าไม้", "name": "นายลอย เปรมกมล", "role": "ผู้ใหญ่บ้าน", "tel": "062-2146700", "amphoe": "อ.ลานกระบือ", "changwat": "จ.กำแพงเพชร"}];
+<button class="fab" onclick="openForm()">+</button>
 
-let currentFilter = 'all';
+<!-- MODAL FORM -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span id="modal-title">เพิ่มรายชื่อใหม่</span>
+      <button class="modal-close" onclick="closeForm()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div>
+          <label class="field-label">ตำบล</label>
+          <input class="field-input" id="f-tambon" placeholder="เช่น ต.ชุมแสงสงคราม">
+        </div>
+        <div>
+          <label class="field-label">หมู่ที่</label>
+          <input class="field-input" id="f-moo" placeholder="เช่น 5">
+        </div>
+      </div>
+      <div>
+        <label class="field-label">ชื่อหมู่บ้าน</label>
+        <input class="field-input" id="f-village" placeholder="เช่น วัดแตน">
+      </div>
+      <div>
+        <label class="field-label">ชื่อ-นามสกุล</label>
+        <input class="field-input" id="f-name" placeholder="เช่น นายกฤษดา เขียวแจ่ม">
+      </div>
+      <div class="field-row">
+        <div>
+          <label class="field-label">ตำแหน่ง</label>
+          <select class="field-select" id="f-role">
+            <option value="กำนัน">กำนัน</option>
+            <option value="ผู้ใหญ่บ้าน">ผู้ใหญ่บ้าน</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">เบอร์โทร</label>
+          <input class="field-input" id="f-tel" placeholder="เช่น 098-6609283">
+        </div>
+      </div>
+      <div class="field-row">
+        <div>
+          <label class="field-label">อำเภอ (ถ้าต่างพื้นที่)</label>
+          <input class="field-input" id="f-amphoe" placeholder="เช่น อ.กงไกรลาศ">
+        </div>
+        <div>
+          <label class="field-label">จังหวัด (ถ้าต่างพื้นที่)</label>
+          <input class="field-input" id="f-changwat" placeholder="เช่น จ.สุโขทัย">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeForm()">ยกเลิก</button>
+      <button class="btn-save" id="btn-save" onclick="saveItem()">บันทึก</button>
+    </div>
+  </div>
+</div>
 
-const MAIN_TAMBONS = ['ต.ชุมแสงสงคราม','ต.คุยม่วง','ต.บึงกอก','ต.นิคมพัฒนา','ต.หนองกุลา'];
+<div class="toast" id="toast"></div>
 
-function getAvatar(d) {
-  if(d.name === 'รอข้อมูล') return '?';
-  return d.moo === '?' ? '?' : 'ม.' + d.moo;
-}
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-function avatarFontSize(moo) {
-  return moo === '?' || moo.length <= 2 ? '14px' : '12px';
-}
+  const firebaseConfig = {
+    apiKey: "AIzaSyC7bzImCV7c89fLGhIq8OycWKQWRYdvZvE",
+    authDomain: "pea-system.firebaseapp.com",
+    projectId: "pea-system",
+    storageBucket: "pea-system.firebasestorage.app",
+    messagingSenderId: "1006235611544",
+    appId: "1:1006235611544:web:a7453d71ff56748166fbed",
+    measurementId: "G-V5NPYZ4KZW"
+  };
 
-function setFilter(f, el) {
-  currentFilter = f;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-  render();
-}
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const COLLECTION = "village_leaders";
 
-function render() {
-  const q = document.getElementById('search-input').value.trim().toLowerCase();
-  const filtered = DATA.filter(d => {
-    const isExtra = !MAIN_TAMBONS.includes(d.tambon);
-    if(currentFilter === 'extra') return isExtra;
-    const matchFilter = currentFilter === 'all' || d.tambon === currentFilter;
-    if(!matchFilter) return false;
-    if(currentFilter !== 'all' && isExtra) return false;
-    if(!q) return true;
-    return [d.name, d.village, d.tel, d.tambon, 'หมู่'+d.moo, d.role, d.amphoe||'', d.changwat||''].some(v => v.toLowerCase().includes(q));
-  });
+  const SEED_DATA = [{"tambon": "ต.ชุมแสงสงคราม", "moo": "1", "village": "บางบ้า", "name": "นายเพ็ชรรุ่ง สุขประเสิฐ", "role": "กำนัน", "tel": "087-2005223"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "2", "village": "ชุมแสงสงคราม", "name": "นายวิรัตน์ พุทธโกษา", "role": "ผู้ใหญ่บ้าน", "tel": "087-7384096"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "3", "village": "วังแร่", "name": "นายดิเรก ทุยพูน", "role": "ผู้ใหญ่บ้าน", "tel": "082-3932168"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "4", "village": "หนองพยอม", "name": "นายธนกฤต โชติแสงสุวรรณ", "role": "ผู้ใหญ่บ้าน", "tel": "086-9365607"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "5", "village": "วัดแตน", "name": "นายกฤษดา เขียวแจ่ม", "role": "ผู้ใหญ่บ้าน", "tel": "098-6609283"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "6", "village": "ห้วงกระได", "name": "นายโอภาส มากเมือง", "role": "ผู้ใหญ่บ้าน", "tel": "0613466552"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "7", "village": "หนองอ้อ", "name": "นายนาวิน พุ่มนาค", "role": "ผู้ใหญ่บ้าน", "tel": "092-6549926"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "8", "village": "หนองแพงพวย", "name": "นายพิตตินันท์ ออมสิน", "role": "ผู้ใหญ่บ้าน", "tel": "089-4516775"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "9", "village": "ตะแบกงาม", "name": "นายสุชาติ กันขาว", "role": "ผู้ใหญ่บ้าน", "tel": "087-2059484"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "10", "village": "คลองลึก", "name": "นายชวลิต ยังเจริญ", "role": "ผู้ใหญ่บ้าน", "tel": "061-3563882"}, {"tambon": "ต.ชุมแสงสงคราม", "moo": "11", "village": "ฟากคลอง", "name": "นายธรโชติ น้อยมั่น", "role": "ผู้ใหญ่บ้าน", "tel": "084-4938868"}, {"tambon": "ต.คุยม่วง", "moo": "1", "village": "คุยม่วง", "name": "นางสาวกรรภิรมย์ กลองชัย", "role": "ผู้ใหญ่บ้าน", "tel": "080-6858443"}, {"tambon": "ต.คุยม่วง", "moo": "2", "village": "คุยขวาง", "name": "นายบวรนันท์ เชื้อเพ็ชร", "role": "ผู้ใหญ่บ้าน", "tel": "083-9553290"}, {"tambon": "ต.คุยม่วง", "moo": "3", "village": "เกาะกลางนา", "name": "นายนิวาส อิ่มเกิด", "role": "ผู้ใหญ่บ้าน", "tel": "0943298742"}, {"tambon": "ต.คุยม่วง", "moo": "4", "village": "ดง", "name": "นายวันดี อินพรม", "role": "ผู้ใหญ่บ้าน", "tel": "082-4022779"}, {"tambon": "ต.คุยม่วง", "moo": "5", "village": "โปร่งกระโดน", "name": "นายบัณฑิต เผ่าผาง", "role": "ผู้ใหญ่บ้าน", "tel": "063-7498295"}, {"tambon": "ต.คุยม่วง", "moo": "6", "village": "หนองขานาง", "name": "นายสมส่วน แร่เพ็ชร", "role": "ผู้ใหญ่บ้าน", "tel": "088-1647314"}, {"tambon": "ต.คุยม่วง", "moo": "7", "village": "เรียงกระดก", "name": "นายมานิตย์ แป้นจาก", "role": "ผู้ใหญ่บ้าน", "tel": "095-3511159"}, {"tambon": "ต.คุยม่วง", "moo": "8", "village": "ทุ่งสาวน้อย", "name": "นางวันทนา ดีจาก", "role": "ผู้ใหญ่บ้าน", "tel": "086-9326248"}, {"tambon": "ต.คุยม่วง", "moo": "9", "village": "ทุ่งพัฒนา", "name": "นายศรีนวล ลอสวัสดิ์", "role": "ผู้ใหญ่บ้าน", "tel": ""}, {"tambon": "ต.คุยม่วง", "moo": "10", "village": "นางพญา", "name": "นายอานนท์ เทียนดำ", "role": "ผู้ใหญ่บ้าน", "tel": "087-7329509"}, {"tambon": "ต.คุยม่วง", "moo": "11", "village": "ยิ่งเจริญ", "name": "นายจรัญ อ่อนหนู", "role": "กำนัน", "tel": "099-2436543"}, {"tambon": "ต.คุยม่วง", "moo": "12", "village": "คุยม่วงมีสุข", "name": "นางสารีแก้ว หนูดอนทราย", "role": "ผู้ใหญ่บ้าน", "tel": "095-6321999"}, {"tambon": "ต.บึงกอก", "moo": "1", "village": "บึงกอก", "name": "นายบุญสม บางยิ้ม", "role": "ผู้ใหญ่บ้าน", "tel": "064-8930893"}, {"tambon": "ต.บึงกอก", "moo": "2", "village": "ปรือกระเทียม", "name": "นายสมพร  สมองดี", "role": "ผู้ใหญ่บ้าน", "tel": "087-8264294"}, {"tambon": "ต.บึงกอก", "moo": "3", "village": "เกาะจันทร์", "name": "นายบุญช่วย สวัสดิ์นะที", "role": "ผู้ใหญ่บ้าน", "tel": "087-2082757"}, {"tambon": "ต.บึงกอก", "moo": "4", "village": "คุยมะตูม", "name": "นายสุนทร หิรัญทับทิม", "role": "กำนัน", "tel": "094-8795956"}, {"tambon": "ต.บึงกอก", "moo": "5", "village": "โคกสว่าง", "name": "นายทองใบ ตรีเพ็ชร", "role": "ผู้ใหญ่บ้าน", "tel": "086-2109241"}, {"tambon": "ต.บึงกอก", "moo": "6", "village": "คลองเตย", "name": "นายฤทธิณรงค์ ไชยพาลี", "role": "ผู้ใหญ่บ้าน", "tel": "094-7543329"}, {"tambon": "ต.บึงกอก", "moo": "7", "village": "เสวยซุง", "name": "นายสันติ อุปะมาโน", "role": "ผู้ใหญ่บ้าน", "tel": "081-2865968"}, {"tambon": "ต.บึงกอก", "moo": "8", "village": "ประดา", "name": "นายมารุต ลาภปัญญา", "role": "ผู้ใหญ่บ้าน", "tel": "081-9533015"}, {"tambon": "ต.บึงกอก", "moo": "9", "village": "หนองบัว", "name": "นายนันต์ มังมี", "role": "ผู้ใหญ่บ้าน", "tel": "089-9076433"}, {"tambon": "ต.บึงกอก", "moo": "10", "village": "บึงกอกพัฒนา", "name": "นายปราณี มากอยู่", "role": "ผู้ใหญ่บ้าน", "tel": "088-8024495"}, {"tambon": "ต.บึงกอก", "moo": "11", "village": "ปรือกระเทียมใต้", "name": "นายตรีโรจน์ โตสิน", "role": "ผู้ใหญ่บ้าน", "tel": "084-8193240"}, {"tambon": "ต.บึงกอก", "moo": "12", "village": "สุขสมบูรณ์", "name": "นายกนกพล จีนไข่", "role": "ผู้ใหญ่บ้าน", "tel": "061-3390045"}, {"tambon": "ต.นิคมพัฒนา", "moo": "1", "village": "ทุ่งอ้ายโห้", "name": "นายธนาธิป กลองชัย", "role": "ผู้ใหญ่บ้าน", "tel": "086-0671603"}, {"tambon": "ต.นิคมพัฒนา", "moo": "2", "village": "ใหม่เจริญผล", "name": "นายวรวิทย์ จิตพินิจ", "role": "ผู้ใหญ่บ้าน", "tel": "087-2101372"}, {"tambon": "ต.นิคมพัฒนา", "moo": "3", "village": "ใหม่เจริญธรรม", "name": "นายประสิทธิ์ ทองมี", "role": "ผู้ใหญ่บ้าน", "tel": "091-2908344"}, {"tambon": "ต.นิคมพัฒนา", "moo": "4", "village": "คลองน้ำเย็น", "name": "นายสุมิตร  แสงอรุณ", "role": "ผู้ใหญ่บ้าน", "tel": "082-7204158"}, {"tambon": "ต.นิคมพัฒนา", "moo": "5", "village": "นิคมพัฒนา", "name": "นายธรพงษ์ บุญเมือง", "role": "กำนัน", "tel": "065-4584699"}, {"tambon": "ต.นิคมพัฒนา", "moo": "6", "village": "ป่าสัก", "name": "นายเสนาะ อ้นน้อย", "role": "ผู้ใหญ่บ้าน", "tel": "097-9398670"}, {"tambon": "ต.นิคมพัฒนา", "moo": "7", "village": "ท่ามะเกลือ", "name": "นางเฉลียว ชูเชิด", "role": "ผู้ใหญ่บ้าน", "tel": "095-9361769"}, {"tambon": "ต.นิคมพัฒนา", "moo": "8", "village": "ทุ่งใหญ่", "name": "ว่าที่ร้อยตรีวิทยา เจนไชย", "role": "ผู้ใหญ่บ้าน", "tel": "099-6254125"}, {"tambon": "ต.นิคมพัฒนา", "moo": "9", "village": "พรสวรรค์", "name": "นางนะพาพร  เพริศพริ้ง", "role": "ผู้ใหญ่บ้าน", "tel": "087-1722145"}, {"tambon": "ต.นิคมพัฒนา", "moo": "10", "village": "หนองบัวนา", "name": "นายอารมณ์ บุญดี", "role": "ผู้ใหญ่บ้าน", "tel": "094-7239111"}, {"tambon": "ต.นิคมพัฒนา", "moo": "11", "village": "ศรีนครินทร์", "name": "นายสมาน บุญทองดี", "role": "ผู้ใหญ่บ้าน", "tel": "093-2797259"}, {"tambon": "ต.นิคมพัฒนา", "moo": "12", "village": "บ่อไทรงาม", "name": "นายรุ่ง ม่วงแก้ว", "role": "ผู้ใหญ่บ้าน", "tel": "093-8305890"}, {"tambon": "ต.นิคมพัฒนา", "moo": "13", "village": "เจริญผลพัฒนา", "name": "นายภูวดล ตองอ่อน", "role": "ผู้ใหญ่บ้าน", "tel": "082-4921860"}, {"tambon": "ต.หนองกุลา", "moo": "1", "village": "หนองกรับ", "name": "นายมนตรี มั่นคง", "role": "ผู้ใหญ่บ้าน", "tel": "089-7932426"}, {"tambon": "ต.หนองกุลา", "moo": "2", "village": "หนองไผ่", "name": "นายชิด ด้วงฟู", "role": "ผู้ใหญ่บ้าน", "tel": "081-1810417"}, {"tambon": "ต.หนองกุลา", "moo": "3", "village": "ดงกวาง", "name": "นายเสกสรร คำวักไทร", "role": "ผู้ใหญ่บ้าน", "tel": "087-5725591"}, {"tambon": "ต.หนองกุลา", "moo": "4", "village": "หนองกุลา", "name": "นายล้อม อำพรม", "role": "กำนัน", "tel": "061-7389399"}, {"tambon": "ต.หนองกุลา", "moo": "5", "village": "หนองหลวง", "name": "นายทัตพงศ์ เรืองปาน", "role": "ผู้ใหญ่บ้าน", "tel": "094-6916191"}, {"tambon": "ต.หนองกุลา", "moo": "6", "village": "บึงบอน", "name": "นายอภิสิทธิ์ ทองเครือ", "role": "ผู้ใหญ่บ้าน", "tel": "091-2851390"}, {"tambon": "ต.หนองกุลา", "moo": "7", "village": "บึงจำกา", "name": "นายสำเนา เทศป่าน", "role": "ผู้ใหญ่บ้าน", "tel": "082-3937624"}, {"tambon": "ต.หนองกุลา", "moo": "8", "village": "หนองนา", "name": "นายสมพร ดาวเรือง", "role": "ผู้ใหญ่บ้าน", "tel": "099-2711170"}, {"tambon": "ต.หนองกุลา", "moo": "9", "village": "หนองตะเคียน", "name": "นายพรภวิษย์ กันอยู่", "role": "ผู้ใหญ่บ้าน", "tel": "093-2388498"}, {"tambon": "ต.หนองกุลา", "moo": "10", "village": "บึงพิง", "name": "นายสันติ ธีระกุล", "role": "ผู้ใหญ่บ้าน", "tel": "087-8382882"}, {"tambon": "ต.หนองกุลา", "moo": "11", "village": "ใหม่คลองเจริญ", "name": "ผู้ใหญ่ กุ้ง", "role": "ผู้ใหญ่บ้าน", "tel": "094-6389263"}, {"tambon": "ต.หนองกุลา", "moo": "12", "village": "ท่าไม้งาม", "name": "นายณัฐพงษ์ มาสอน", "role": "ผู้ใหญ่บ้าน", "tel": "088-1511542"}, {"tambon": "ต.หนองกุลา", "moo": "13", "village": "หนองโพง", "name": "นายพีรวัฒน์ ลอบุญ", "role": "ผู้ใหญ่บ้าน", "tel": "088-1774199"}, {"tambon": "ต.หนองกุลา", "moo": "14", "village": "หนองปลวก", "name": "นายสำฤทธิ์ บุญล้ำ", "role": "ผู้ใหญ่บ้าน", "tel": "087-8434785"}, {"tambon": "ต.หนองกุลา", "moo": "15", "village": "มณเทียรทอง", "name": "นายพยุง พู่กัน", "role": "ผู้ใหญ่บ้าน", "tel": "087-1957949"}, {"tambon": "ต.หนองกุลา", "moo": "16", "village": "ห้วยน้ำเย็น", "name": "นายบวร เกิดแพร", "role": "ผู้ใหญ่บ้าน", "tel": "093-4612466"}, {"tambon": "ต.หนองกุลา", "moo": "17", "village": "ปลายนา", "name": "นายบุญจง คงอยู่เย็น", "role": "ผู้ใหญ่บ้าน", "tel": "080-5102460"}, {"tambon": "ต.หนองกุลา", "moo": "18", "village": "เกาะกร่าง", "name": "นายเรวัฒนะ มาเขียว", "role": "ผู้ใหญ่บ้าน", "tel": "087-2049860"}, {"tambon": "ต.หนองกุลา", "moo": "19", "village": "ห้วยใหญ่", "name": "นายโปรด นกน้อย", "role": "ผู้ใหญ่บ้าน", "tel": "094-8400508"}, {"tambon": "ต.หนองกุลา", "moo": "20", "village": "หนองคต", "name": "นางภัทรียา หนูน้อย (ลาออกแล้ว)", "role": "ผู้ใหญ่บ้าน", "tel": "087-5734309"}, {"tambon": "ต.หนองกุลา", "moo": "21", "village": "หนองชุมแสง", "name": "นายบุญธรรม ใหม่เอี่ยม", "role": "ผู้ใหญ่บ้าน", "tel": "088-1595756"}, {"tambon": "ต.กง", "moo": "?", "village": "เนินหว้า", "name": "รอข้อมูล", "role": "ผู้ใหญ่บ้าน", "tel": "", "amphoe": "อ.กงไกรลาศ", "changwat": "จ.สุโขทัย"}, {"tambon": "ต.ทุ่งยางเมือง", "moo": "4", "village": "วังกร่าง", "name": "นายเดโช เปรมใจ", "role": "ผู้ใหญ่บ้าน", "tel": "", "amphoe": "อ.คีรีมาศ", "changwat": "จ.สุโขทัย"}, {"tambon": "ต.บึงทับแรด", "moo": "2", "village": "หนองท่าไม้", "name": "นายลอย เปรมกมล", "role": "ผู้ใหญ่บ้าน", "tel": "062-2146700", "amphoe": "อ.ลานกระบือ", "changwat": "จ.กำแพงเพชร"}];
 
-  document.getElementById('count-text').textContent = filtered.length + ' ราย';
-  const listEl = document.getElementById('list');
+  const overlay = document.getElementById('modal-overlay');
+  const toastEl = document.getElementById('toast');
 
-  if(!filtered.length) {
-    listEl.innerHTML = '<div class="empty"><div class="icon">🔍</div>ไม่พบรายการที่ตรงกัน</div>';
-    return;
+  let DATA = [];
+  let currentFilter = 'all';
+  let editingId = null;
+
+  const MAIN_TAMBONS = ['ต.ชุมแสงสงคราม','ต.คุยม่วง','ต.บึงกอก','ต.นิคมพัฒนา','ต.หนองกุลา'];
+
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    setTimeout(() => toastEl.classList.remove('show'), 1800);
   }
 
-  const isPending = d => d.name === 'รอข้อมูล';
+  function getAvatar(d) {
+    if (d.name === 'รอข้อมูล') return '?';
+    return d.moo === '?' ? '?' : 'ม.' + d.moo;
+  }
 
-  listEl.innerHTML = filtered.map(d => {
-    const isKamnan = d.role === 'กำนัน';
-    const isExtra = !MAIN_TAMBONS.includes(d.tambon);
-    const avatar = getAvatar(d);
-    const fontSize = avatarFontSize(d.moo);
-    const telDigits = (d.tel||'').replace(/\D/g,'');
-    const callBtn = telDigits
-      ? `<a class="call-btn" href="tel:${telDigits}">📞</a>`
-      : `<div class="call-btn no-tel" title="${isPending(d)?'รอข้อมูล':'ไม่มีเบอร์โทร'}">—</div>`;
-    const location = isExtra
-      ? `ม.${d.moo} บ้าน${d.village} ${d.tambon} ${d.amphoe||''} ${d.changwat||''}`
-      : `ม.${d.moo} ${d.village} · ${d.tambon}`;
-    return `
-      <div class="card${isPending(d)?' pending':''}">
-        <div class="avatar ${isKamnan ? 'avatar-kamnan' : isPending(d) ? 'avatar-pending' : 'avatar-puyai'}" style="font-size:${fontSize};font-family:var(--mono);letter-spacing:-0.5px;">${avatar}</div>
-        <div class="card-info">
-          <div class="card-name">${isPending(d) ? '<span style="color:var(--text2);font-style:italic;">รอข้อมูล</span>' : d.name}</div>
-          <div class="card-role-row">
-            <span class="role-badge ${isKamnan ? 'role-kamnan' : 'role-puyai'}">${d.role}</span>
-            <span class="card-moo">${location}</span>
+  function avatarFontSize(moo) {
+    return moo === '?' || moo.length <= 2 ? '14px' : '12px';
+  }
+
+  function setFilter(f, el) {
+    currentFilter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    render();
+  }
+  window.setFilter = setFilter;
+
+  function render() {
+    const q = document.getElementById('search-input').value.trim().toLowerCase();
+    const filtered = DATA.filter(d => {
+      const isExtra = !MAIN_TAMBONS.includes(d.tambon);
+      if (currentFilter === 'extra') return isExtra;
+      const matchFilter = currentFilter === 'all' || d.tambon === currentFilter;
+      if (!matchFilter) return false;
+      if (currentFilter !== 'all' && isExtra) return false;
+      if (!q) return true;
+      return [d.name, d.village, d.tel, d.tambon, 'หมู่'+d.moo, d.role, d.amphoe||'', d.changwat||''].some(v => (v||'').toLowerCase().includes(q));
+    });
+
+    // เรียงตามตำบล → หมู่
+    filtered.sort((a,b) => {
+      if (a.tambon !== b.tambon) return a.tambon.localeCompare(b.tambon, 'th');
+      return (parseInt(a.moo)||0) - (parseInt(b.moo)||0);
+    });
+
+    document.getElementById('count-text').textContent = filtered.length + ' ราย';
+    const listEl = document.getElementById('list');
+
+    if (!filtered.length) {
+      listEl.innerHTML = '<div class="empty"><div class="icon">🔍</div>ไม่พบรายการที่ตรงกัน</div>';
+      return;
+    }
+
+    const isPending = d => d.name === 'รอข้อมูล';
+
+    listEl.innerHTML = filtered.map(d => {
+      const isKamnan = d.role === 'กำนัน';
+      const isExtra = !MAIN_TAMBONS.includes(d.tambon);
+      const avatar = getAvatar(d);
+      const fontSize = avatarFontSize(d.moo);
+      const telDigits = (d.tel||'').replace(/\D/g,'');
+      const callBtn = telDigits
+        ? `<a class="call-btn" href="tel:${telDigits}">📞</a>`
+        : `<div class="call-btn no-tel" title="${isPending(d)?'รอข้อมูล':'ไม่มีเบอร์โทร'}">—</div>`;
+      const location = isExtra
+        ? `ม.${d.moo} บ้าน${d.village} ${d.tambon} ${d.amphoe||''} ${d.changwat||''}`
+        : `ม.${d.moo} ${d.village} · ${d.tambon}`;
+      return `
+        <div class="card${isPending(d)?' pending':''}">
+          <div class="avatar ${isKamnan ? 'avatar-kamnan' : isPending(d) ? 'avatar-pending' : 'avatar-puyai'}" style="font-size:${fontSize};font-family:var(--mono);letter-spacing:-0.5px;">${avatar}</div>
+          <div class="card-info">
+            <div class="card-name">${isPending(d) ? '<span style="color:var(--text2);font-style:italic;">รอข้อมูล</span>' : d.name}</div>
+            <div class="card-role-row">
+              <span class="role-badge ${isKamnan ? 'role-kamnan' : 'role-puyai'}">${d.role}</span>
+              <span class="card-moo">${location}</span>
+            </div>
+            <div class="card-tel">${d.tel || (isPending(d) ? '— รอข้อมูล' : '—')}</div>
           </div>
-          <div class="card-tel">${d.tel || (isPending(d) ? '— รอข้อมูล' : '—')}</div>
-        </div>
-        ${callBtn}
-      </div>`;
-  }).join('');
-}
+          <div class="card-actions">
+            <button class="icon-btn" onclick="window.editItem('${d._id}')">✏️</button>
+            <button class="icon-btn del" onclick="window.deleteItem('${d._id}')">🗑️</button>
+          </div>
+          ${callBtn}
+        </div>`;
+    }).join('');
+  }
+  window.render = render;
 
-render();
+  async function loadData() {
+    try {
+      const snap = await getDocs(collection(db, COLLECTION));
+      if (snap.empty) {
+        // ครั้งแรก — seed ข้อมูลเดิมเข้า Firestore อัตโนมัติ
+        await seedData();
+        return;
+      }
+      DATA = snap.docs.map(d => ({ ...d.data(), _id: d.id }));
+      render();
+    } catch (e) {
+      console.error(e);
+      document.getElementById('list').innerHTML = '<div class="empty"><div class="icon">⚠️</div>โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่</div>';
+      document.getElementById('count-text').textContent = 'เกิดข้อผิดพลาด';
+    }
+  }
+
+  async function seedData() {
+    document.getElementById('list').innerHTML = '<div class="loading">กำลังตั้งค่าข้อมูลเริ่มต้น...</div>';
+    try {
+      const batch = writeBatch(db);
+      SEED_DATA.forEach(item => {
+        const ref = doc(collection(db, COLLECTION));
+        batch.set(ref, item);
+      });
+      await batch.commit();
+      await loadData();
+    } catch (e) {
+      console.error(e);
+      document.getElementById('list').innerHTML = '<div class="empty"><div class="icon">⚠️</div>ตั้งค่าข้อมูลเริ่มต้นไม่สำเร็จ</div>';
+    }
+  }
+
+  // ── MODAL FORM ──
+  window.openForm = function() {
+    editingId = null;
+    document.getElementById('modal-title').textContent = 'เพิ่มรายชื่อใหม่';
+    document.getElementById('f-tambon').value = '';
+    document.getElementById('f-moo').value = '';
+    document.getElementById('f-village').value = '';
+    document.getElementById('f-name').value = '';
+    document.getElementById('f-role').value = 'ผู้ใหญ่บ้าน';
+    document.getElementById('f-tel').value = '';
+    document.getElementById('f-amphoe').value = '';
+    document.getElementById('f-changwat').value = '';
+    overlay.classList.add('open');
+  };
+
+  window.closeForm = function() {
+    overlay.classList.remove('open');
+  };
+
+  window.editItem = function(id) {
+    const d = DATA.find(x => x._id === id);
+    if (!d) return;
+    editingId = id;
+    document.getElementById('modal-title').textContent = 'แก้ไขข้อมูล';
+    document.getElementById('f-tambon').value = d.tambon || '';
+    document.getElementById('f-moo').value = d.moo || '';
+    document.getElementById('f-village').value = d.village || '';
+    document.getElementById('f-name').value = d.name || '';
+    document.getElementById('f-role').value = d.role || 'ผู้ใหญ่บ้าน';
+    document.getElementById('f-tel').value = d.tel || '';
+    document.getElementById('f-amphoe').value = d.amphoe || '';
+    document.getElementById('f-changwat').value = d.changwat || '';
+    overlay.classList.add('open');
+  };
+
+  window.saveItem = async function() {
+    const tambon = document.getElementById('f-tambon').value.trim();
+    const moo = document.getElementById('f-moo').value.trim();
+    const village = document.getElementById('f-village').value.trim();
+    const name = document.getElementById('f-name').value.trim();
+    const role = document.getElementById('f-role').value;
+    const tel = document.getElementById('f-tel').value.trim();
+    const amphoe = document.getElementById('f-amphoe').value.trim();
+    const changwat = document.getElementById('f-changwat').value.trim();
+
+    if (!tambon || !moo || !name) {
+      showToast('กรุณากรอกตำบล หมู่ที่ และชื่อ-นามสกุล');
+      return;
+    }
+
+    const payload = { tambon, moo, village, name, role, tel };
+    if (amphoe) payload.amphoe = amphoe;
+    if (changwat) payload.changwat = changwat;
+
+    const btn = document.getElementById('btn-save');
+    btn.disabled = true;
+    btn.textContent = 'กำลังบันทึก...';
+
+    try {
+      if (editingId) {
+        await updateDoc(doc(db, COLLECTION, editingId), payload);
+        const idx = DATA.findIndex(d => d._id === editingId);
+        if (idx > -1) DATA[idx] = { ...DATA[idx], ...payload };
+        showToast('บันทึกการแก้ไขแล้ว');
+      } else {
+        const docRef = await addDoc(collection(db, COLLECTION), payload);
+        DATA.push({ _id: docRef.id, ...payload });
+        showToast('เพิ่มรายชื่อใหม่แล้ว');
+      }
+      closeForm();
+      render();
+    } catch (e) {
+      console.error(e);
+      showToast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'บันทึก';
+    }
+  };
+
+  window.deleteItem = async function(id) {
+    const d = DATA.find(x => x._id === id);
+    if (!d) return;
+    if (!confirm(`ยืนยันลบ "${d.name}" (ม.${d.moo} ${d.tambon})?`)) return;
+    try {
+      await deleteDoc(doc(db, COLLECTION, id));
+      DATA = DATA.filter(x => x._id !== id);
+      render();
+      showToast('ลบรายการแล้ว');
+    } catch (e) {
+      console.error(e);
+      showToast('ลบไม่สำเร็จ ลองใหม่อีกครั้ง');
+    }
+  };
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeForm();
+  });
+
+  loadData();
 </script>
 </body>
 </html>
