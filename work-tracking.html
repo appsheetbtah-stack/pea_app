@@ -519,9 +519,9 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     }
   };
 
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closeForm();
-  });
+  // หมายเหตุ: จงใจไม่ปิด modal เมื่อคลิกพื้นที่มืดรอบนอก
+  // เพราะเผลอลากเมาส์คัดลอกข้อความแล้วปล่อยนอกกรอบ ทำให้ข้อมูลที่กำลังกรอกหายได้
+  // ปิดได้เฉพาะปุ่ม ✕ หรือ "ยกเลิก" เท่านั้น
 
   loadWorks();
 </script>
