@@ -54,7 +54,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   overflow-y:auto; display:none;
 }
 .tab-pane.active { display:block; }
-.tab-pane.map-pane { display:none; overflow:hidden; flex-direction:column; }
+.tab-pane.map-pane { display:none; overflow:hidden; flex-direction:column; position:relative; }
 .tab-pane.map-pane.active { display:flex; }
 
 /* ── BOTTOM NAV ── */
@@ -128,9 +128,9 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 }
 .leg { display:flex; align-items:center; gap:4px; font-size:11.5px; color:var(--text2); }
 .leg-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
-#map { flex:1; position:relative; }
+#map { flex:1; }
 .locate-btn {
-  position:absolute; bottom:16px; right:10px; z-index:400;
+  position:absolute; bottom:20px; right:14px; z-index:500;
   width:44px; height:44px; border-radius:10px; border:1px solid var(--border);
   background:var(--surface); color:var(--accent); font-size:19px; cursor:pointer;
   display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,.3);
@@ -244,9 +244,8 @@ tr.active-row td { background:rgba(245,166,35,.1); }
     <div class="leg"><div class="leg-dot" style="background:#00b4d8"></div>Tx PEA 3Ph</div>
     <div class="leg"><div class="leg-dot" style="background:#9b59b6"></div>Tx Cust</div>
   </div>
-  <div id="map">
-    <button class="locate-btn" id="btn-locate-eq" onclick="locateMe()" title="ตำแหน่งของฉัน">📍</button>
-  </div>
+  <div id="map"></div>
+  <button class="locate-btn" id="btn-locate-eq" onclick="locateMe()" title="ตำแหน่งของฉัน">📍</button>
 </div>
 
 <!-- TAB: SEARCH -->
