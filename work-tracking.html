@@ -20,11 +20,12 @@
   --mono:'IBM Plex Mono',monospace; --sans:'Sarabun',sans-serif;
 }
 * { box-sizing:border-box; margin:0; padding:0; }
-body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:15px; min-height:100vh; padding-bottom:90px; }
+body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:15px; min-height:100vh; }
 
 /* ── TOPBAR ── */
-.topbar { position:sticky; top:0; z-index:50; background:var(--surface); border-bottom:1px solid var(--border); padding:14px 16px; }
-.topbar-row { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+:root { --topbar:52px; --botnav:56px; }
+.topbar { position:fixed; top:0; left:0; right:0; z-index:600; background:var(--surface); border-bottom:1px solid var(--border); padding:0 16px; height:var(--topbar); display:flex; align-items:center; }
+.topbar-row { display:flex; align-items:center; gap:10px; width:100%; }
 .back-btn {
   color:var(--text2); text-decoration:none; font-size:13px;
   display:flex; align-items:center; gap:4px; flex-shrink:0;
@@ -36,6 +37,54 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   font-family:var(--mono); font-size:11.5px; color:var(--text2);
   background:var(--surface2); padding:3px 9px; border-radius:10px; flex-shrink:0; white-space:nowrap;
 }
+
+/* ── TAB CONTENT ── */
+.tab-pane { position:fixed; top:var(--topbar); left:0; right:0; bottom:var(--botnav); overflow-y:auto; display:none; }
+.tab-pane.active { display:block; }
+
+/* ── BOTTOM NAV ── */
+.bottom-nav {
+  position:fixed; bottom:0; left:0; right:0; height:var(--botnav); z-index:600;
+  background:var(--surface); border-top:1px solid var(--border); display:flex;
+}
+.nav-btn {
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:3px; background:none; border:none; color:var(--text2);
+  cursor:pointer; font-family:var(--sans); transition:color .15s; padding:4px 6px; position:relative;
+}
+.nav-btn.active { color:var(--accent); }
+.nav-btn.active::after {
+  content:''; position:absolute; top:0; left:20%; right:20%; height:2px;
+  background:var(--accent); border-radius:0 0 2px 2px;
+}
+.nav-icon { font-size:20px; line-height:1; }
+.nav-label { font-size:10.5px; font-weight:600; text-align:center; line-height:1.25; }
+
+/* ── DASHBOARD ── */
+.db-wrap { padding:14px 14px 20px; display:flex; flex-direction:column; gap:14px; }
+.stats-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+.stat-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:14px 16px; position:relative; overflow:hidden;
+}
+.stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+.stat-card.orange::before { background:var(--accent); }
+.stat-card.blue::before { background:var(--blue); }
+.stat-card.green::before { background:var(--green); }
+.stat-card.red::before { background:var(--red); }
+.stat-label { font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:8px; line-height:1.4; }
+.stat-value { font-family:var(--mono); font-size:24px; font-weight:600; color:var(--text); line-height:1; }
+.stat-unit { font-size:11.5px; color:var(--text2); margin-top:5px; }
+.charts-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.chart-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
+.chart-title { font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:12px; }
+.bar-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.bar-row:last-child { margin-bottom:0; }
+.bar-label { font-size:12px; color:var(--text2); width:80px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bar-track { flex:1; height:8px; background:var(--surface2); border-radius:4px; overflow:hidden; }
+.bar-fill { height:100%; border-radius:4px; background:var(--accent); transition:width .6s ease; }
+.bar-fill.blue { background:var(--blue); }
+.bar-count { font-family:var(--mono); font-size:11px; color:var(--text2); width:36px; text-align:right; }
 
 /* ── CATEGORY TABS ── */
 .tab-switch {
@@ -93,7 +142,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
 /* ── FAB ── */
 .fab {
-  position:fixed; right:18px; bottom:24px; width:56px; height:56px; border-radius:50%;
+  position:fixed; right:18px; bottom:calc(var(--botnav) + 18px); width:56px; height:56px; border-radius:50%;
   background:linear-gradient(135deg,var(--accent),var(--accent2)); border:none; color:#0f1923;
   font-size:26px; font-weight:700; cursor:pointer; box-shadow:0 4px 16px rgba(245,166,35,.4);
   display:flex; align-items:center; justify-content:center; z-index:100;
@@ -144,7 +193,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .btn-save:disabled { opacity:.5; }
 
 .toast {
-  position:fixed; bottom:90px; left:50%; transform:translateX(-50%);
+  position:fixed; bottom:calc(var(--botnav) + 10px); left:50%; transform:translateX(-50%);
   background:var(--surface2); border:1px solid var(--border); padding:10px 18px;
   border-radius:20px; font-size:13px; z-index:300; opacity:0; transition:opacity .2s;
   pointer-events:none;
@@ -158,28 +207,80 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   <div class="topbar-row">
     <a class="back-btn" href="index.html">← กลับ</a>
     <span class="topbar-title">📋 ขยายเขต / ปรับปรุงระบบจำหน่าย</span>
+    <span class="topbar-count" id="topbar-count">กำลังโหลด...</span>
   </div>
-  <div class="topbar-count" id="topbar-count">กำลังโหลด...</div>
 </div>
 
-<div class="tab-switch">
-  <button class="tab-btn active" data-cat="expansion" onclick="switchCategory('expansion')">⚡ ขยายเขต</button>
-  <button class="tab-btn" data-cat="improvement" onclick="switchCategory('improvement')">🔧 ปรับปรุงระบบจำหน่าย</button>
+<!-- TAB: DASHBOARD -->
+<div class="tab-pane active" id="pane-dashboard">
+  <div class="db-wrap">
+    <div class="stats-grid">
+      <div class="stat-card orange">
+        <div class="stat-label">งานทั้งหมด</div>
+        <div class="stat-value" id="stat-total">—</div>
+        <div class="stat-unit">รายการ</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">ขยายเขต</div>
+        <div class="stat-value" id="stat-expansion">—</div>
+        <div class="stat-unit">รายการ</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">ปรับปรุงระบบจำหน่าย</div>
+        <div class="stat-value" id="stat-improvement">—</div>
+        <div class="stat-unit">รายการ</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">งานก่อสร้างแล้วเสร็จ</div>
+        <div class="stat-value" id="stat-done">—</div>
+        <div class="stat-unit">รายการ</div>
+      </div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">สถานะงาน</div>
+        <div id="chart-status"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">ประเภทงาน</div>
+        <div id="chart-category"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<div class="filter-row" id="filter-row">
-  <button class="filter-chip active" data-status="all">ทั้งหมด</button>
-  <button class="filter-chip" data-status="survey">🔵 สำรวจออกแบบ</button>
-  <button class="filter-chip" data-status="estimate">🟡 ประมาณการ</button>
-  <button class="filter-chip" data-status="approval">🔴 รออนุมัติ</button>
-  <button class="filter-chip" data-status="done">🟢 ก่อสร้างแล้วเสร็จ</button>
+<!-- TAB: LIST -->
+<div class="tab-pane" id="pane-list">
+  <div class="tab-switch">
+    <button class="tab-btn active" data-cat="expansion">⚡ ขยายเขต</button>
+    <button class="tab-btn" data-cat="improvement">🔧 ปรับปรุงระบบจำหน่าย</button>
+  </div>
+
+  <div class="filter-row" id="filter-row">
+    <button class="filter-chip" data-status="survey">🔵 สำรวจออกแบบ</button>
+    <button class="filter-chip" data-status="estimate">🟡 ประมาณการ</button>
+    <button class="filter-chip" data-status="approval">🔴 รออนุมัติ</button>
+    <button class="filter-chip" data-status="done">🟢 ก่อสร้างแล้วเสร็จ</button>
+  </div>
+
+  <div class="list-container" id="list-container">
+    <div class="state-loading">กำลังโหลดรายการ...</div>
+  </div>
+
+  <button class="fab" onclick="openForm()">+</button>
 </div>
 
-<div class="list-container" id="list-container">
-  <div class="state-loading">กำลังโหลดรายการ...</div>
-</div>
-
-<button class="fab" onclick="openForm()">+</button>
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="btn-tab-dashboard" onclick="switchTab('dashboard')">
+    <span class="nav-icon">📊</span>
+    <span class="nav-label">แดชบอร์ด</span>
+  </button>
+  <button class="nav-btn" id="btn-tab-list" onclick="switchTab('list')">
+    <span class="nav-icon">📋</span>
+    <span class="nav-label">งานขยายเขต/งานปรับปรุง</span>
+  </button>
+</nav>
 
 <!-- MODAL FORM -->
 <div class="modal-overlay" id="modal-overlay">
@@ -329,6 +430,48 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     setTimeout(() => toastEl.classList.remove('show'), 1800);
   }
 
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('pane-' + tab).classList.add('active');
+    document.getElementById('btn-tab-' + tab).classList.add('active');
+  }
+  window.switchTab = switchTab;
+
+  function renderDashboard() {
+    const total = allWorks.length;
+    const expansion = allWorks.filter(w => w.category === 'expansion').length;
+    const improvement = allWorks.filter(w => w.category === 'improvement').length;
+    const done = allWorks.filter(w => w.status === 'done').length;
+
+    document.getElementById('stat-total').textContent = total.toLocaleString();
+    document.getElementById('stat-expansion').textContent = expansion.toLocaleString();
+    document.getElementById('stat-improvement').textContent = improvement.toLocaleString();
+    document.getElementById('stat-done').textContent = done.toLocaleString();
+
+    const statusLabels = { survey: '🔵 สำรวจออกแบบ', estimate: '🟡 ประมาณการ', approval: '🔴 รออนุมัติ', done: '🟢 เสร็จสิ้น' };
+    const statusCount = { survey: 0, estimate: 0, approval: 0, done: 0 };
+    allWorks.forEach(w => { if (statusCount[w.status] !== undefined) statusCount[w.status]++; });
+    const maxStatus = Math.max(1, ...Object.values(statusCount));
+    document.getElementById('chart-status').innerHTML = Object.entries(statusCount).map(([k, v]) =>
+      '<div class="bar-row">' +
+      '<div class="bar-label">' + statusLabels[k] + '</div>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + ((v / maxStatus * 100).toFixed(1)) + '%"></div></div>' +
+      '<div class="bar-count">' + v.toLocaleString() + '</div>' +
+      '</div>').join('');
+
+    const catLabels = { expansion: '⚡ ขยายเขต', improvement: '🔧 ปรับปรุงระบบ' };
+    const catCount = { expansion, improvement };
+    const maxCat = Math.max(1, expansion, improvement);
+    document.getElementById('chart-category').innerHTML = Object.entries(catCount).map(([k, v]) =>
+      '<div class="bar-row">' +
+      '<div class="bar-label">' + catLabels[k] + '</div>' +
+      '<div class="bar-track"><div class="bar-fill blue" style="width:' + ((v / maxCat * 100).toFixed(1)) + '%"></div></div>' +
+      '<div class="bar-count">' + v.toLocaleString() + '</div>' +
+      '</div>').join('');
+  }
+  window.renderDashboard = renderDashboard;
+
   function render() {
     const catItems = allWorks.filter(w => w.category === currentCat);
     const filtered = currentStatus === 'all' ? catItems : catItems.filter(w => w.status === currentStatus);
@@ -373,6 +516,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       const snap = await getDocs(collection(db, COLLECTION));
       allWorks = snap.docs.map(d => ({ ...d.data(), _id: d.id }));
       render();
+      renderDashboard();
     } catch (e) {
       console.error(e);
       listEl.innerHTML = `<div class="state-empty"><div class="icon">⚠️</div><div>โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่</div></div>`;
@@ -497,6 +641,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       }
       closeForm();
       render();
+      renderDashboard();
     } catch (e) {
       console.error(e);
       showToast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง');
@@ -512,6 +657,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       await deleteDoc(doc(db, COLLECTION, id));
       allWorks = allWorks.filter(w => w._id !== id);
       render();
+      renderDashboard();
       showToast('ลบรายการแล้ว');
     } catch (e) {
       console.error(e);
