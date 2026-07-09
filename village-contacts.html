@@ -19,8 +19,8 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
 
 /* === TOP BAR === */
 .topbar {
-  position: sticky; top: 0; z-index: 50; background: var(--surface);
-  border-bottom: 1px solid var(--border); padding: 14px 18px;
+  position: fixed; top: 0; left: 0; right: 0; height: var(--topbar); z-index: 600;
+  background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 18px;
   display: flex; align-items: center; gap: 10px;
 }
 .back-btn {
@@ -31,6 +31,57 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
 .topbar-badge { background: var(--accent); color:#000; font-family: var(--mono); font-weight:700; font-size:12px; padding:3px 8px; border-radius:4px; }
 .topbar-title { font-size: 14.5px; font-weight: 600; flex: 1; }
 .topbar-count { font-size: 12px; color: var(--text2); flex-shrink: 0; }
+
+/* === TAB CONTENT === */
+:root { --topbar: 52px; --botnav: 56px; }
+.tab-pane {
+  position: fixed; top: var(--topbar); left: 0; right: 0; bottom: var(--botnav);
+  overflow-y: auto; display: none;
+}
+.tab-pane.active { display: block; }
+
+/* === BOTTOM NAV === */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; height: var(--botnav); z-index: 600;
+  background: var(--surface); border-top: 1px solid var(--border); display: flex;
+}
+.nav-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; background: none; border: none; color: var(--text2);
+  cursor: pointer; font-family: var(--sans); transition: color .15s; padding: 0; position: relative;
+}
+.nav-btn.active { color: var(--accent); }
+.nav-btn.active::after {
+  content: ''; position: absolute; top: 0; left: 20%; right: 20%; height: 2px;
+  background: var(--accent); border-radius: 0 0 2px 2px;
+}
+.nav-icon { font-size: 20px; line-height: 1; }
+.nav-label { font-size: 11px; font-weight: 600; }
+
+/* === DASHBOARD === */
+.db-wrap { padding: 14px 14px 20px; display: flex; flex-direction: column; gap: 14px; }
+.stats-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 16px; position: relative; overflow: hidden;
+}
+.stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+.stat-card.orange::before { background: var(--accent); }
+.stat-card.blue::before { background: var(--blue); }
+.stat-card.green::before { background: var(--green); }
+.stat-card.grey::before { background: var(--text2); }
+.stat-label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 8px; line-height: 1.4; }
+.stat-value { font-family: var(--mono); font-size: 24px; font-weight: 600; color: var(--text); line-height: 1; }
+.stat-unit { font-size: 11.5px; color: var(--text2); margin-top: 5px; }
+.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.section-title { font-size: 12px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 4px; }
+.chart-title { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 12px; }
+.bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.bar-row:last-child { margin-bottom: 0; }
+.bar-label { font-size: 12px; color: var(--text2); width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-track { flex: 1; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; background: var(--accent); transition: width .6s ease; }
+.bar-count { font-family: var(--mono); font-size: 11px; color: var(--text2); width: 36px; text-align: right; }
 
 /* === SEARCH + FILTER === */
 .search-section { padding: 14px 16px 0; }
@@ -132,7 +183,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
 .btn-save:disabled { opacity: .5; }
 
 .toast {
-  position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+  position: fixed; bottom: calc(var(--botnav) + 10px); left: 50%; transform: translateX(-50%);
   background: var(--surface2); border: 1px solid var(--border); padding: 10px 18px;
   border-radius: 20px; font-size: 13px; z-index: 300; opacity: 0; transition: opacity .2s;
   pointer-events: none;
@@ -149,20 +200,91 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
   <span class="topbar-count" id="count-text">กำลังโหลด...</span>
 </div>
 
-<div class="search-section">
-  <input type="text" class="search-input" id="search-input" placeholder="🔍 ค้นหาชื่อ, หมู่บ้าน, เบอร์โทร..." oninput="render()">
-  <div class="filter-row" id="filter-row">
-    <button class="filter-btn active" data-filter="all" onclick="setFilter('all', this)">ทั้งหมด</button>
-    <button class="filter-btn" data-filter="ต.ชุมแสงสงคราม" onclick="setFilter('ต.ชุมแสงสงคราม', this)">ต.ชุมแสงสงคราม</button>
-    <button class="filter-btn" data-filter="ต.คุยม่วง" onclick="setFilter('ต.คุยม่วง', this)">ต.คุยม่วง</button>
-    <button class="filter-btn" data-filter="ต.บึงกอก" onclick="setFilter('ต.บึงกอก', this)">ต.บึงกอก</button>
-    <button class="filter-btn" data-filter="ต.นิคมพัฒนา" onclick="setFilter('ต.นิคมพัฒนา', this)">ต.นิคมพัฒนา</button>
-    <button class="filter-btn" data-filter="ต.หนองกุลา" onclick="setFilter('ต.หนองกุลา', this)">ต.หนองกุลา</button>
-    <button class="filter-btn" data-filter="extra" onclick="setFilter('extra', this)">🏘️ ต่างพื้นที่</button>
+<!-- TAB: DASHBOARD -->
+<div class="tab-pane active" id="pane-dashboard">
+  <div class="db-wrap">
+    <div class="stats-grid">
+      <div class="stat-card orange">
+        <div class="stat-label">รายชื่อทั้งหมด</div>
+        <div class="stat-value" id="stat-total">—</div>
+        <div class="stat-unit">ราย</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">กำนัน</div>
+        <div class="stat-value" id="stat-kamnan">—</div>
+        <div class="stat-unit">ราย</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">ผู้ใหญ่บ้าน</div>
+        <div class="stat-value" id="stat-puyai">—</div>
+        <div class="stat-unit">ราย</div>
+      </div>
+      <div class="stat-card grey">
+        <div class="stat-label">รอข้อมูล / ไม่มีเบอร์โทร</div>
+        <div class="stat-value" id="stat-pending">—</div>
+        <div class="stat-unit">ราย</div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">จำนวนรายชื่อตามตำบล</div>
+      <div id="chart-tambon"></div>
+    </div>
+
+    <div class="section-title">พื้นที่ให้บริการ</div>
+    <div class="stats-grid">
+      <div class="stat-card orange">
+        <div class="stat-label">จังหวัด</div>
+        <div class="stat-value" id="stat-changwat">—</div>
+        <div class="stat-unit">จังหวัด</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">อำเภอ</div>
+        <div class="stat-value" id="stat-amphoe">—</div>
+        <div class="stat-unit">อำเภอ</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">ตำบล</div>
+        <div class="stat-value" id="stat-tambon">—</div>
+        <div class="stat-unit">ตำบล</div>
+      </div>
+      <div class="stat-card grey">
+        <div class="stat-label">หมู่บ้าน</div>
+        <div class="stat-value" id="stat-village">—</div>
+        <div class="stat-unit">หมู่บ้าน</div>
+      </div>
+    </div>
   </div>
 </div>
 
-<div class="list" id="list"><div class="loading">กำลังโหลดข้อมูล...</div></div>
+<!-- TAB: LIST -->
+<div class="tab-pane" id="pane-list">
+  <div class="search-section">
+    <input type="text" class="search-input" id="search-input" placeholder="🔍 ค้นหาชื่อ, หมู่บ้าน, เบอร์โทร..." oninput="render()">
+    <div class="filter-row" id="filter-row">
+      <button class="filter-btn" data-filter="ต.ชุมแสงสงคราม" onclick="setFilter('ต.ชุมแสงสงคราม', this)">ต.ชุมแสงสงคราม</button>
+      <button class="filter-btn" data-filter="ต.คุยม่วง" onclick="setFilter('ต.คุยม่วง', this)">ต.คุยม่วง</button>
+      <button class="filter-btn" data-filter="ต.บึงกอก" onclick="setFilter('ต.บึงกอก', this)">ต.บึงกอก</button>
+      <button class="filter-btn" data-filter="ต.นิคมพัฒนา" onclick="setFilter('ต.นิคมพัฒนา', this)">ต.นิคมพัฒนา</button>
+      <button class="filter-btn" data-filter="ต.หนองกุลา" onclick="setFilter('ต.หนองกุลา', this)">ต.หนองกุลา</button>
+      <button class="filter-btn" data-filter="extra" onclick="setFilter('extra', this)">🏘️ ต่างพื้นที่</button>
+    </div>
+  </div>
+
+  <div class="list" id="list"><div class="loading">กำลังโหลดข้อมูล...</div></div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="btn-tab-dashboard" onclick="switchTab('dashboard')">
+    <span class="nav-icon">📊</span>
+    <span class="nav-label">แดชบอร์ด</span>
+  </button>
+  <button class="nav-btn" id="btn-tab-list" onclick="switchTab('list')">
+    <span class="nav-icon">📋</span>
+    <span class="nav-label">รายชื่อ</span>
+  </button>
+</nav>
+
 
 <!-- MODAL FORM -->
 <div class="modal-overlay" id="modal-overlay">
@@ -276,6 +398,61 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
   }
   window.setFilter = setFilter;
 
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('pane-' + tab).classList.add('active');
+    document.getElementById('btn-tab-' + tab).classList.add('active');
+  }
+  window.switchTab = switchTab;
+
+  function renderDashboard() {
+    const total = DATA.length;
+    const kamnan = DATA.filter(d => d.role === 'กำนัน').length;
+    const puyai = DATA.filter(d => d.role === 'ผู้ใหญ่บ้าน').length;
+    const pending = DATA.filter(d => d.name === 'รอข้อมูล' || !(d.tel || '').trim()).length;
+
+    document.getElementById('stat-total').textContent = total.toLocaleString();
+    document.getElementById('stat-kamnan').textContent = kamnan.toLocaleString();
+    document.getElementById('stat-puyai').textContent = puyai.toLocaleString();
+    document.getElementById('stat-pending').textContent = pending.toLocaleString();
+
+    const tambonCount = {};
+    DATA.forEach(d => {
+      const isExtra = !MAIN_TAMBONS.includes(d.tambon);
+      const key = isExtra ? '🏘️ ต่างพื้นที่' : d.tambon;
+      tambonCount[key] = (tambonCount[key] || 0) + 1;
+    });
+    const sorted = Object.entries(tambonCount).sort((a, b) => b[1] - a[1]);
+    const max = sorted[0] ? sorted[0][1] : 1;
+    document.getElementById('chart-tambon').innerHTML = sorted.map(([k, v]) =>
+      '<div class="bar-row">' +
+      '<div class="bar-label" title="' + k + '">' + k + '</div>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + ((v / max * 100).toFixed(1)) + '%"></div></div>' +
+      '<div class="bar-count">' + v.toLocaleString() + '</div>' +
+      '</div>').join('');
+
+    const changwatSet = new Set();
+    const amphoeSet = new Set();
+    const tambonSet = new Set();
+    const villageSet = new Set();
+    DATA.forEach(d => {
+      const isExtra = !MAIN_TAMBONS.includes(d.tambon);
+      const changwat = isExtra ? (d.changwat || '') : 'จ.พิษณุโลก';
+      const amphoe = isExtra ? (d.amphoe || '') : 'อ.บางระกำ';
+      if (changwat) changwatSet.add(changwat);
+      if (amphoe) amphoeSet.add(amphoe);
+      if (d.tambon) tambonSet.add(d.tambon);
+      if (d.village) villageSet.add(d.tambon + '|' + d.village);
+    });
+    document.getElementById('stat-changwat').textContent = changwatSet.size.toLocaleString();
+    document.getElementById('stat-amphoe').textContent = amphoeSet.size.toLocaleString();
+    document.getElementById('stat-tambon').textContent = tambonSet.size.toLocaleString();
+    document.getElementById('stat-village').textContent = villageSet.size.toLocaleString();
+  }
+  window.renderDashboard = renderDashboard;
+
+
   function render() {
     const q = document.getElementById('search-input').value.trim().toLowerCase();
     const filtered = DATA.filter(d => {
@@ -346,6 +523,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
       }
       DATA = snap.docs.map(d => ({ ...d.data(), _id: d.id }));
       render();
+      renderDashboard();
     } catch (e) {
       console.error(e);
       document.getElementById('list').innerHTML = '<div class="empty"><div class="icon">⚠️</div>โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่</div>';
@@ -440,6 +618,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
       }
       closeForm();
       render();
+      renderDashboard();
     } catch (e) {
       console.error(e);
       showToast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง');
@@ -457,6 +636,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
       await deleteDoc(doc(db, COLLECTION, id));
       DATA = DATA.filter(x => x._id !== id);
       render();
+      renderDashboard();
       showToast('ลบรายการแล้ว');
     } catch (e) {
       console.error(e);
