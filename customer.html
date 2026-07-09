@@ -343,117 +343,6 @@ textarea.form-control { resize:vertical; min-height:70px; }
   </div>
 </div>
 
-<!-- TAB: TICKET -->
-<div class="tab-pane" id="pane-ticket">
-  <div class="ticket-wrap">
-    <div class="ticket-form">
-      <div class="form-title">⚡ บันทึกเหตุการณ์ใหม่</div>
-
-      <div class="mode-toggle" style="display:flex;gap:8px;margin-bottom:16px;">
-        <button type="button" class="mode-btn active" id="mode-btn-normal" onclick="setTicketMode('normal')">👤 ผู้ใช้ไฟฟ้าในระบบ</button>
-        <button type="button" class="mode-btn" id="mode-btn-emergency" onclick="setTicketMode('emergency')">🚨 ฉุกเฉิน/ไม่มีในระบบ</button>
-      </div>
-
-      <div id="ticket-form-normal">
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">ค้นหาผู้แจ้ง (CA / ชื่อ)</label>
-            <input class="form-control" id="ticket-search" placeholder="พิมพ์เพื่อค้นหา..." oninput="ticketSearchUser()" autocomplete="off"/>
-            <div id="ticket-suggest" style="position:relative;"></div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">CA ผู้แจ้ง</label>
-            <input class="form-control" id="ticket-ca" placeholder="—" readonly style="opacity:0.7;"/>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">ชื่อ-นามสกุล</label>
-            <input class="form-control" id="ticket-name" placeholder="—" readonly style="opacity:0.7;"/>
-          </div>
-          <div class="form-group">
-            <label class="form-label">เบอร์โทร</label>
-            <input class="form-control" id="ticket-tel" placeholder="—" readonly style="opacity:0.7;"/>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">PEANO (หมายเลขเครื่องวัด)</label>
-            <input class="form-control" id="ticket-peano" placeholder="—" readonly style="opacity:0.7; font-family:var(--mono); color:var(--blue);"/>
-          </div>
-          <div class="form-group">
-            <label class="form-label">ประเภทมิเตอร์</label>
-            <input class="form-control" id="ticket-metertype" placeholder="—" readonly style="opacity:0.7;"/>
-          </div>
-        </div>
-        <div class="form-group" style="margin-bottom:10px;">
-          <label class="form-label">ที่อยู่</label>
-          <input class="form-control" id="ticket-addr" placeholder="—" readonly style="opacity:0.7;"/>
-        </div>
-      </div>
-
-      <div id="ticket-form-emergency" style="display:none;">
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">ชื่อผู้แจ้ง (ถ้ามี)</label>
-            <input class="form-control" id="emg-name" placeholder="เช่น ผู้พบเหตุ / หน่วยงานที่แจ้ง"/>
-          </div>
-          <div class="form-group">
-            <label class="form-label">เบอร์ติดต่อผู้แจ้ง</label>
-            <input class="form-control" id="emg-tel" placeholder="เช่น 08x-xxx-xxxx"/>
-          </div>
-        </div>
-        <div class="form-group" style="margin-bottom:10px;">
-          <label class="form-label">รายละเอียดสถานที่ (ถ้ามี)</label>
-          <input class="form-control" id="emg-addr" placeholder="เช่น ถนนสาย 1 หน้าวัด... / ใกล้สะพาน..."/>
-        </div>
-
-        <div class="form-group" style="margin-bottom:10px;">
-          <label class="form-label">ระบุพิกัดจุดเกิดเหตุ</label>
-          <div class="loc-method-row" style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-            <button type="button" class="loc-method-btn active" data-method="gps" onclick="setLocMethod('gps')">📍 GPS มือถือ</button>
-            <button type="button" class="loc-method-btn" data-method="map" onclick="setLocMethod('map')">🗺️ เลือกบนแผนที่</button>
-            <button type="button" class="loc-method-btn" data-method="manual" onclick="setLocMethod('manual')">⌨️ พิมพ์พิกัดเอง</button>
-          </div>
-
-          <div id="loc-method-gps">
-            <button type="button" class="btn btn-blue" style="width:100%;" onclick="captureGPS()">📍 จับพิกัด GPS ปัจจุบัน</button>
-            <div id="gps-result" style="margin-top:10px;font-size:13px;color:var(--text2);"></div>
-          </div>
-
-          <div id="loc-method-map" style="display:none;">
-            <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">แตะบนแผนที่เพื่อปักหมุดจุดเกิดเหตุ</div>
-            <div id="emg-pick-map" style="height:240px;border-radius:10px;overflow:hidden;border:1px solid var(--border);"></div>
-            <div id="map-pick-result" style="margin-top:10px;font-size:13px;color:var(--text2);"></div>
-          </div>
-
-          <div id="loc-method-manual" style="display:none;">
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">Latitude</label>
-                <input class="form-control" id="emg-lat-input" placeholder="เช่น 16.7412" inputmode="decimal"/>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Longitude</label>
-                <input class="form-control" id="emg-lng-input" placeholder="เช่น 99.9580" inputmode="decimal"/>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="form-group" style="margin-bottom:10px;">
-        <label class="form-label">รายละเอียดเหตุการณ์</label>
-        <textarea class="form-control" id="ticket-note" placeholder="เช่น ไฟดับทั้งซอย, สายไฟขาด, หม้อแปลงระเบิด..."></textarea>
-      </div>
-      <button class="btn btn-danger" style="width:100%;" onclick="createTicket()">⚡ สร้าง Ticket</button>
-    </div>
-
-    <div class="ticket-list-title">รายการแจ้งเหตุ</div>
-    <div id="ticket-list"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">ยังไม่มีรายการแจ้งเหตุ</div></div></div>
-  </div>
-</div>
-
 <!-- TAB: MAP -->
 <div class="tab-pane map-pane" id="pane-map">
   <div class="map-topbar-controls">
@@ -482,10 +371,6 @@ textarea.form-control { resize:vertical; min-height:70px; }
   <button class="nav-btn" id="btn-tab-search" onclick="switchTab('search')">
     <span class="nav-icon-wrap"><span class="nav-icon">🔍</span></span>
     <span class="nav-label">ค้นหา</span>
-  </button>
-  <button class="nav-btn" id="btn-tab-ticket" onclick="switchTab('ticket')">
-    <span class="nav-icon-wrap"><span class="nav-icon">🎫</span><span class="nav-badge" id="nav-ticket-badge" style="display:none;"></span></span>
-    <span class="nav-label">แจ้งเหตุ</span>
   </button>
   <button class="nav-btn" id="btn-tab-map" onclick="switchTab('map')">
     <span class="nav-icon-wrap"><span class="nav-icon">🗺️</span></span>
@@ -543,8 +428,6 @@ textarea.form-control { resize:vertical; min-height:70px; }
   const q = query(collection(db, "tickets"), orderBy("createdAt", "desc"));
   onSnapshot(q, (snapshot) => {
     tickets = snapshot.docs.map(d => ({ _docId: d.id, ...d.data() }));
-    renderTickets();
-    updateTicketBadge();
     document.getElementById('stat-tickets').textContent = tickets.length;
     if (mapFull) renderTicketMarkers();
   }, (err) => {
@@ -605,14 +488,7 @@ window.addEventListener('DOMContentLoaded', () => {
   loadTickets();
   document.getElementById('total-badge').textContent = ALL_RECORDS.length.toLocaleString() + ' รายการ';
   initDashboard();
-  if(tickets.length) { renderTickets(); updateTicketBadge(); document.getElementById('stat-tickets').textContent = tickets.length; }
-
-  // เข้าสู่หน้าแจ้งเหตุไฟฟ้าขัดข้องโดยตรง เมื่อมาจากเมนู "แจ้งเหตุไฟฟ้าขัดข้อง" ในหน้าแรก
-  const params = new URLSearchParams(window.location.search);
-  if(params.get('view') === 'ticket') {
-    switchTab('ticket');
-    document.getElementById('topbar-title-text').textContent = '🚨 แจ้งเหตุไฟฟ้าขัดข้อง';
-  }
+  if(tickets.length) { document.getElementById('stat-tickets').textContent = tickets.length; }
 });
 
 function initDashboard() { initStats(); }
@@ -654,10 +530,6 @@ function switchTab(tab) {
   document.getElementById('pane-' + tab).classList.add('active');
   document.getElementById('btn-tab-' + tab).classList.add('active');
   currentTab = tab;
-  const titleEl = document.getElementById('topbar-title-text');
-  if(titleEl && titleEl.textContent.includes('แจ้งเหตุไฟฟ้าขัดข้อง') && tab !== 'ticket') {
-    titleEl.textContent = '👤 ข้อมูลผู้ใช้ไฟฟ้า';
-  }
   if(tab === 'map') {
     setTimeout(() => { initMap(); if(mapFull) mapFull.invalidateSize(); }, 100);
   }
@@ -802,254 +674,10 @@ function navigateToGoogleMaps() {
   window.open(url, '_blank');
 }
 
-// ======= TICKET =======
-let ticketSelectedUser = null;
-
-function ticketSearchUser() {
-  const raw = document.getElementById('ticket-search').value.trim().toLowerCase();
-  const box = document.getElementById('ticket-suggest');
-  if(!raw || raw.length < 2) { box.innerHTML=''; return; }
-  const terms = raw.split(/\s+/).filter(Boolean);
-  const matches = ALL_RECORDS.filter(r => {
-    const haystack = [r.CA, r.PEANO, r.CUSTOMERNAME, r.CUSTOMERSIRNAME].map(v => (v+'').toLowerCase());
-    return terms.every(term => haystack.some(field => field.includes(term)));
-  }).slice(0,6);
-  if(!matches.length) { box.innerHTML=''; return; }
-  box.innerHTML = `<div style="position:absolute;top:2px;left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:6px;z-index:500;overflow:hidden;">
-    ${matches.map(r => `<div onclick='selectTicketUser(${JSON.stringify(r)})' style="padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background=''">
-      <span style="font-family:var(--mono);color:var(--accent);font-size:11px;">${r.CA}</span>
-      ${r.PREFIX||''} ${r.CUSTOMERNAME} ${r.CUSTOMERSIRNAME}
-      <span style="color:var(--text2);font-size:11px;"> · ${r.TUMBOL} ${r.AMPHOE}</span>
-    </div>`).join('')}
-  </div>`;
-}
-
-function selectTicketUser(r) {
-  ticketSelectedUser = r;
-  const name = `${r.PREFIX||''} ${r.CUSTOMERNAME||''} ${r.CUSTOMERSIRNAME||''}`.trim();
-  const addr = [r.ADDRESSNO, r.MOO?'ม.'+r.MOO:'', r.TUMBOL, r.AMPHOE, r.CHANGWAT].filter(Boolean).join(' ');
-  document.getElementById('ticket-search').value = name;
-  document.getElementById('ticket-ca').value = r.CA;
-  document.getElementById('ticket-name').value = name;
-  document.getElementById('ticket-tel').value = r.MOBILE_NO||'—';
-  document.getElementById('ticket-addr').value = addr;
-  document.getElementById('ticket-peano').value = r.PEANO||'—';
-  document.getElementById('ticket-metertype').value = r.METERTYPE||'—';
-  document.getElementById('ticket-suggest').innerHTML = '';
-}
-
+// ======= TICKET (แจ้งเหตุ - จัดการเต็มรูปแบบอยู่ที่ incident.html) =======
 function createTicketFromModal() {
-  closeModal('modal-user');
-  switchTab('ticket');
-  if(modalUser) selectTicketUser(modalUser);
-}
-
-let ticketMode = 'normal';
-let locMethod = 'gps';
-let emgPickedLat = null, emgPickedLng = null;
-let emgPickMap = null, emgPickMarker = null;
-
-function setTicketMode(mode) {
-  ticketMode = mode;
-  document.getElementById('mode-btn-normal').classList.toggle('active', mode==='normal');
-  document.getElementById('mode-btn-emergency').classList.toggle('active', mode==='emergency');
-  document.getElementById('ticket-form-normal').style.display = mode==='normal' ? '' : 'none';
-  document.getElementById('ticket-form-emergency').style.display = mode==='emergency' ? '' : 'none';
-}
-
-function setLocMethod(method) {
-  locMethod = method;
-  document.querySelectorAll('.loc-method-btn').forEach(b => b.classList.toggle('active', b.dataset.method===method));
-  document.getElementById('loc-method-gps').style.display = method==='gps' ? '' : 'none';
-  document.getElementById('loc-method-map').style.display = method==='map' ? '' : 'none';
-  document.getElementById('loc-method-manual').style.display = method==='manual' ? '' : 'none';
-  if(method === 'map') {
-    setTimeout(initEmgPickMap, 50);
-  }
-}
-
-function captureGPS() {
-  const resultEl = document.getElementById('gps-result');
-  if(!navigator.geolocation) { resultEl.textContent = '⚠️ เบราว์เซอร์นี้ไม่รองรับ GPS'; return; }
-  resultEl.textContent = '📡 กำลังค้นหาตำแหน่ง...';
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      emgPickedLat = pos.coords.latitude;
-      emgPickedLng = pos.coords.longitude;
-      resultEl.innerHTML = `✓ พิกัด: <span style="font-family:var(--mono);color:var(--green);">${emgPickedLat.toFixed(6)}, ${emgPickedLng.toFixed(6)}</span> (ความแม่นยำ ±${Math.round(pos.coords.accuracy)}ม.)`;
-    },
-    (err) => {
-      resultEl.textContent = '⚠️ ไม่สามารถจับพิกัดได้ กรุณาเปิดสิทธิ์ตำแหน่งของเบราว์เซอร์ หรือลองวิธีอื่น';
-    },
-    { enableHighAccuracy: true, timeout: 10000 }
-  );
-}
-
-function initEmgPickMap() {
-  const el = document.getElementById('emg-pick-map');
-  if(!el || emgPickMap) { if(emgPickMap) emgPickMap.invalidateSize(); return; }
-  emgPickMap = L.map(el).setView([16.75, 99.95], 12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:''}).addTo(emgPickMap);
-  emgPickMap.on('click', (e) => {
-    emgPickedLat = e.latlng.lat;
-    emgPickedLng = e.latlng.lng;
-    if(emgPickMarker) emgPickMap.removeLayer(emgPickMarker);
-    emgPickMarker = L.marker([emgPickedLat, emgPickedLng]).addTo(emgPickMap);
-    document.getElementById('map-pick-result').innerHTML = `✓ พิกัด: <span style="font-family:var(--mono);color:var(--green);">${emgPickedLat.toFixed(6)}, ${emgPickedLng.toFixed(6)}</span>`;
-  });
-}
-
-function genTicketToken() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let token = '';
-  for(let i=0;i<10;i++) token += chars[Math.floor(Math.random()*chars.length)];
-  return token;
-}
-
-function createTicket() {
-  const note = document.getElementById('ticket-note').value.trim();
-  if(!note) { showToast('กรุณาระบุรายละเอียดเหตุการณ์', 'error'); return; }
-
-  let ticket;
-
-  if(ticketMode === 'normal') {
-    if(!ticketSelectedUser) { showToast('กรุณาค้นหาและเลือกผู้แจ้งก่อน', 'error'); return; }
-    const r = ticketSelectedUser;
-    const name = `${r.PREFIX||''} ${r.CUSTOMERNAME||''} ${r.CUSTOMERSIRNAME||''}`.trim();
-    const addr = [r.ADDRESSNO, r.MOO?'ม.'+r.MOO:'', r.TUMBOL, r.AMPHOE, r.CHANGWAT].filter(Boolean).join(' ');
-    ticket = {
-      id: 'TK' + String(ticketCounter++).padStart(4,'0'),
-      token: genTicketToken(),
-      mode: 'normal',
-      ca: r.CA, name, addr, tel: r.MOBILE_NO||'—',
-      peano: r.PEANO||'—', metertype: r.METERTYPE||'—',
-      lat: r.LATITUDE||null, lng: r.LONGITUDE||null,
-      note, status: 'open',
-      time: new Date().toLocaleString('th-TH')
-    };
-  } else {
-    let lat = null, lng = null;
-    if(locMethod === 'manual') {
-      const latVal = parseFloat(document.getElementById('emg-lat-input').value);
-      const lngVal = parseFloat(document.getElementById('emg-lng-input').value);
-      if(isNaN(latVal) || isNaN(lngVal)) { showToast('กรุณากรอกพิกัด Latitude/Longitude ให้ถูกต้อง', 'error'); return; }
-      lat = latVal; lng = lngVal;
-    } else {
-      if(emgPickedLat === null || emgPickedLng === null) {
-        showToast(locMethod==='gps' ? 'กรุณากดจับพิกัด GPS ก่อน' : 'กรุณาแตะเลือกจุดบนแผนที่ก่อน', 'error');
-        return;
-      }
-      lat = emgPickedLat; lng = emgPickedLng;
-    }
-    const name = document.getElementById('emg-name').value.trim() || 'ไม่ระบุผู้แจ้ง (เหตุฉุกเฉิน)';
-    const tel = document.getElementById('emg-tel').value.trim() || '—';
-    const addr = document.getElementById('emg-addr').value.trim() || `พิกัด ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-    ticket = {
-      id: 'TK' + String(ticketCounter++).padStart(4,'0'),
-      token: genTicketToken(),
-      mode: 'emergency',
-      ca: '—', name, addr, tel,
-      peano: '—', metertype: '—',
-      lat, lng,
-      note, status: 'open',
-      time: new Date().toLocaleString('th-TH')
-    };
-  }
-
-  fsAddTicket(ticket);
-  saveTickets();
-
-  document.getElementById('ticket-search').value='';
-  document.getElementById('ticket-ca').value='';
-  document.getElementById('ticket-name').value='';
-  document.getElementById('ticket-tel').value='';
-  document.getElementById('ticket-addr').value='';
-  document.getElementById('ticket-peano').value='';
-  document.getElementById('ticket-metertype').value='';
-  document.getElementById('emg-name').value='';
-  document.getElementById('emg-tel').value='';
-  document.getElementById('emg-addr').value='';
-  document.getElementById('emg-lat-input').value='';
-  document.getElementById('emg-lng-input').value='';
-  document.getElementById('gps-result').textContent='';
-  document.getElementById('map-pick-result').textContent='';
-  if(emgPickMarker && emgPickMap) { emgPickMap.removeLayer(emgPickMarker); emgPickMarker=null; }
-  emgPickedLat = null; emgPickedLng = null;
-  document.getElementById('ticket-note').value='';
-  ticketSelectedUser = null;
-  showToast(`สร้าง Ticket ${ticket.id} เรียบร้อย ✓ (บันทึก Firebase)`, 'success');
-}
-
-function renderTickets() {
-  const el = document.getElementById('ticket-list');
-  if(!tickets.length) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">ยังไม่มีรายการแจ้งเหตุ</div></div>';
-    return;
-  }
-  const statusLabel = {open:'🔴 รอดำเนินการ', progress:'🟡 กำลังดำเนินการ', done:'🟢 แก้ไขแล้ว'};
-  el.innerHTML = tickets.map((t,i) => `
-    <div class="ticket-card" id="tc-${t.id}">
-      <div class="ticket-card-top">
-        <div class="ticket-status-dot ${t.status==='open'?'dot-open':t.status==='progress'?'dot-progress':'dot-done'}"></div>
-        <div class="ticket-info">
-          <div class="ticket-id">${t.id} · ${t.time} ${t.mode==='emergency'?'<span style="background:rgba(231,76,60,0.18);color:var(--red);font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;">🚨 ฉุกเฉิน</span>':''}</div>
-          <div class="ticket-name">${t.name}</div>
-          <div class="ticket-addr">📍 ${t.addr}</div>
-          <div class="ticket-note">${t.note}</div>
-          <div class="ticket-meta">
-            <span>📞 ${t.tel}</span>
-            <span>CA: ${t.ca}</span>
-            <span>🔢 PEANO: ${t.peano}</span>
-            ${t.lat?`<span>📡 ${t.lat?.toFixed(4)}, ${t.lng?.toFixed(4)}</span>`:'<span style="color:var(--red)">⚠️ ไม่มีพิกัด</span>'}
-          </div>
-        </div>
-      </div>
-      <div class="ticket-actions">
-        ${t.lat?`<button class="btn btn-blue" style="font-size:12px;padding:6px 10px;" onclick="shareLocation('${t.id}')">📍 แชร์พิกัดช่าง</button>`:''}`+
-        `${t.token?`<a href="update.html?id=${t.id}&token=${t.token}" target="_blank" rel="noopener" class="btn btn-ghost" style="font-size:12px;padding:6px 10px;text-decoration:none;display:inline-flex;align-items:center;">📝 รายละเอียดงาน</a>`:''}`+
-        `<button class="btn btn-ghost" style="font-size:12px;padding:6px 10px;" onclick="deleteTicket('${t.id}')">🗑️</button>
-      </div>
-    </div>
-  `).join('');
-}
-
-function changeStatus(id, status) {
-  const t = tickets.find(x=>x.id===id);
-  if(t) {
-    fsUpdateTicketStatus(t._docId, status);
-    t.status = status; saveTickets(); renderTickets(); updateTicketBadge();
-  }
-}
-
-function deleteTicket(id) {
-  const t = tickets.find(x=>x.id===id);
-  if(t) fsDeleteTicket(t._docId);
-  tickets = tickets.filter(x=>x.id!==id);
-  saveTickets();
-  renderTickets(); updateTicketBadge();
-  document.getElementById('stat-tickets').textContent = tickets.length;
-  if(mapFull) renderTicketMarkers();
-}
-
-function shareLocation(id) {
-  const t = tickets.find(x=>x.id===id);
-  if(!t) return;
-  const gmaps = `https://www.google.com/maps?q=${t.lat},${t.lng}`;
-  const updateLink = `${window.location.origin}${window.location.pathname.replace('customer.html','')}update.html?id=${t.id}&token=${t.token||''}`;
-  const msg = `[PEA แจ้งเหตุ] ${t.id}%0aผู้แจ้ง: ${t.name}%0aCA: ${t.ca}%0aPEANO: ${t.peano}%0aที่อยู่: ${t.addr}%0aเหตุการณ์: ${t.note}%0aพิกัด: ${gmaps}%0a%0aอัปเดตสถานะ: ${updateLink}`;
-  const lineUrl = `https://line.me/R/msg/text/?${msg}`;
-  navigator.clipboard.writeText(decodeURIComponent(msg.replace(/%0a/g,'\n')));
-  showToast('คัดลอกข้อความแล้ว สามารถวางใน LINE ได้เลย ✓', 'success');
-}
-
-function updateTicketBadge() {
-  const open = tickets.filter(t=>t.status==='open').length;
-  const badge = document.getElementById('nav-ticket-badge');
-  if(open>0) {
-    badge.textContent=open; badge.style.display='inline-block';
-  } else {
-    badge.style.display='none';
-  }
+  if(!modalUser) return;
+  window.location.href = 'incident.html?ca=' + encodeURIComponent(modalUser.CA);
 }
 
 // ======= MAP =======
