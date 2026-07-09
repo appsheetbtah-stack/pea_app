@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ข้อมูลผู้ใช้ไฟฟ้า - PEA</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f1923">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0f1923; --surface:#162030; --surface2:#1e2d3d; --border:#2a3f55;
+  --accent:#f5a623; --accent2:#e05c2a; --blue:#3b9ede; --green:#2ecc71; --red:#e74c3c;
+  --yellow:#f39c12; --text:#e8f0f8; --text2:#8aa0b8;
+  --mono:'IBM Plex Mono',monospace; --sans:'Sarabun',sans-serif;
+  --topbar:52px; --botnav:56px;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:15px; }
+
+/* ── TOPBAR ── */
+.topbar {
+  position:fixed; top:0; left:0; right:0; height:var(--topbar); z-index:600;
+  background:var(--surface); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:10px; padding:0 16px;
+}
+.back-btn {
+  color:var(--text2); text-decoration:none; font-size:13px;
+  display:flex; align-items:center; gap:4px;
+  padding:6px 10px; border:1px solid var(--border); border-radius:6px;
+  flex-shrink:0; transition:color .15s;
+}
+.back-btn:hover { color:var(--accent); border-color:var(--accent); }
+.topbar-title { font-size:15px; font-weight:700; flex:1; text-align:center; }
+.fb-dot { width:8px; height:8px; border-radius:50%; background:var(--yellow); flex-shrink:0; }
+.topbar-badge {
+  font-family:var(--mono); font-size:11px; color:var(--text2);
+  background:var(--surface2); padding:3px 8px; border-radius:10px; flex-shrink:0;
+}
+
+/* ── TAB CONTENT ── */
+.tab-pane {
+  position:fixed; top:var(--topbar); left:0; right:0; bottom:var(--botnav);
+  overflow-y:auto; display:none;
+}
+.tab-pane.active { display:block; }
+.tab-pane.map-pane { display:none; overflow:hidden; flex-direction:column; }
+.tab-pane.map-pane.active { display:flex; }
+
+/* ── BOTTOM NAV ── */
+.bottom-nav {
+  position:fixed; bottom:0; left:0; right:0; height:var(--botnav); z-index:600;
+  background:var(--surface); border-top:1px solid var(--border);
+  display:flex;
+}
+.nav-btn {
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:3px; background:none; border:none; color:var(--text2);
+  cursor:pointer; font-family:var(--sans); transition:color .15s; padding:0;
+  position:relative;
+}
+.nav-btn.active { color:var(--accent); }
+.nav-btn.active::after {
+  content:''; position:absolute; top:0; left:20%; right:20%; height:2px;
+  background:var(--accent); border-radius:0 0 2px 2px;
+}
+.nav-icon-wrap { position:relative; display:inline-block; }
+.nav-icon { font-size:20px; line-height:1; }
+.nav-label { font-size:11px; font-weight:600; }
+.nav-badge {
+  position:absolute; top:-4px; right:-10px; background:var(--red); color:#fff;
+  font-size:9px; font-family:var(--mono); border-radius:8px; padding:0 4px;
+  min-width:14px; text-align:center; line-height:14px;
+}
+
+/* ── DASHBOARD ── */
+.db-wrap { padding:14px 14px 20px; display:flex; flex-direction:column; gap:14px; }
+.stats-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+.stat-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:14px 16px; position:relative; overflow:hidden;
+}
+.stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+.stat-card.orange::before { background:var(--accent); }
+.stat-card.blue::before { background:var(--blue); }
+.stat-card.green::before { background:var(--green); }
+.stat-card.red::before { background:var(--red); }
+.stat-label { font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:8px; line-height:1.4; }
+.stat-value { font-family:var(--mono); font-size:24px; font-weight:600; color:var(--text); line-height:1; }
+.stat-unit { font-size:11.5px; color:var(--text2); margin-top:5px; }
+
+.charts-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.chart-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
+.chart-title { font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:12px; }
+.bar-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.bar-row:last-child { margin-bottom:0; }
+.bar-label { font-size:12px; color:var(--text2); width:80px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bar-track { flex:1; height:8px; background:var(--surface2); border-radius:4px; overflow:hidden; }
+.bar-fill { height:100%; border-radius:4px; background:var(--accent); transition:width .6s ease; }
+.bar-fill.blue { background:var(--blue); }
+.bar-count { font-family:var(--mono); font-size:11px; color:var(--text2); width:44px; text-align:right; }
+
+/* ── SEARCH ── */
+.search-wrap { padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
+.search-bar-wrap { display:flex; gap:8px; }
+.search-input {
+  flex:1; background:var(--surface); border:1px solid var(--border);
+  border-radius:8px; padding:11px 14px; color:var(--text);
+  font-family:var(--sans); font-size:14px; outline:none; transition:border-color .15s;
+}
+.search-input:focus { border-color:var(--accent); }
+.search-input::placeholder { color:var(--text2); }
+.btn {
+  padding:10px 18px; border-radius:8px; border:none; cursor:pointer;
+  font-family:var(--sans); font-size:14px; font-weight:600; transition:all .15s;
+  white-space:nowrap;
+}
+.btn-primary { background:var(--accent); color:#000; }
+.btn-primary:hover { background:#e09010; }
+.btn-danger { background:var(--red); color:#fff; }
+.btn-danger:hover { background:#c0392b; }
+.btn-ghost { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+.btn-ghost:hover { background:var(--border); }
+.btn-ghost.active-filter { border-color:var(--green); background:rgba(46,204,113,0.12); color:var(--green); }
+.btn-blue { background:var(--blue); color:#fff; }
+.btn-blue:hover { background:#2980b9; }
+.results-info { font-size:12.5px; color:var(--text2); font-family:var(--mono); }
+
+.table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:8px; border:1px solid var(--border); }
+table { width:100%; border-collapse:collapse; font-size:12.5px; min-width:560px; }
+th {
+  background:var(--surface2); color:var(--text2); text-align:left;
+  padding:9px 12px; font-weight:600; font-size:10.5px;
+  text-transform:uppercase; letter-spacing:0.7px; border-bottom:1px solid var(--border);
+  white-space:nowrap;
+}
+td { padding:9px 12px; border-bottom:1px solid rgba(42,63,85,0.5); color:var(--text); }
+tr:last-child td { border-bottom:none; }
+tr:hover td { background:var(--surface2); }
+.badge { display:inline-block; padding:2px 8px; border-radius:3px; font-size:11px; font-family:var(--mono); font-weight:500; }
+.badge-normal { background:rgba(46,204,113,0.15); color:var(--green); }
+.badge-emete { background:rgba(59,158,222,0.15); color:var(--blue); }
+.badge-demand { background:rgba(245,166,35,0.15); color:var(--accent); }
+.badge-tou { background:rgba(224,92,42,0.15); color:var(--accent2); }
+.badge-ami { background:rgba(150,100,200,0.15); color:#a06ac4; }
+.badge-other { background:rgba(138,160,184,0.15); color:var(--text2); }
+.action-btn {
+  padding:5px 12px; border-radius:6px; border:none; cursor:pointer;
+  font-size:12px; font-family:var(--sans); font-weight:600;
+  background:rgba(245,166,35,0.15); color:var(--accent); transition:all .15s;
+}
+.action-btn:hover { background:var(--accent); color:#000; }
+
+.pagination { display:flex; align-items:center; gap:4px; justify-content:center; flex-wrap:wrap; }
+.page-btn {
+  padding:6px 10px; border-radius:6px; border:1px solid var(--border);
+  background:var(--surface); color:var(--text2); cursor:pointer; font-size:12px; transition:all .15s;
+  min-width:34px; text-align:center;
+}
+.page-btn:hover, .page-btn.active { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
+.page-btn:disabled { opacity:0.3; cursor:default; }
+.page-info { font-size:12px; color:var(--text2); font-family:var(--mono); }
+
+/* ── MODAL ── */
+.modal-overlay {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75);
+  z-index:1000; align-items:flex-end; justify-content:center; padding:0;
+}
+.modal-overlay.show { display:flex; }
+.modal {
+  background:var(--surface); border:1px solid var(--border); border-radius:12px 12px 0 0;
+  width:100%; max-width:560px; max-height:85vh; overflow-y:auto;
+}
+.modal-header {
+  padding:16px 18px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; background:var(--surface); z-index:1;
+}
+.modal-title { font-size:15px; font-weight:700; }
+.modal-close { background:none; border:none; color:var(--text2); font-size:24px; cursor:pointer; line-height:1; padding:2px 6px; }
+.modal-close:hover { color:var(--text); }
+.modal-body { padding:18px; }
+.info-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+.info-key { font-size:10.5px; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:4px; }
+.info-val { font-size:13.5px; color:var(--text); font-weight:500; }
+.info-val.mono { font-family:var(--mono); color:var(--accent); }
+.map-mini { height:180px; border-radius:8px; overflow:hidden; margin-bottom:16px; border:1px solid var(--border); }
+.modal-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.col-span-2 { grid-column:1 / -1; }
+
+/* ── TICKET ── */
+.ticket-wrap { padding:14px; display:flex; flex-direction:column; gap:16px; }
+.ticket-form { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; }
+.form-title { font-size:14px; font-weight:700; margin-bottom:14px; color:var(--accent); }
+.form-row { display:grid; grid-template-columns:1fr; gap:10px; margin-bottom:10px; }
+.form-group { display:flex; flex-direction:column; gap:6px; }
+.form-label { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; }
+.form-control {
+  background:var(--surface2); border:1px solid var(--border);
+  border-radius:8px; padding:10px 12px; color:var(--text);
+  font-family:var(--sans); font-size:14px; outline:none; -webkit-appearance:none;
+}
+.form-control:focus { border-color:var(--accent); }
+textarea.form-control { resize:vertical; min-height:70px; }
+.mode-btn {
+  flex:1; border:1px solid var(--border); background:var(--surface2); color:var(--text2);
+  font-family:var(--sans); font-size:12.5px; font-weight:600; padding:10px 8px;
+  border-radius:9px; cursor:pointer; transition:all .15s ease;
+}
+.mode-btn.active { border-color:var(--accent); background:rgba(245,166,35,0.12); color:var(--accent); }
+.loc-method-btn {
+  border:1px solid var(--border); background:var(--surface2); color:var(--text2);
+  font-family:var(--sans); font-size:12px; font-weight:600; padding:8px 12px;
+  border-radius:20px; cursor:pointer; transition:all .15s ease;
+}
+.loc-method-btn.active { border-color:var(--blue); background:rgba(59,158,222,0.12); color:var(--blue); }
+
+.ticket-list-title { font-size:13px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.8px; }
+.ticket-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+.ticket-status-dot { width:10px; height:10px; border-radius:50%; margin-top:5px; flex-shrink:0; }
+.dot-open { background:var(--red); box-shadow:0 0 6px var(--red); }
+.dot-progress { background:var(--yellow); box-shadow:0 0 6px var(--yellow); }
+.dot-done { background:var(--green); }
+.ticket-info { flex:1; min-width:0; }
+.ticket-id { font-family:var(--mono); font-size:11px; color:var(--text2); margin-bottom:4px; }
+.ticket-name { font-size:14px; font-weight:600; margin-bottom:3px; }
+.ticket-addr { font-size:12.5px; color:var(--text2); margin-bottom:6px; }
+.ticket-note { font-size:12.5px; color:var(--text); background:var(--surface2); padding:8px 10px; border-radius:6px; margin-bottom:8px; }
+.ticket-meta { display:flex; gap:8px; font-size:10.5px; color:var(--text2); font-family:var(--mono); flex-wrap:wrap; }
+.ticket-actions { display:flex; flex-direction:row; align-items:center; gap:8px; width:100%; }
+.ticket-card-top { display:flex; align-items:flex-start; gap:12px; }
+.empty-state { text-align:center; padding:50px 20px; color:var(--text2); }
+.empty-icon { font-size:44px; margin-bottom:12px; }
+.empty-text { font-size:14px; }
+
+/* ── MAP ── */
+.map-topbar-controls { padding:10px 14px 6px; }
+#map-full { flex:1; }
+.map-controls { display:flex; gap:8px; margin-bottom:10px; align-items:center; flex-wrap:wrap; }
+.map-controls .btn { padding:8px 12px; font-size:12px; }
+.map-legend { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:4px; font-size:12px; color:var(--text2); }
+.legend-item { display:flex; align-items:center; gap:6px; }
+.legend-dot { width:10px; height:10px; border-radius:50%; }
+
+/* ── TOAST ── */
+.toast {
+  position:fixed; bottom:calc(var(--botnav) + 10px); left:50%; transform:translateX(-50%) translateY(80px);
+  background:var(--surface2); border:1px solid var(--border);
+  border-radius:10px; padding:11px 18px; font-size:13px;
+  opacity:0; transition:all .3s; z-index:9999;
+  white-space:nowrap; max-width:calc(100vw - 32px); text-align:center;
+}
+.toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+.toast.success { border-color:var(--green); background:rgba(46,204,113,0.15); }
+.toast.error { border-color:var(--red); background:rgba(231,76,60,0.15); }
+
+.highlight { background:rgba(245,166,35,0.3); color:var(--accent); border-radius:2px; padding:0 1px; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <a class="back-btn" href="index.html">← กลับ</a>
+  <span class="topbar-title">👤 ข้อมูลผู้ใช้ไฟฟ้า</span>
+  <span class="fb-dot" id="fb-dot" title="สถานะ Firestore"></span>
+  <span class="topbar-badge" id="total-badge">—</span>
+</div>
+
+<!-- TAB: DASHBOARD -->
+<div class="tab-pane active" id="pane-dashboard">
+  <div class="db-wrap">
+    <div class="stats-grid">
+      <div class="stat-card orange">
+        <div class="stat-label">ผู้ใช้ไฟฟ้าทั้งหมด</div>
+        <div class="stat-value" id="stat-total">—</div>
+        <div class="stat-unit">ราย</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">มิเตอร์ปกติ (Normal)</div>
+        <div class="stat-value" id="stat-normal">—</div>
+        <div class="stat-unit">เครื่อง</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">มิเตอร์ E-Meter/AMI</div>
+        <div class="stat-value" id="stat-smart">—</div>
+        <div class="stat-unit">เครื่อง</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">Ticket แจ้งเหตุ</div>
+        <div class="stat-value" id="stat-tickets">0</div>
+        <div class="stat-unit">รายการ</div>
+      </div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">จังหวัด / อำเภอ</div>
+        <div id="chart-changwat"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">ประเภทมิเตอร์</div>
+        <div id="chart-metertype"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB: SEARCH -->
+<div class="tab-pane" id="pane-search">
+  <div class="search-wrap">
+    <div class="search-bar-wrap">
+      <input class="search-input" id="search-input" placeholder="🔍 CA, PEANO, ชื่อ, ตำบล, เบอร์โทร..." oninput="doSearch()" />
+      <button class="btn btn-ghost" onclick="clearSearch()">ล้าง</button>
+    </div>
+    <div class="results-info" id="results-info">— ใส่คำค้นหาเพื่อเริ่มต้น</div>
+    <div class="table-wrap">
+      <table id="search-table">
+        <thead>
+          <tr>
+            <th>CA</th>
+            <th>PEANO</th>
+            <th>ชื่อ-นามสกุล</th>
+            <th>ที่อยู่</th>
+            <th>ตำบล / อำเภอ</th>
+            <th>เบอร์โทร</th>
+            <th>มิเตอร์</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="search-body"></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+</div>
+
+<!-- TAB: TICKET -->
+<div class="tab-pane" id="pane-ticket">
+  <div class="ticket-wrap">
+    <div class="ticket-form">
+      <div class="form-title">⚡ บันทึกเหตุการณ์ใหม่</div>
+
+      <div class="mode-toggle" style="display:flex;gap:8px;margin-bottom:16px;">
+        <button type="button" class="mode-btn active" id="mode-btn-normal" onclick="setTicketMode('normal')">👤 ผู้ใช้ไฟฟ้าในระบบ</button>
+        <button type="button" class="mode-btn" id="mode-btn-emergency" onclick="setTicketMode('emergency')">🚨 ฉุกเฉิน/ไม่มีในระบบ</button>
+      </div>
+
+      <div id="ticket-form-normal">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">ค้นหาผู้แจ้ง (CA / ชื่อ)</label>
+            <input class="form-control" id="ticket-search" placeholder="พิมพ์เพื่อค้นหา..." oninput="ticketSearchUser()" autocomplete="off"/>
+            <div id="ticket-suggest" style="position:relative;"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">CA ผู้แจ้ง</label>
+            <input class="form-control" id="ticket-ca" placeholder="—" readonly style="opacity:0.7;"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">ชื่อ-นามสกุล</label>
+            <input class="form-control" id="ticket-name" placeholder="—" readonly style="opacity:0.7;"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">เบอร์โทร</label>
+            <input class="form-control" id="ticket-tel" placeholder="—" readonly style="opacity:0.7;"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">PEANO (หมายเลขเครื่องวัด)</label>
+            <input class="form-control" id="ticket-peano" placeholder="—" readonly style="opacity:0.7; font-family:var(--mono); color:var(--blue);"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">ประเภทมิเตอร์</label>
+            <input class="form-control" id="ticket-metertype" placeholder="—" readonly style="opacity:0.7;"/>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:10px;">
+          <label class="form-label">ที่อยู่</label>
+          <input class="form-control" id="ticket-addr" placeholder="—" readonly style="opacity:0.7;"/>
+        </div>
+      </div>
+
+      <div id="ticket-form-emergency" style="display:none;">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">ชื่อผู้แจ้ง (ถ้ามี)</label>
+            <input class="form-control" id="emg-name" placeholder="เช่น ผู้พบเหตุ / หน่วยงานที่แจ้ง"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">เบอร์ติดต่อผู้แจ้ง</label>
+            <input class="form-control" id="emg-tel" placeholder="เช่น 08x-xxx-xxxx"/>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:10px;">
+          <label class="form-label">รายละเอียดสถานที่ (ถ้ามี)</label>
+          <input class="form-control" id="emg-addr" placeholder="เช่น ถนนสาย 1 หน้าวัด... / ใกล้สะพาน..."/>
+        </div>
+
+        <div class="form-group" style="margin-bottom:10px;">
+          <label class="form-label">ระบุพิกัดจุดเกิดเหตุ</label>
+          <div class="loc-method-row" style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+            <button type="button" class="loc-method-btn active" data-method="gps" onclick="setLocMethod('gps')">📍 GPS มือถือ</button>
+            <button type="button" class="loc-method-btn" data-method="map" onclick="setLocMethod('map')">🗺️ เลือกบนแผนที่</button>
+            <button type="button" class="loc-method-btn" data-method="manual" onclick="setLocMethod('manual')">⌨️ พิมพ์พิกัดเอง</button>
+          </div>
+
+          <div id="loc-method-gps">
+            <button type="button" class="btn btn-blue" style="width:100%;" onclick="captureGPS()">📍 จับพิกัด GPS ปัจจุบัน</button>
+            <div id="gps-result" style="margin-top:10px;font-size:13px;color:var(--text2);"></div>
+          </div>
+
+          <div id="loc-method-map" style="display:none;">
+            <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">แตะบนแผนที่เพื่อปักหมุดจุดเกิดเหตุ</div>
+            <div id="emg-pick-map" style="height:240px;border-radius:10px;overflow:hidden;border:1px solid var(--border);"></div>
+            <div id="map-pick-result" style="margin-top:10px;font-size:13px;color:var(--text2);"></div>
+          </div>
+
+          <div id="loc-method-manual" style="display:none;">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Latitude</label>
+                <input class="form-control" id="emg-lat-input" placeholder="เช่น 16.7412" inputmode="decimal"/>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Longitude</label>
+                <input class="form-control" id="emg-lng-input" placeholder="เช่น 99.9580" inputmode="decimal"/>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:10px;">
+        <label class="form-label">รายละเอียดเหตุการณ์</label>
+        <textarea class="form-control" id="ticket-note" placeholder="เช่น ไฟดับทั้งซอย, สายไฟขาด, หม้อแปลงระเบิด..."></textarea>
+      </div>
+      <button class="btn btn-danger" style="width:100%;" onclick="createTicket()">⚡ สร้าง Ticket</button>
+    </div>
+
+    <div class="ticket-list-title">รายการแจ้งเหตุ</div>
+    <div id="ticket-list"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">ยังไม่มีรายการแจ้งเหตุ</div></div></div>
+  </div>
+</div>
+
+<!-- TAB: MAP -->
+<div class="tab-pane map-pane" id="pane-map">
+  <div class="map-topbar-controls">
+    <div class="map-controls">
+      <button class="btn btn-ghost" onclick="toggleLayer('users')" id="btn-users">👤 ผู้ใช้ไฟฟ้า (แสดง)</button>
+      <button class="btn btn-ghost" onclick="toggleLayer('tickets')" id="btn-tickets">🔴 จุดแจ้งเหตุ (แสดง)</button>
+      <button class="btn btn-ghost" onclick="toggleHideDoneTickets()" id="btn-hide-done">🟢 งานเสร็จสิ้น (แสดง)</button>
+      <button class="btn btn-primary" onclick="fitMapBounds()">🎯 ดูภาพรวม</button>
+      <button class="btn btn-ghost" onclick="locateMe()" id="btn-locate">📍 ตำแหน่งของฉัน</button>
+    </div>
+    <div class="map-legend">
+      <span class="legend-item"><span class="legend-dot" style="background:#e74c3c;"></span>รอดำเนินการ</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#f39c12;"></span>กำลังดำเนินการ</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#2ecc71;"></span>แก้ไขแล้ว</span>
+    </div>
+  </div>
+  <div id="map-full"></div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="btn-tab-dashboard" onclick="switchTab('dashboard')">
+    <span class="nav-icon-wrap"><span class="nav-icon">📊</span></span>
+    <span class="nav-label">แดชบอร์ด</span>
+  </button>
+  <button class="nav-btn" id="btn-tab-search" onclick="switchTab('search')">
+    <span class="nav-icon-wrap"><span class="nav-icon">🔍</span></span>
+    <span class="nav-label">ค้นหา</span>
+  </button>
+  <button class="nav-btn" id="btn-tab-ticket" onclick="switchTab('ticket')">
+    <span class="nav-icon-wrap"><span class="nav-icon">🎫</span><span class="nav-badge" id="nav-ticket-badge" style="display:none;"></span></span>
+    <span class="nav-label">แจ้งเหตุ</span>
+  </button>
+  <button class="nav-btn" id="btn-tab-map" onclick="switchTab('map')">
+    <span class="nav-icon-wrap"><span class="nav-icon">🗺️</span></span>
+    <span class="nav-label">แผนที่</span>
+  </button>
+</nav>
+
+<!-- MODAL: User Detail -->
+<div class="modal-overlay" id="modal-user">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">ข้อมูลผู้ใช้ไฟฟ้า</div>
+      <button class="modal-close" onclick="closeModal('modal-user')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="modal-map-mini" class="map-mini"></div>
+      <div class="info-grid" id="modal-info"></div>
+      <div class="modal-actions">
+        <button class="btn btn-danger" onclick="createTicketFromModal()">⚡ แจ้งเหตุไฟดับ</button>
+        <button class="btn btn-blue" id="modal-map-btn" onclick="">🗺️ ดูบนแผนที่</button>
+        <button class="btn btn-ghost" onclick="copyGoogleMaps()">📍 คัดลอก Google Maps</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyC7bzImCV7c89fLGhIq8OycWKQWRYdvZvE",
+    authDomain: "pea-system.firebaseapp.com",
+    projectId: "pea-system",
+    storageBucket: "pea-system.firebasestorage.app",
+    messagingSenderId: "1006235611544",
+    appId: "1:1006235611544:web:a7453d71ff56748166fbed",
+    measurementId: "G-V5NPYZ4KZW"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  window._db = db;
+  window._fsLib = { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy };
+  window._firebaseReady = true;
+  document.getElementById('fb-dot').style.background = '#2ecc71';
+
+  const q = query(collection(db, "tickets"), orderBy("createdAt", "desc"));
+  onSnapshot(q, (snapshot) => {
+    tickets = snapshot.docs.map(d => ({ _docId: d.id, ...d.data() }));
+    renderTickets();
+    updateTicketBadge();
+    document.getElementById('stat-tickets').textContent = tickets.length;
+    if (mapFull) renderTicketMarkers();
+  }, (err) => {
+    console.warn("Firestore listen error:", err);
+    document.getElementById('fb-dot').style.background = '#e74c3c';
+  });
+</script>
+
+<script src="data.js"></script>
+<script>
+let searchResults = [];
+let currentPage = 1;
+const PAGE_SIZE = 20;
+let tickets = [];
+let ticketCounter = 1;
+let mapFull = null;
+let userLayer = null;
+let ticketLayer = null;
+let userLayerVisible = true, ticketLayerVisible = true;
+let hideDoneTickets = false;
+
+// ======= INIT =======
+function saveTickets() {
+  try { localStorage.setItem('pea_tickets', JSON.stringify(tickets)); localStorage.setItem('pea_ticket_counter', ticketCounter); } catch(e) {}
+}
+function loadTickets() {
+  try {
+    const saved = localStorage.getItem('pea_tickets');
+    const counter = localStorage.getItem('pea_ticket_counter');
+    if(saved) tickets = JSON.parse(saved);
+    if(counter) ticketCounter = parseInt(counter);
+  } catch(e) { tickets = []; }
+}
+
+// ======= FIRESTORE HELPERS =======
+async function fsAddTicket(ticket) {
+  if(!window._firebaseReady) return;
+  const { collection, addDoc } = window._fsLib;
+  const db = window._db;
+  try {
+    await addDoc(collection(db, "tickets"), { ...ticket, createdAt: Date.now() });
+  } catch(e) { console.error("Firestore add error:", e); showToast('⚠️ บันทึก Firestore ล้มเหลว (ข้อมูลยังอยู่ใน localStorage)', 'error'); }
+}
+async function fsUpdateTicketStatus(docId, status) {
+  if(!window._firebaseReady || !docId) return;
+  const { doc, updateDoc } = window._fsLib;
+  const db = window._db;
+  try { await updateDoc(doc(db, "tickets", docId), { status }); } catch(e) { console.error("Firestore update error:", e); }
+}
+async function fsDeleteTicket(docId) {
+  if(!window._firebaseReady || !docId) return;
+  const { doc, deleteDoc } = window._fsLib;
+  const db = window._db;
+  try { await deleteDoc(doc(db, "tickets", docId)); } catch(e) { console.error("Firestore delete error:", e); }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  loadTickets();
+  document.getElementById('total-badge').textContent = ALL_RECORDS.length.toLocaleString() + ' รายการ';
+  initDashboard();
+  if(tickets.length) { renderTickets(); updateTicketBadge(); document.getElementById('stat-tickets').textContent = tickets.length; }
+});
+
+function initDashboard() { initStats(); }
+function initStats() {
+  document.getElementById('stat-total').textContent = ALL_RECORDS.length.toLocaleString();
+  const normal = ALL_RECORDS.filter(r => r.METERTYPE === 'NORMAL').length;
+  const smart = ALL_RECORDS.filter(r => ['E-METE','E-METER','AMI','AMR'].includes(r.METERTYPE)).length;
+  document.getElementById('stat-normal').textContent = normal.toLocaleString();
+  document.getElementById('stat-smart').textContent = smart.toLocaleString();
+
+  const cwCount = {};
+  ALL_RECORDS.forEach(r => { if(r.CHANGWAT) cwCount[r.CHANGWAT] = (cwCount[r.CHANGWAT]||0)+1; });
+  const cwSorted = Object.entries(cwCount).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const maxCw = cwSorted[0] ? cwSorted[0][1] : 1;
+  document.getElementById('chart-changwat').innerHTML = cwSorted.map(([k,v]) =>
+    '<div class="bar-row">' +
+    '<div class="bar-label" title="'+k+'">'+k+'</div>' +
+    '<div class="bar-track"><div class="bar-fill" style="width:'+((v/maxCw*100).toFixed(1))+'%"></div></div>' +
+    '<div class="bar-count">'+v.toLocaleString()+'</div>' +
+    '</div>').join('');
+
+  const mtCount = {};
+  ALL_RECORDS.forEach(r => { if(r.METERTYPE) mtCount[r.METERTYPE] = (mtCount[r.METERTYPE]||0)+1; });
+  const mtSorted = Object.entries(mtCount).sort((a,b)=>b[1]-a[1]);
+  const maxMt = mtSorted[0] ? mtSorted[0][1] : 1;
+  document.getElementById('chart-metertype').innerHTML = mtSorted.map(([k,v]) =>
+    '<div class="bar-row">' +
+    '<div class="bar-label">'+(k||'(ไม่ระบุ)')+'</div>' +
+    '<div class="bar-track"><div class="bar-fill blue" style="width:'+((v/maxMt*100).toFixed(1))+'%"></div></div>' +
+    '<div class="bar-count">'+v.toLocaleString()+'</div>' +
+    '</div>').join('');
+}
+
+// ======= TAB SWITCHING =======
+let currentTab = 'dashboard';
+function switchTab(tab) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('pane-' + tab).classList.add('active');
+  document.getElementById('btn-tab-' + tab).classList.add('active');
+  currentTab = tab;
+  if(tab === 'map') {
+    setTimeout(() => { initMap(); if(mapFull) mapFull.invalidateSize(); }, 100);
+  }
+}
+
+// ======= SEARCH =======
+function doSearch() {
+  const raw = document.getElementById('search-input').value.trim().toLowerCase();
+  if(!raw) { searchResults = []; renderTable(); return; }
+  const terms = raw.split(/\s+/).filter(Boolean);
+  searchResults = ALL_RECORDS.filter(r => {
+    const haystack = [
+      r.CA, r.PEANO, r.CUSTOMERNAME, r.CUSTOMERSIRNAME,
+      r.TUMBOL, r.AMPHOE, r.MOBILE_NO, r.ADDRESSNO
+    ].map(v => (v+'').toLowerCase());
+    return terms.every(term => haystack.some(field => field.includes(term)));
+  });
+  currentPage = 1;
+  renderTable();
+}
+
+function clearSearch() {
+  document.getElementById('search-input').value = '';
+  searchResults = [];
+  renderTable();
+}
+
+function hl(text, q) {
+  if(!q || !text) return text||'';
+  const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
+  return (text+'').replace(re, '<span class="highlight">$1</span>');
+}
+
+function meterBadge(t) {
+  const map = {'NORMAL':'badge-normal','E-METE':'badge-emete','E-METER':'badge-emete','DEMAND':'badge-demand','TOU':'badge-tou','AMI':'badge-ami','AMR':'badge-ami'};
+  return `<span class="badge ${map[t]||'badge-other'}">${t||'—'}</span>`;
+}
+
+function renderTable() {
+  const q = document.getElementById('search-input').value.trim().toLowerCase();
+  const body = document.getElementById('search-body');
+  if(!searchResults.length) {
+    body.innerHTML = '';
+    document.getElementById('results-info').textContent = q ? '❌ ไม่พบข้อมูลที่ตรงกัน' : '— ใส่คำค้นหาเพื่อเริ่มต้น';
+    document.getElementById('pagination').innerHTML = '';
+    return;
+  }
+  const total = searchResults.length;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const start = (currentPage-1)*PAGE_SIZE;
+  const rows = searchResults.slice(start, start+PAGE_SIZE);
+  document.getElementById('results-info').textContent = `พบ ${total.toLocaleString()} รายการ · หน้า ${currentPage}/${totalPages}`;
+  body.innerHTML = rows.map(r => {
+    const name = `${r.PREFIX||''} ${r.CUSTOMERNAME||''} ${r.CUSTOMERSIRNAME||''}`.trim();
+    const addr = [r.ADDRESSNO, r.MOO ? 'ม.'+r.MOO : ''].filter(Boolean).join(' ');
+    const loc = [r.TUMBOL, r.AMPHOE].filter(Boolean).join(' ');
+    return `<tr>
+      <td><span style="font-family:var(--mono);font-size:12px;color:var(--accent)">${hl(r.CA,q)}</span></td>
+      <td><span style="font-family:var(--mono);font-size:12px;color:var(--blue)">${hl(r.PEANO||'—',q)}</span></td>
+      <td>${hl(name,q)}</td>
+      <td style="color:var(--text2)">${hl(addr,q)}</td>
+      <td style="color:var(--text2)">${hl(loc,q)}</td>
+      <td><span style="font-family:var(--mono);font-size:12px">${hl(r.MOBILE_NO||'—',q)}</span></td>
+      <td>${meterBadge(r.METERTYPE)}</td>
+      <td><button class="action-btn" onclick='openUserModal(${JSON.stringify(r)})'>ดูข้อมูล</button></td>
+    </tr>`;
+  }).join('');
+
+  const pg = document.getElementById('pagination');
+  let phtml = `<button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
+  const range = 2;
+  for(let i=1;i<=totalPages;i++) {
+    if(i===1||i===totalPages||Math.abs(i-currentPage)<=range) {
+      phtml += `<button class="page-btn ${i===currentPage?'active':''}" onclick="goPage(${i})">${i}</button>`;
+    } else if(Math.abs(i-currentPage)===range+1) {
+      phtml += `<span class="page-info">…</span>`;
+    }
+  }
+  phtml += `<button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>›</button>`;
+  pg.innerHTML = phtml;
+}
+
+function goPage(p) {
+  const total = Math.ceil(searchResults.length/PAGE_SIZE);
+  if(p<1||p>total) return;
+  currentPage = p;
+  renderTable();
+  document.getElementById('search-table').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ======= MODAL =======
+let modalUser = null;
+let modalMiniMap = null;
+
+function openUserModal(r) {
+  modalUser = r;
+  const name = `${r.PREFIX||''} ${r.CUSTOMERNAME||''} ${r.CUSTOMERSIRNAME||''}`.trim();
+  const addr = [r.ADDRESSNO, r.MOO?'ม.'+r.MOO:'', r.TUMBOL, r.AMPHOE, r.CHANGWAT].filter(Boolean).join(' ');
+  document.getElementById('modal-info').innerHTML = `
+    <div class="info-item"><div class="info-key">CA</div><div class="info-val mono">${r.CA}</div></div>
+    <div class="info-item"><div class="info-key">PEANO</div><div class="info-val mono">${r.PEANO||'—'}</div></div>
+    <div class="info-item"><div class="info-key">ชื่อ-นามสกุล</div><div class="info-val">${name}</div></div>
+    <div class="info-item"><div class="info-key">เบอร์โทร</div><div class="info-val mono">${r.MOBILE_NO||'—'}</div></div>
+    <div class="info-item col-span-2"><div class="info-key">ที่อยู่</div><div class="info-val">${addr}</div></div>
+    <div class="info-item"><div class="info-key">ประเภทมิเตอร์</div><div class="info-val">${r.METERTYPE||'—'}</div></div>
+    <div class="info-item"><div class="info-key">พิกัด</div><div class="info-val mono" style="font-size:12px">${r.LATITUDE?.toFixed(6)||'—'}, ${r.LONGITUDE?.toFixed(6)||'—'}</div></div>
+  `;
+  document.getElementById('modal-map-btn').onclick = () => { closeModal('modal-user'); switchTab('map'); setTimeout(()=>{ if(mapFull) mapFull.invalidateSize(); focusMapUser(r); },350); };
+  document.getElementById('modal-user').classList.add('show');
+  setTimeout(()=>initMiniMap(r), 100);
+}
+
+function initMiniMap(r) {
+  const el = document.getElementById('modal-map-mini');
+  if(modalMiniMap) { try { modalMiniMap.remove(); } catch(e){} modalMiniMap = null; }
+  el.innerHTML = '';
+  if(!r.LATITUDE||!r.LONGITUDE) { el.style.display='none'; return; }
+  el.style.display='block';
+  modalMiniMap = L.map(el, {zoomControl:false,attributionControl:false}).setView([r.LATITUDE,r.LONGITUDE],15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(modalMiniMap);
+  L.marker([r.LATITUDE,r.LONGITUDE]).addTo(modalMiniMap)
+    .bindPopup(`${r.PREFIX||''} ${r.CUSTOMERNAME} ${r.CUSTOMERSIRNAME}<br>CA: ${r.CA}<br>PEANO: ${r.PEANO||'—'}`).openPopup();
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+  if(modalMiniMap) { try { modalMiniMap.remove(); } catch(e){} modalMiniMap = null; }
+}
+
+function copyGoogleMaps() {
+  if(!modalUser) return;
+  const url = `https://www.google.com/maps?q=${modalUser.LATITUDE},${modalUser.LONGITUDE}`;
+  navigator.clipboard.writeText(url);
+  showToast('คัดลอกลิงก์ Google Maps แล้ว ✓', 'success');
+}
+
+// ======= TICKET =======
+let ticketSelectedUser = null;
+
+function ticketSearchUser() {
+  const raw = document.getElementById('ticket-search').value.trim().toLowerCase();
+  const box = document.getElementById('ticket-suggest');
+  if(!raw || raw.length < 2) { box.innerHTML=''; return; }
+  const terms = raw.split(/\s+/).filter(Boolean);
+  const matches = ALL_RECORDS.filter(r => {
+    const haystack = [r.CA, r.PEANO, r.CUSTOMERNAME, r.CUSTOMERSIRNAME].map(v => (v+'').toLowerCase());
+    return terms.every(term => haystack.some(field => field.includes(term)));
+  }).slice(0,6);
+  if(!matches.length) { box.innerHTML=''; return; }
+  box.innerHTML = `<div style="position:absolute;top:2px;left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:6px;z-index:500;overflow:hidden;">
+    ${matches.map(r => `<div onclick='selectTicketUser(${JSON.stringify(r)})' style="padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background=''">
+      <span style="font-family:var(--mono);color:var(--accent);font-size:11px;">${r.CA}</span>
+      ${r.PREFIX||''} ${r.CUSTOMERNAME} ${r.CUSTOMERSIRNAME}
+      <span style="color:var(--text2);font-size:11px;"> · ${r.TUMBOL} ${r.AMPHOE}</span>
+    </div>`).join('')}
+  </div>`;
+}
+
+function selectTicketUser(r) {
+  ticketSelectedUser = r;
+  const name = `${r.PREFIX||''} ${r.CUSTOMERNAME||''} ${r.CUSTOMERSIRNAME||''}`.trim();
+  const addr = [r.ADDRESSNO, r.MOO?'ม.'+r.MOO:'', r.TUMBOL, r.AMPHOE, r.CHANGWAT].filter(Boolean).join(' ');
+  document.getElementById('ticket-search').value = name;
+  document.getElementById('ticket-ca').value = r.CA;
+  document.getElementById('ticket-name').value = name;
+  document.getElementById('ticket-tel').value = r.MOBILE_NO||'—';
+  document.getElementById('ticket-addr').value = addr;
+  document.getElementById('ticket-peano').value = r.PEANO||'—';
+  document.getElementById('ticket-metertype').value = r.METERTYPE||'—';
+  document.getElementById('ticket-suggest').innerHTML = '';
+}
+
+function createTicketFromModal() {
+  closeModal('modal-user');
+  switchTab('ticket');
+  if(modalUser) selectTicketUser(modalUser);
+}
+
+let ticketMode = 'normal';
+let locMethod = 'gps';
+let emgPickedLat = null, emgPickedLng = null;
+let emgPickMap = null, emgPickMarker = null;
+
+function setTicketMode(mode) {
+  ticketMode = mode;
+  document.getElementById('mode-btn-normal').classList.toggle('active', mode==='normal');
+  document.getElementById('mode-btn-emergency').classList.toggle('active', mode==='emergency');
+  document.getElementById('ticket-form-normal').style.display = mode==='normal' ? '' : 'none';
+  document.getElementById('ticket-form-emergency').style.display = mode==='emergency' ? '' : 'none';
+}
+
+function setLocMethod(method) {
+  locMethod = method;
+  document.querySelectorAll('.loc-method-btn').forEach(b => b.classList.toggle('active', b.dataset.method===method));
+  document.getElementById('loc-method-gps').style.display = method==='gps' ? '' : 'none';
+  document.getElementById('loc-method-map').style.display = method==='map' ? '' : 'none';
+  document.getElementById('loc-method-manual').style.display = method==='manual' ? '' : 'none';
+  if(method === 'map') {
+    setTimeout(initEmgPickMap, 50);
+  }
+}
+
+function captureGPS() {
+  const resultEl = document.getElementById('gps-result');
+  if(!navigator.geolocation) { resultEl.textContent = '⚠️ เบราว์เซอร์นี้ไม่รองรับ GPS'; return; }
+  resultEl.textContent = '📡 กำลังค้นหาตำแหน่ง...';
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      emgPickedLat = pos.coords.latitude;
+      emgPickedLng = pos.coords.longitude;
+      resultEl.innerHTML = `✓ พิกัด: <span style="font-family:var(--mono);color:var(--green);">${emgPickedLat.toFixed(6)}, ${emgPickedLng.toFixed(6)}</span> (ความแม่นยำ ±${Math.round(pos.coords.accuracy)}ม.)`;
+    },
+    (err) => {
+      resultEl.textContent = '⚠️ ไม่สามารถจับพิกัดได้ กรุณาเปิดสิทธิ์ตำแหน่งของเบราว์เซอร์ หรือลองวิธีอื่น';
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+function initEmgPickMap() {
+  const el = document.getElementById('emg-pick-map');
+  if(!el || emgPickMap) { if(emgPickMap) emgPickMap.invalidateSize(); return; }
+  emgPickMap = L.map(el).setView([16.75, 99.95], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:''}).addTo(emgPickMap);
+  emgPickMap.on('click', (e) => {
+    emgPickedLat = e.latlng.lat;
+    emgPickedLng = e.latlng.lng;
+    if(emgPickMarker) emgPickMap.removeLayer(emgPickMarker);
+    emgPickMarker = L.marker([emgPickedLat, emgPickedLng]).addTo(emgPickMap);
+    document.getElementById('map-pick-result').innerHTML = `✓ พิกัด: <span style="font-family:var(--mono);color:var(--green);">${emgPickedLat.toFixed(6)}, ${emgPickedLng.toFixed(6)}</span>`;
+  });
+}
+
+function genTicketToken() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let token = '';
+  for(let i=0;i<10;i++) token += chars[Math.floor(Math.random()*chars.length)];
+  return token;
+}
+
+function createTicket() {
+  const note = document.getElementById('ticket-note').value.trim();
+  if(!note) { showToast('กรุณาระบุรายละเอียดเหตุการณ์', 'error'); return; }
+
+  let ticket;
+
+  if(ticketMode === 'normal') {
+    if(!ticketSelectedUser) { showToast('กรุณาค้นหาและเลือกผู้แจ้งก่อน', 'error'); return; }
+    const r = ticketSelectedUser;
+    const name = `${r.PREFIX||''} ${r.CUSTOMERNAME||''} ${r.CUSTOMERSIRNAME||''}`.trim();
+    const addr = [r.ADDRESSNO, r.MOO?'ม.'+r.MOO:'', r.TUMBOL, r.AMPHOE, r.CHANGWAT].filter(Boolean).join(' ');
+    ticket = {
+      id: 'TK' + String(ticketCounter++).padStart(4,'0'),
+      token: genTicketToken(),
+      mode: 'normal',
+      ca: r.CA, name, addr, tel: r.MOBILE_NO||'—',
+      peano: r.PEANO||'—', metertype: r.METERTYPE||'—',
+      lat: r.LATITUDE||null, lng: r.LONGITUDE||null,
+      note, status: 'open',
+      time: new Date().toLocaleString('th-TH')
+    };
+  } else {
+    let lat = null, lng = null;
+    if(locMethod === 'manual') {
+      const latVal = parseFloat(document.getElementById('emg-lat-input').value);
+      const lngVal = parseFloat(document.getElementById('emg-lng-input').value);
+      if(isNaN(latVal) || isNaN(lngVal)) { showToast('กรุณากรอกพิกัด Latitude/Longitude ให้ถูกต้อง', 'error'); return; }
+      lat = latVal; lng = lngVal;
+    } else {
+      if(emgPickedLat === null || emgPickedLng === null) {
+        showToast(locMethod==='gps' ? 'กรุณากดจับพิกัด GPS ก่อน' : 'กรุณาแตะเลือกจุดบนแผนที่ก่อน', 'error');
+        return;
+      }
+      lat = emgPickedLat; lng = emgPickedLng;
+    }
+    const name = document.getElementById('emg-name').value.trim() || 'ไม่ระบุผู้แจ้ง (เหตุฉุกเฉิน)';
+    const tel = document.getElementById('emg-tel').value.trim() || '—';
+    const addr = document.getElementById('emg-addr').value.trim() || `พิกัด ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    ticket = {
+      id: 'TK' + String(ticketCounter++).padStart(4,'0'),
+      token: genTicketToken(),
+      mode: 'emergency',
+      ca: '—', name, addr, tel,
+      peano: '—', metertype: '—',
+      lat, lng,
+      note, status: 'open',
+      time: new Date().toLocaleString('th-TH')
+    };
+  }
+
+  fsAddTicket(ticket);
+  saveTickets();
+
+  document.getElementById('ticket-search').value='';
+  document.getElementById('ticket-ca').value='';
+  document.getElementById('ticket-name').value='';
+  document.getElementById('ticket-tel').value='';
+  document.getElementById('ticket-addr').value='';
+  document.getElementById('ticket-peano').value='';
+  document.getElementById('ticket-metertype').value='';
+  document.getElementById('emg-name').value='';
+  document.getElementById('emg-tel').value='';
+  document.getElementById('emg-addr').value='';
+  document.getElementById('emg-lat-input').value='';
+  document.getElementById('emg-lng-input').value='';
+  document.getElementById('gps-result').textContent='';
+  document.getElementById('map-pick-result').textContent='';
+  if(emgPickMarker && emgPickMap) { emgPickMap.removeLayer(emgPickMarker); emgPickMarker=null; }
+  emgPickedLat = null; emgPickedLng = null;
+  document.getElementById('ticket-note').value='';
+  ticketSelectedUser = null;
+  showToast(`สร้าง Ticket ${ticket.id} เรียบร้อย ✓ (บันทึก Firebase)`, 'success');
+}
+
+function renderTickets() {
+  const el = document.getElementById('ticket-list');
+  if(!tickets.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">ยังไม่มีรายการแจ้งเหตุ</div></div>';
+    return;
+  }
+  const statusLabel = {open:'🔴 รอดำเนินการ', progress:'🟡 กำลังดำเนินการ', done:'🟢 แก้ไขแล้ว'};
+  el.innerHTML = tickets.map((t,i) => `
+    <div class="ticket-card" id="tc-${t.id}">
+      <div class="ticket-card-top">
+        <div class="ticket-status-dot ${t.status==='open'?'dot-open':t.status==='progress'?'dot-progress':'dot-done'}"></div>
+        <div class="ticket-info">
+          <div class="ticket-id">${t.id} · ${t.time} ${t.mode==='emergency'?'<span style="background:rgba(231,76,60,0.18);color:var(--red);font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;">🚨 ฉุกเฉิน</span>':''}</div>
+          <div class="ticket-name">${t.name}</div>
+          <div class="ticket-addr">📍 ${t.addr}</div>
+          <div class="ticket-note">${t.note}</div>
+          <div class="ticket-meta">
+            <span>📞 ${t.tel}</span>
+            <span>CA: ${t.ca}</span>
+            <span>🔢 PEANO: ${t.peano}</span>
+            ${t.lat?`<span>📡 ${t.lat?.toFixed(4)}, ${t.lng?.toFixed(4)}</span>`:'<span style="color:var(--red)">⚠️ ไม่มีพิกัด</span>'}
+          </div>
+        </div>
+      </div>
+      <div class="ticket-actions">
+        ${t.lat?`<button class="btn btn-blue" style="font-size:12px;padding:6px 10px;" onclick="shareLocation('${t.id}')">📍 แชร์พิกัดช่าง</button>`:''}`+
+        `${t.token?`<a href="update.html?id=${t.id}&token=${t.token}" target="_blank" rel="noopener" class="btn btn-ghost" style="font-size:12px;padding:6px 10px;text-decoration:none;display:inline-flex;align-items:center;">📝 รายละเอียดงาน</a>`:''}`+
+        `<button class="btn btn-ghost" style="font-size:12px;padding:6px 10px;" onclick="deleteTicket('${t.id}')">🗑️</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function changeStatus(id, status) {
+  const t = tickets.find(x=>x.id===id);
+  if(t) {
+    fsUpdateTicketStatus(t._docId, status);
+    t.status = status; saveTickets(); renderTickets(); updateTicketBadge();
+  }
+}
+
+function deleteTicket(id) {
+  const t = tickets.find(x=>x.id===id);
+  if(t) fsDeleteTicket(t._docId);
+  tickets = tickets.filter(x=>x.id!==id);
+  saveTickets();
+  renderTickets(); updateTicketBadge();
+  document.getElementById('stat-tickets').textContent = tickets.length;
+  if(mapFull) renderTicketMarkers();
+}
+
+function shareLocation(id) {
+  const t = tickets.find(x=>x.id===id);
+  if(!t) return;
+  const gmaps = `https://www.google.com/maps?q=${t.lat},${t.lng}`;
+  const updateLink = `${window.location.origin}${window.location.pathname.replace('customer.html','')}update.html?id=${t.id}&token=${t.token||''}`;
+  const msg = `[PEA แจ้งเหตุ] ${t.id}%0aผู้แจ้ง: ${t.name}%0aCA: ${t.ca}%0aPEANO: ${t.peano}%0aที่อยู่: ${t.addr}%0aเหตุการณ์: ${t.note}%0aพิกัด: ${gmaps}%0a%0aอัปเดตสถานะ: ${updateLink}`;
+  const lineUrl = `https://line.me/R/msg/text/?${msg}`;
+  navigator.clipboard.writeText(decodeURIComponent(msg.replace(/%0a/g,'\n')));
+  showToast('คัดลอกข้อความแล้ว สามารถวางใน LINE ได้เลย ✓', 'success');
+}
+
+function updateTicketBadge() {
+  const open = tickets.filter(t=>t.status==='open').length;
+  const badge = document.getElementById('nav-ticket-badge');
+  if(open>0) {
+    badge.textContent=open; badge.style.display='inline-block';
+  } else {
+    badge.style.display='none';
+  }
+}
+
+// ======= MAP =======
+let myLocationMarker = null;
+
+function locateMe() {
+  if (!mapFull) return;
+  if (!navigator.geolocation) {
+    alert('เบราว์เซอร์นี้ไม่รองรับ GPS');
+    return;
+  }
+  const btn = document.getElementById('btn-locate');
+  const originalText = btn.textContent;
+  btn.textContent = '📍 กำลังค้นหา...';
+  btn.disabled = true;
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      if (myLocationMarker) mapFull.removeLayer(myLocationMarker);
+
+      const icon = L.divIcon({
+        className: '',
+        html: `<div style="width:16px;height:16px;border-radius:50%;background:#3b9ede;border:3px solid #fff;box-shadow:0 0 0 4px rgba(59,158,222,0.35);"></div>`,
+        iconSize: [16,16], iconAnchor: [8,8]
+      });
+      myLocationMarker = L.marker([latitude, longitude], { icon, zIndexOffset: 1000 })
+        .addTo(mapFull)
+        .bindPopup('📍 ตำแหน่งของฉัน');
+      mapFull.setView([latitude, longitude], 16);
+      myLocationMarker.openPopup();
+
+      btn.textContent = originalText;
+      btn.disabled = false;
+    },
+    (err) => {
+      btn.textContent = originalText;
+      btn.disabled = false;
+      if (err.code === 1) alert('กรุณาอนุญาตการเข้าถึงตำแหน่ง (GPS) ในเบราว์เซอร์');
+      else alert('ไม่สามารถระบุตำแหน่งได้ กรุณาลองใหม่');
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}
+
+function initMap() {
+  if(mapFull) return;
+  mapFull = L.map('map-full').setView([16.75, 99.95], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap'}).addTo(mapFull);
+  renderUserMarkers();
+  renderTicketMarkers();
+}
+
+function renderUserMarkers() {
+  if(userLayer) mapFull.removeLayer(userLayer);
+  const all = ALL_RECORDS.filter(r=>r.LATITUDE&&r.LONGITUDE);
+  const icon = L.divIcon({className:'', html:`<div style="width:8px;height:8px;border-radius:50%;background:#3b9ede;border:1.5px solid #fff;opacity:0.8"></div>`, iconSize:[8,8], iconAnchor:[4,4]});
+  userLayer = L.markerClusterGroup({
+    chunkedLoading: true,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    maxClusterRadius: 60
+  });
+  all.forEach(r => {
+    userLayer.addLayer(
+      L.marker([r.LATITUDE,r.LONGITUDE],{icon})
+        .bindPopup(`<b>${r.PREFIX||''} ${r.CUSTOMERNAME} ${r.CUSTOMERSIRNAME}</b><br>CA: ${r.CA}<br>PEANO: ${r.PEANO||'—'}<br>${r.TUMBOL} ${r.AMPHOE}<br><button onclick='openUserModal(${JSON.stringify(r)})' style="margin-top:8px;width:100%;background:#f5a623;color:#0f1923;border:none;border-radius:6px;padding:7px 10px;font-family:Sarabun,sans-serif;font-size:12.5px;font-weight:700;cursor:pointer">ดูข้อมูลผู้ใช้ไฟ →</button>`)
+    );
+  });
+  if(userLayerVisible) userLayer.addTo(mapFull);
+}
+
+function ticketStatusColor(status) {
+  if(status === 'progress') return '#f39c12';
+  if(status === 'done') return '#2ecc71';
+  return '#e74c3c';
+}
+
+function ticketStatusLabel(status) {
+  if(status === 'progress') return '🟡 กำลังดำเนินการ';
+  if(status === 'done') return '🟢 แก้ไขแล้ว';
+  return '🔴 รอดำเนินการ';
+}
+
+function renderTicketMarkers() {
+  if(ticketLayer) mapFull.removeLayer(ticketLayer);
+  const visibleTickets = tickets.filter(t => t.lat && t.lng && !(hideDoneTickets && t.status === 'done'));
+  ticketLayer = L.layerGroup(visibleTickets.map(t => {
+    const color = ticketStatusColor(t.status);
+    const icon = L.divIcon({className:'', html:`<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 8px ${color}"></div>`, iconSize:[14,14], iconAnchor:[7,7]});
+    return L.marker([t.lat,t.lng],{icon})
+      .bindPopup(`<b>${t.id}</b><br>${t.name}<br>${t.note}<br>${ticketStatusLabel(t.status)}<br><small>${t.time}</small>`);
+  }));
+  if(ticketLayerVisible) ticketLayer.addTo(mapFull);
+}
+
+function toggleLayer(type) {
+  if(!mapFull) return;
+  if(type==='users') {
+    userLayerVisible = !userLayerVisible;
+    userLayerVisible ? userLayer.addTo(mapFull) : mapFull.removeLayer(userLayer);
+    document.getElementById('btn-users').textContent = `👤 ผู้ใช้ไฟฟ้า (${userLayerVisible?'แสดง':'ซ่อน'})`;
+  } else {
+    ticketLayerVisible = !ticketLayerVisible;
+    ticketLayerVisible ? ticketLayer.addTo(mapFull) : mapFull.removeLayer(ticketLayer);
+    document.getElementById('btn-tickets').textContent = `🔴 จุดแจ้งเหตุ (${ticketLayerVisible?'แสดง':'ซ่อน'})`;
+  }
+}
+
+function toggleHideDoneTickets() {
+  hideDoneTickets = !hideDoneTickets;
+  document.getElementById('btn-hide-done').textContent = hideDoneTickets ? '🟢 งานเสร็จสิ้น (ซ่อน)' : '🟢 งานเสร็จสิ้น (แสดง)';
+  document.getElementById('btn-hide-done').classList.toggle('active-filter', hideDoneTickets);
+  renderTicketMarkers();
+}
+
+function fitMapBounds() {
+  if(!mapFull) return;
+  mapFull.setView([16.75, 99.95], 11);
+}
+
+window.addEventListener('resize', () => {
+  if(mapFull && document.getElementById('pane-map').classList.contains('active')) {
+    mapFull.invalidateSize();
+  }
+});
+
+function focusMapUser(r) {
+  if(!mapFull || !r.LATITUDE) return;
+  mapFull.setView([r.LATITUDE, r.LONGITUDE], 17);
+  if(userLayer) {
+    userLayer.eachLayer(m => {
+      const ll = m.getLatLng();
+      if(Math.abs(ll.lat - r.LATITUDE) < 0.00001 && Math.abs(ll.lng - r.LONGITUDE) < 0.00001) {
+        if(userLayer.zoomToShowLayer) {
+          userLayer.zoomToShowLayer(m, () => m.openPopup());
+        } else {
+          m.openPopup();
+        }
+      }
+    });
+  }
+}
+
+// ======= TOAST =======
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type?' '+type:'');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
+document.getElementById('modal-user').addEventListener('click', function(e) {
+  if(e.target===this) closeModal('modal-user');
+});
+</script>
+</body>
+</html>
