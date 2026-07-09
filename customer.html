@@ -271,7 +271,7 @@ textarea.form-control { resize:vertical; min-height:70px; }
 <!-- TOPBAR -->
 <div class="topbar">
   <a class="back-btn" href="index.html">← กลับ</a>
-  <span class="topbar-title">👤 ข้อมูลผู้ใช้ไฟฟ้า</span>
+  <span class="topbar-title" id="topbar-title-text">👤 ข้อมูลผู้ใช้ไฟฟ้า</span>
   <span class="fb-dot" id="fb-dot" title="สถานะ Firestore"></span>
   <span class="topbar-badge" id="total-badge">—</span>
 </div>
@@ -606,6 +606,13 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('total-badge').textContent = ALL_RECORDS.length.toLocaleString() + ' รายการ';
   initDashboard();
   if(tickets.length) { renderTickets(); updateTicketBadge(); document.getElementById('stat-tickets').textContent = tickets.length; }
+
+  // เข้าสู่หน้าแจ้งเหตุไฟฟ้าขัดข้องโดยตรง เมื่อมาจากเมนู "แจ้งเหตุไฟฟ้าขัดข้อง" ในหน้าแรก
+  const params = new URLSearchParams(window.location.search);
+  if(params.get('view') === 'ticket') {
+    switchTab('ticket');
+    document.getElementById('topbar-title-text').textContent = '🚨 แจ้งเหตุไฟฟ้าขัดข้อง';
+  }
 });
 
 function initDashboard() { initStats(); }
@@ -647,6 +654,10 @@ function switchTab(tab) {
   document.getElementById('pane-' + tab).classList.add('active');
   document.getElementById('btn-tab-' + tab).classList.add('active');
   currentTab = tab;
+  const titleEl = document.getElementById('topbar-title-text');
+  if(titleEl && titleEl.textContent.includes('แจ้งเหตุไฟฟ้าขัดข้อง') && tab !== 'ticket') {
+    titleEl.textContent = '👤 ข้อมูลผู้ใช้ไฟฟ้า';
+  }
   if(tab === 'map') {
     setTimeout(() => { initMap(); if(mapFull) mapFull.invalidateSize(); }, 100);
   }
