@@ -507,6 +507,7 @@ textarea.form-control { resize:vertical; min-height:70px; }
         <button class="btn btn-danger" onclick="createTicketFromModal()">⚡ แจ้งเหตุไฟดับ</button>
         <button class="btn btn-blue" id="modal-map-btn" onclick="">🗺️ ดูบนแผนที่</button>
         <button class="btn btn-ghost" onclick="copyGoogleMaps()">📍 คัดลอก Google Maps</button>
+        <button class="btn btn-ghost" onclick="navigateToGoogleMaps()">🧭 นำทางไป Google Maps</button>
       </div>
     </div>
   </div>
@@ -777,9 +778,17 @@ function closeModal(id) {
 
 function copyGoogleMaps() {
   if(!modalUser) return;
+  if(!modalUser.LATITUDE || !modalUser.LONGITUDE) { showToast('⚠️ ไม่มีพิกัดผู้ใช้ไฟฟ้ารายนี้', 'error'); return; }
   const url = `https://www.google.com/maps?q=${modalUser.LATITUDE},${modalUser.LONGITUDE}`;
   navigator.clipboard.writeText(url);
   showToast('คัดลอกลิงก์ Google Maps แล้ว ✓', 'success');
+}
+
+function navigateToGoogleMaps() {
+  if(!modalUser) return;
+  if(!modalUser.LATITUDE || !modalUser.LONGITUDE) { showToast('⚠️ ไม่มีพิกัดผู้ใช้ไฟฟ้ารายนี้', 'error'); return; }
+  const url = `https://www.google.com/maps/dir/?api=1&destination=${modalUser.LATITUDE},${modalUser.LONGITUDE}&travelmode=driving`;
+  window.open(url, '_blank');
 }
 
 // ======= TICKET =======
