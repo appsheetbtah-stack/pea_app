@@ -168,6 +168,18 @@ textarea.form-control { resize:vertical; min-height:70px; }
 .empty-icon { font-size:44px; margin-bottom:12px; }
 .empty-text { font-size:14px; }
 
+/* ── MAP ── */
+.tab-pane.map-pane { display:none; overflow:hidden; flex-direction:column; }
+.tab-pane.map-pane.active { display:flex; }
+.map-topbar-controls { padding:10px 14px 6px; }
+#map-full { flex:1; }
+.map-controls { display:flex; gap:8px; margin-bottom:10px; align-items:center; flex-wrap:wrap; }
+.map-controls .btn { padding:8px 12px; font-size:12px; }
+.btn-ghost.active-filter { border-color:var(--green); background:rgba(46,204,113,0.12); color:var(--green); }
+.map-legend { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:4px; font-size:12px; color:var(--text2); }
+.legend-item { display:flex; align-items:center; gap:6px; }
+.legend-dot { width:10px; height:10px; border-radius:50%; }
+
 /* ── TOAST ── */
 .toast {
   position:fixed; bottom:calc(var(--botnav) + 10px); left:50%; transform:translateX(-50%) translateY(80px);
@@ -349,6 +361,23 @@ textarea.form-control { resize:vertical; min-height:70px; }
   </div>
 </div>
 
+<!-- TAB: MAP -->
+<div class="tab-pane map-pane" id="pane-map">
+  <div class="map-topbar-controls">
+    <div class="map-controls">
+      <button class="btn btn-ghost" onclick="toggleHideDoneTickets()" id="btn-hide-done">🟢 งานเสร็จสิ้น (แสดง)</button>
+      <button class="btn btn-primary" onclick="fitMapBounds()">🎯 ดูภาพรวม</button>
+      <button class="btn btn-ghost" onclick="locateMe()" id="btn-locate">📍 ตำแหน่งของฉัน</button>
+    </div>
+    <div class="map-legend">
+      <span class="legend-item"><span class="legend-dot" style="background:#e74c3c;"></span>รอดำเนินการ</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#f39c12;"></span>กำลังดำเนินการ</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#2ecc71;"></span>แก้ไขแล้ว</span>
+    </div>
+  </div>
+  <div id="map-full"></div>
+</div>
+
 <!-- BOTTOM NAV -->
 <nav class="bottom-nav">
   <button class="nav-btn active" id="btn-tab-dashboard" onclick="switchTab('dashboard')">
@@ -358,6 +387,10 @@ textarea.form-control { resize:vertical; min-height:70px; }
   <button class="nav-btn" id="btn-tab-ticket" onclick="switchTab('ticket')">
     <span class="nav-icon-wrap"><span class="nav-icon">🎫</span><span class="nav-badge" id="nav-ticket-badge" style="display:none;"></span></span>
     <span class="nav-label">แจ้งเหตุไฟฟ้าขัดข้อง</span>
+  </button>
+  <button class="nav-btn" id="btn-tab-map" onclick="switchTab('map')">
+    <span class="nav-icon-wrap"><span class="nav-icon">🗺️</span></span>
+    <span class="nav-label">แผนที่</span>
   </button>
 </nav>
 
@@ -393,6 +426,7 @@ textarea.form-control { resize:vertical; min-height:70px; }
     renderTickets();
     updateTicketBadge();
     renderTicketDashboard();
+    if (mapFull) renderTicketMarkers();
   }, (err) => {
     console.warn("Firestore listen error:", err);
     document.getElementById('fb-dot').style.background = '#e74c3c';
@@ -405,6 +439,11 @@ let tickets = [];
 let ticketCounter = 1;
 let ticketFilter = 'all';
 let ticketSelectedUser = null;
+let mapFull = null;
+let ticketLayer = null;
+let ticketLayerVisible = true;
+let hideDoneTickets = false;
+let myLocationMarker = null;
 
 // ======= INIT =======
 function saveTickets() {
@@ -447,6 +486,9 @@ function switchTab(tab) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('pane-' + tab).classList.add('active');
   document.getElementById('btn-tab-' + tab).classList.add('active');
+  if(tab === 'map') {
+    setTimeout(() => { initMap(); if(mapFull) mapFull.invalidateSize(); }, 100);
+  }
 }
 
 // ======= TICKET FORM =======
@@ -677,6 +719,7 @@ function deleteTicket(id) {
   tickets = tickets.filter(x=>x.id!==id);
   saveTickets();
   renderTickets(); updateTicketBadge(); renderTicketDashboard();
+  if(mapFull) renderTicketMarkers();
 }
 
 function shareLocation(id) {
@@ -754,6 +797,97 @@ function renderTicketDashboard() {
     '<div class="bar-count">'+v.toLocaleString()+'</div>' +
     '</div>').join('');
 }
+
+// ======= MAP (จุดแจ้งเหตุเท่านั้น ไม่มีตำแหน่งมิเตอร์) =======
+function initMap() {
+  if(mapFull) return;
+  mapFull = L.map('map-full').setView([16.75, 99.95], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap'}).addTo(mapFull);
+  renderTicketMarkers();
+}
+
+function ticketStatusColor(status) {
+  if(status === 'progress') return '#f39c12';
+  if(status === 'done') return '#2ecc71';
+  return '#e74c3c';
+}
+
+function ticketStatusLabel(status) {
+  if(status === 'progress') return '🟡 กำลังดำเนินการ';
+  if(status === 'done') return '🟢 แก้ไขแล้ว';
+  return '🔴 รอดำเนินการ';
+}
+
+function renderTicketMarkers() {
+  if(!mapFull) return;
+  if(ticketLayer) mapFull.removeLayer(ticketLayer);
+  const visibleTickets = tickets.filter(t => t.lat && t.lng && !(hideDoneTickets && t.status === 'done'));
+  ticketLayer = L.layerGroup(visibleTickets.map(t => {
+    const color = ticketStatusColor(t.status);
+    const icon = L.divIcon({className:'', html:`<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 8px ${color}"></div>`, iconSize:[14,14], iconAnchor:[7,7]});
+    return L.marker([t.lat,t.lng],{icon})
+      .bindPopup(`<b>${t.id}</b><br>${t.name}<br>${t.note}<br>${ticketStatusLabel(t.status)}<br><small>${t.time}</small>`);
+  }));
+  if(ticketLayerVisible) ticketLayer.addTo(mapFull);
+}
+
+function toggleHideDoneTickets() {
+  hideDoneTickets = !hideDoneTickets;
+  document.getElementById('btn-hide-done').textContent = hideDoneTickets ? '🟢 งานเสร็จสิ้น (ซ่อน)' : '🟢 งานเสร็จสิ้น (แสดง)';
+  document.getElementById('btn-hide-done').classList.toggle('active-filter', hideDoneTickets);
+  renderTicketMarkers();
+}
+
+function fitMapBounds() {
+  if(!mapFull) return;
+  mapFull.setView([16.75, 99.95], 11);
+}
+
+function locateMe() {
+  if (!mapFull) return;
+  if (!navigator.geolocation) {
+    alert('เบราว์เซอร์นี้ไม่รองรับ GPS');
+    return;
+  }
+  const btn = document.getElementById('btn-locate');
+  const originalText = btn.textContent;
+  btn.textContent = '📍 กำลังค้นหา...';
+  btn.disabled = true;
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude } = pos.coords;
+      if (myLocationMarker) mapFull.removeLayer(myLocationMarker);
+
+      const icon = L.divIcon({
+        className: '',
+        html: `<div style="width:16px;height:16px;border-radius:50%;background:#3b9ede;border:3px solid #fff;box-shadow:0 0 0 4px rgba(59,158,222,0.35);"></div>`,
+        iconSize: [16,16], iconAnchor: [8,8]
+      });
+      myLocationMarker = L.marker([latitude, longitude], { icon, zIndexOffset: 1000 })
+        .addTo(mapFull)
+        .bindPopup('📍 ตำแหน่งของฉัน');
+      mapFull.setView([latitude, longitude], 16);
+      myLocationMarker.openPopup();
+
+      btn.textContent = originalText;
+      btn.disabled = false;
+    },
+    (err) => {
+      btn.textContent = originalText;
+      btn.disabled = false;
+      if (err.code === 1) alert('กรุณาอนุญาตการเข้าถึงตำแหน่ง (GPS) ในเบราว์เซอร์');
+      else alert('ไม่สามารถระบุตำแหน่งได้ กรุณาลองใหม่');
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}
+
+window.addEventListener('resize', () => {
+  if(mapFull && document.getElementById('pane-map').classList.contains('active')) {
+    mapFull.invalidateSize();
+  }
+});
 
 function showToast(msg, type='') {
   const t = document.getElementById('toast');
