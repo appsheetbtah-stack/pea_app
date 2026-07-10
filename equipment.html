@@ -427,8 +427,9 @@ function renderDashboard() {
   const tx  = DATA.filter(d => d.tp === 'transformer');
 
   const swTypes = count(sw.map(d => d.st));
-  const txOwner = count(tx.map(d => d.own));
-  const txPhase = count(tx.map(d => d.st.includes('3') ? '3 Phase' : '1 Phase'));
+  const txPeaTx = tx.filter(d => d.own === 'PEA');
+  const txCustTx = tx.filter(d => d.own === 'Customer');
+  const isPhase3 = d => d.st.includes('3');
   const txKva   = count(tx.map(d => d.kva));
 
   const sortedKva = Object.entries(txKva)
@@ -470,13 +471,13 @@ function renderDashboard() {
         ${barRow('LBS SF6',       swTypes['LoadBreak Switch SF6']||0, sw.length, '#2ecc71')}
       </div>
       <div class="db-chart-card">
-        <div class="db-chart-title">Transformer เจ้าของ</div>
-        ${barRow('PEA',      txOwner['PEA']||0,      tx.length, '#3b9ede')}
-        ${barRow('Customer', txOwner['Customer']||0,  tx.length, '#9b59b6')}
-        <div style="height:10px"></div>
-        <div class="db-chart-title">ระบบเฟส</div>
-        ${barRow('1 Phase', txPhase['1 Phase']||0, tx.length, '#3b9ede')}
-        ${barRow('3 Phase', txPhase['3 Phase']||0, tx.length, '#00b4d8')}
+        <div class="db-chart-title">หม้อแปลงของ PEA (${txPeaTx.length})</div>
+        ${barRow('1 Phase', txPeaTx.filter(d => !isPhase3(d)).length, tx.length, '#3b9ede')}
+        ${barRow('3 Phase', txPeaTx.filter(isPhase3).length, tx.length, '#00b4d8')}
+        <div style="height:14px"></div>
+        <div class="db-chart-title">หม้อแปลงของลูกค้า (${txCustTx.length})</div>
+        ${barRow('1 Phase', txCustTx.filter(d => !isPhase3(d)).length, tx.length, '#9b59b6')}
+        ${barRow('3 Phase', txCustTx.filter(isPhase3).length, tx.length, '#c39bd3')}
       </div>
     </div>
 
