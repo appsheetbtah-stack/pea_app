@@ -32,11 +32,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   padding:6px 10px; border:1px solid var(--border); border-radius:6px; transition:color .15s;
 }
 .back-btn:hover { color:var(--accent); border-color:var(--accent); }
-.topbar-title { font-size:14.5px; font-weight:700; flex:1; }
-.topbar-count {
-  font-family:var(--mono); font-size:11.5px; color:var(--text2);
-  background:var(--surface2); padding:3px 9px; border-radius:10px; flex-shrink:0; white-space:nowrap;
-}
+.topbar-title { font-size:14.5px; font-weight:700; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* ── TAB CONTENT ── */
 .tab-pane { position:fixed; top:var(--topbar); left:0; right:0; bottom:var(--botnav); overflow-y:auto; display:none; }
@@ -206,8 +202,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 <div class="topbar">
   <div class="topbar-row">
     <a class="back-btn" href="index.html">← กลับ</a>
-    <span class="topbar-title">📋 ขยายเขต / ปรับปรุงระบบจำหน่าย</span>
-    <span class="topbar-count" id="topbar-count">กำลังโหลด...</span>
+    <span class="topbar-title">📋 ขยายเขต/ปรับปรุงระบบจำหน่าย</span>
   </div>
 </div>
 
@@ -352,7 +347,6 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   const COLLECTION = "site_works";
 
   const listEl = document.getElementById('list-container');
-  const countEl = document.getElementById('topbar-count');
   const filterRow = document.getElementById('filter-row');
   const overlay = document.getElementById('modal-overlay');
   const toastEl = document.getElementById('toast');
@@ -482,7 +476,6 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       approval: catItems.filter(w => w.status === 'approval').length,
       done: catItems.filter(w => w.status === 'done').length
     };
-    countEl.textContent = `ทั้งหมด ${catItems.length} · สำรวจ ${counts.survey} · ประมาณการ ${counts.estimate} · รออนุมัติ ${counts.approval} · เสร็จ ${counts.done}`;
 
     if (!filtered.length) {
       listEl.innerHTML = `
@@ -520,7 +513,6 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     } catch (e) {
       console.error(e);
       listEl.innerHTML = `<div class="state-empty"><div class="icon">⚠️</div><div>โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่</div></div>`;
-      countEl.textContent = 'เกิดข้อผิดพลาด';
     }
   }
 
