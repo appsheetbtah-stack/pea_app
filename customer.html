@@ -348,15 +348,8 @@ textarea.form-control { resize:vertical; min-height:70px; }
   <div class="map-topbar-controls">
     <div class="map-controls">
       <button class="btn btn-ghost" onclick="toggleLayer('users')" id="btn-users">👤 ผู้ใช้ไฟฟ้า (แสดง)</button>
-      <button class="btn btn-ghost" onclick="toggleLayer('tickets')" id="btn-tickets">🔴 จุดแจ้งเหตุ (แสดง)</button>
-      <button class="btn btn-ghost" onclick="toggleHideDoneTickets()" id="btn-hide-done">🟢 งานเสร็จสิ้น (แสดง)</button>
       <button class="btn btn-primary" onclick="fitMapBounds()">🎯 ดูภาพรวม</button>
       <button class="btn btn-ghost" onclick="locateMe()" id="btn-locate">📍 ตำแหน่งของฉัน</button>
-    </div>
-    <div class="map-legend">
-      <span class="legend-item"><span class="legend-dot" style="background:#e74c3c;"></span>รอดำเนินการ</span>
-      <span class="legend-item"><span class="legend-dot" style="background:#f39c12;"></span>กำลังดำเนินการ</span>
-      <span class="legend-item"><span class="legend-dot" style="background:#2ecc71;"></span>แก้ไขแล้ว</span>
     </div>
   </div>
   <div id="map-full"></div>
@@ -429,7 +422,6 @@ textarea.form-control { resize:vertical; min-height:70px; }
   onSnapshot(q, (snapshot) => {
     tickets = snapshot.docs.map(d => ({ _docId: d.id, ...d.data() }));
     document.getElementById('stat-tickets').textContent = tickets.length;
-    if (mapFull) renderTicketMarkers();
   }, (err) => {
     console.warn("Firestore listen error:", err);
     document.getElementById('fb-dot').style.background = '#e74c3c';
@@ -445,9 +437,7 @@ let tickets = [];
 let ticketCounter = 1;
 let mapFull = null;
 let userLayer = null;
-let ticketLayer = null;
-let userLayerVisible = true, ticketLayerVisible = true;
-let hideDoneTickets = false;
+let userLayerVisible = true;
 
 // ======= INIT =======
 function saveTickets() {
@@ -728,7 +718,6 @@ function initMap() {
   mapFull = L.map('map-full').setView([16.75, 99.95], 11);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap'}).addTo(mapFull);
   renderUserMarkers();
-  renderTicketMarkers();
 }
 
 function renderUserMarkers() {
@@ -750,48 +739,13 @@ function renderUserMarkers() {
   if(userLayerVisible) userLayer.addTo(mapFull);
 }
 
-function ticketStatusColor(status) {
-  if(status === 'progress') return '#f39c12';
-  if(status === 'done') return '#2ecc71';
-  return '#e74c3c';
-}
-
-function ticketStatusLabel(status) {
-  if(status === 'progress') return '🟡 กำลังดำเนินการ';
-  if(status === 'done') return '🟢 แก้ไขแล้ว';
-  return '🔴 รอดำเนินการ';
-}
-
-function renderTicketMarkers() {
-  if(ticketLayer) mapFull.removeLayer(ticketLayer);
-  const visibleTickets = tickets.filter(t => t.lat && t.lng && !(hideDoneTickets && t.status === 'done'));
-  ticketLayer = L.layerGroup(visibleTickets.map(t => {
-    const color = ticketStatusColor(t.status);
-    const icon = L.divIcon({className:'', html:`<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 8px ${color}"></div>`, iconSize:[14,14], iconAnchor:[7,7]});
-    return L.marker([t.lat,t.lng],{icon})
-      .bindPopup(`<b>${t.id}</b><br>${t.name}<br>${t.note}<br>${ticketStatusLabel(t.status)}<br><small>${t.time}</small>`);
-  }));
-  if(ticketLayerVisible) ticketLayer.addTo(mapFull);
-}
-
 function toggleLayer(type) {
   if(!mapFull) return;
   if(type==='users') {
     userLayerVisible = !userLayerVisible;
     userLayerVisible ? userLayer.addTo(mapFull) : mapFull.removeLayer(userLayer);
     document.getElementById('btn-users').textContent = `👤 ผู้ใช้ไฟฟ้า (${userLayerVisible?'แสดง':'ซ่อน'})`;
-  } else {
-    ticketLayerVisible = !ticketLayerVisible;
-    ticketLayerVisible ? ticketLayer.addTo(mapFull) : mapFull.removeLayer(ticketLayer);
-    document.getElementById('btn-tickets').textContent = `🔴 จุดแจ้งเหตุ (${ticketLayerVisible?'แสดง':'ซ่อน'})`;
   }
-}
-
-function toggleHideDoneTickets() {
-  hideDoneTickets = !hideDoneTickets;
-  document.getElementById('btn-hide-done').textContent = hideDoneTickets ? '🟢 งานเสร็จสิ้น (ซ่อน)' : '🟢 งานเสร็จสิ้น (แสดง)';
-  document.getElementById('btn-hide-done').classList.toggle('active-filter', hideDoneTickets);
-  renderTicketMarkers();
 }
 
 function fitMapBounds() {
