@@ -32,7 +32,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   padding:6px 10px; border:1px solid var(--border); border-radius:6px; transition:color .15s;
 }
 .back-btn:hover { color:var(--accent); border-color:var(--accent); }
-.topbar-title { font-size:14.5px; font-weight:700; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.topbar-title { font-size:14.5px; font-weight:700; flex:1; }
+.topbar-count {
+  font-family:var(--mono); font-size:11.5px; color:var(--text2);
+  background:var(--surface2); padding:3px 9px; border-radius:10px; flex-shrink:0; white-space:nowrap;
+}
 
 /* ── TAB CONTENT ── */
 .tab-pane { position:fixed; top:var(--topbar); left:0; right:0; bottom:var(--botnav); overflow-y:auto; display:none; }
@@ -58,7 +62,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
 /* ── DASHBOARD ── */
 .db-wrap { padding:14px 14px 20px; display:flex; flex-direction:column; gap:14px; }
-.stats-grid-top { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+.stats-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
 .stat-card {
   background:var(--surface); border:1px solid var(--border); border-radius:10px;
   padding:14px 16px; position:relative; overflow:hidden;
@@ -71,20 +75,16 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .stat-label { font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:8px; line-height:1.4; }
 .stat-value { font-family:var(--mono); font-size:24px; font-weight:600; color:var(--text); line-height:1; }
 .stat-unit { font-size:11.5px; color:var(--text2); margin-top:5px; }
-.section-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
-.section-header { display:flex; align-items:baseline; gap:8px; margin-bottom:14px; }
-.section-icon { font-size:16px; line-height:1; }
-.section-title { font-size:13px; font-weight:700; color:var(--text); flex:1; }
-.section-count { font-family:var(--mono); font-size:18px; font-weight:600; color:var(--text); }
-.section-unit { font-size:11px; color:var(--text2); }
-.bar-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.charts-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.chart-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
+.chart-title { font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:12px; }
+.bar-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 .bar-row:last-child { margin-bottom:0; }
-.bar-label { font-size:13px; color:var(--text2); flex:0 0 auto; width:auto; white-space:nowrap; overflow:visible; text-overflow:clip; }
-.bar-track { flex:1; min-width:24px; height:8px; background:var(--surface2); border-radius:4px; overflow:hidden; }
+.bar-label { font-size:12px; color:var(--text2); width:80px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bar-track { flex:1; height:8px; background:var(--surface2); border-radius:4px; overflow:hidden; }
 .bar-fill { height:100%; border-radius:4px; background:var(--accent); transition:width .6s ease; }
 .bar-fill.blue { background:var(--blue); }
-.bar-count { flex:0 0 auto; font-family:var(--mono); font-size:11px; color:var(--text2); width:36px; text-align:right; }
-
+.bar-count { font-family:var(--mono); font-size:11px; color:var(--text2); width:36px; text-align:right; }
 
 /* ── CATEGORY TABS ── */
 .tab-switch {
@@ -151,7 +151,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
 /* ── MODAL ── */
 .modal-overlay {
-  position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:200;
+  position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:700;
   display:none; align-items:flex-end; justify-content:center;
 }
 .modal-overlay.open { display:flex; }
@@ -206,17 +206,28 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 <div class="topbar">
   <div class="topbar-row">
     <a class="back-btn" href="index.html">← กลับ</a>
-    <span class="topbar-title">📋 ขยายเขต/ปรับปรุงระบบจำหน่าย</span>
+    <span class="topbar-title">📋 ขยายเขต / ปรับปรุงระบบจำหน่าย</span>
+    <span class="topbar-count" id="topbar-count">กำลังโหลด...</span>
   </div>
 </div>
 
 <!-- TAB: DASHBOARD -->
 <div class="tab-pane active" id="pane-dashboard">
   <div class="db-wrap">
-    <div class="stats-grid-top">
+    <div class="stats-grid">
       <div class="stat-card orange">
         <div class="stat-label">งานทั้งหมด</div>
         <div class="stat-value" id="stat-total">—</div>
+        <div class="stat-unit">รายการ</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">ขยายเขต</div>
+        <div class="stat-value" id="stat-expansion">—</div>
+        <div class="stat-unit">รายการ</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">ปรับปรุงระบบจำหน่าย</div>
+        <div class="stat-value" id="stat-improvement">—</div>
         <div class="stat-unit">รายการ</div>
       </div>
       <div class="stat-card red">
@@ -225,25 +236,15 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         <div class="stat-unit">รายการ</div>
       </div>
     </div>
-
-    <div class="section-card">
-      <div class="section-header">
-        <span class="section-icon">⚡</span>
-        <span class="section-title">งานขยายเขต</span>
-        <span class="section-count" id="stat-expansion">—</span>
-        <span class="section-unit">รายการ</span>
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">สถานะงาน</div>
+        <div id="chart-status"></div>
       </div>
-      <div id="chart-status-expansion"></div>
-    </div>
-
-    <div class="section-card">
-      <div class="section-header">
-        <span class="section-icon">🔧</span>
-        <span class="section-title">งานปรับปรุงระบบจำหน่าย</span>
-        <span class="section-count" id="stat-improvement">—</span>
-        <span class="section-unit">รายการ</span>
+      <div class="chart-card">
+        <div class="chart-title">ประเภทงาน</div>
+        <div id="chart-category"></div>
       </div>
-      <div id="chart-status-improvement"></div>
     </div>
   </div>
 </div>
@@ -351,6 +352,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   const COLLECTION = "site_works";
 
   const listEl = document.getElementById('list-container');
+  const countEl = document.getElementById('topbar-count');
   const filterRow = document.getElementById('filter-row');
   const overlay = document.getElementById('modal-overlay');
   const toastEl = document.getElementById('toast');
@@ -448,22 +450,25 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     document.getElementById('stat-done').textContent = done.toLocaleString();
 
     const statusLabels = { survey: '🔵 สำรวจออกแบบ', estimate: '🟡 ประมาณการ', approval: '🔴 รออนุมัติ', done: '🟢 เสร็จสิ้น' };
+    const statusCount = { survey: 0, estimate: 0, approval: 0, done: 0 };
+    allWorks.forEach(w => { if (statusCount[w.status] !== undefined) statusCount[w.status]++; });
+    const maxStatus = Math.max(1, ...Object.values(statusCount));
+    document.getElementById('chart-status').innerHTML = Object.entries(statusCount).map(([k, v]) =>
+      '<div class="bar-row">' +
+      '<div class="bar-label">' + statusLabels[k] + '</div>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + ((v / maxStatus * 100).toFixed(1)) + '%"></div></div>' +
+      '<div class="bar-count">' + v.toLocaleString() + '</div>' +
+      '</div>').join('');
 
-    function renderStatusChart(elId, cat) {
-      const items = allWorks.filter(w => w.category === cat);
-      const statusCount = { survey: 0, estimate: 0, approval: 0, done: 0 };
-      items.forEach(w => { if (statusCount[w.status] !== undefined) statusCount[w.status]++; });
-      const maxStatus = Math.max(1, ...Object.values(statusCount));
-      document.getElementById(elId).innerHTML = Object.entries(statusCount).map(([k, v]) =>
-        '<div class="bar-row">' +
-        '<div class="bar-label">' + statusLabels[k] + '</div>' +
-        '<div class="bar-track"><div class="bar-fill" style="width:' + ((v / maxStatus * 100).toFixed(1)) + '%"></div></div>' +
-        '<div class="bar-count">' + v.toLocaleString() + '</div>' +
-        '</div>').join('');
-    }
-
-    renderStatusChart('chart-status-expansion', 'expansion');
-    renderStatusChart('chart-status-improvement', 'improvement');
+    const catLabels = { expansion: '⚡ ขยายเขต', improvement: '🔧 ปรับปรุงระบบ' };
+    const catCount = { expansion, improvement };
+    const maxCat = Math.max(1, expansion, improvement);
+    document.getElementById('chart-category').innerHTML = Object.entries(catCount).map(([k, v]) =>
+      '<div class="bar-row">' +
+      '<div class="bar-label">' + catLabels[k] + '</div>' +
+      '<div class="bar-track"><div class="bar-fill blue" style="width:' + ((v / maxCat * 100).toFixed(1)) + '%"></div></div>' +
+      '<div class="bar-count">' + v.toLocaleString() + '</div>' +
+      '</div>').join('');
   }
   window.renderDashboard = renderDashboard;
 
@@ -477,6 +482,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       approval: catItems.filter(w => w.status === 'approval').length,
       done: catItems.filter(w => w.status === 'done').length
     };
+    countEl.textContent = `ทั้งหมด ${catItems.length} · สำรวจ ${counts.survey} · ประมาณการ ${counts.estimate} · รออนุมัติ ${counts.approval} · เสร็จ ${counts.done}`;
 
     if (!filtered.length) {
       listEl.innerHTML = `
@@ -514,6 +520,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     } catch (e) {
       console.error(e);
       listEl.innerHTML = `<div class="state-empty"><div class="icon">⚠️</div><div>โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่</div></div>`;
+      countEl.textContent = 'เกิดข้อผิดพลาด';
     }
   }
 
