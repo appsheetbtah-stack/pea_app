@@ -526,7 +526,9 @@ body {
         renderError('ไม่พบ Ticket นี้', `รหัส ${ticketId} อาจถูกลบหรือไม่มีอยู่จริง`);
         return;
       }
-      const docSnap = snap.docs[0];
+      // หาก id ซ้ำกันหลาย ticket (เกิดจาก bug ตัวนับ id เดิม) ให้เลือกอันที่ token ตรงกับลิงก์จริงๆ
+      // แทนที่จะหยิบตัวแรกที่เจอ ซึ่งอาจไม่ใช่ ticket ที่ลิงก์นี้ถูกสร้างมาให้
+      const docSnap = snap.docs.find(d => d.data().token === token) || snap.docs[0];
       const data = docSnap.data();
       if(!data.token || data.token !== token) {
         renderError('ไม่มีสิทธิ์เข้าถึง', 'Token ไม่ถูกต้อง กรุณาใช้ลิงก์ที่ได้รับจากระบบเท่านั้น');

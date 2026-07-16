@@ -587,6 +587,19 @@ function genTicketToken() {
   return token;
 }
 
+// เดิม ticketCounter อ่านจาก localStorage อย่างเดียว ซึ่งเป็นค่าเฉพาะเครื่อง/เบราว์เซอร์
+// ทำให้ถ้าเปิดจากอุปกรณ์อื่น หรือ localStorage ถูกล้าง จะเริ่มนับใหม่จาก 1 และไปชนกับ
+// ticket id ที่มีอยู่แล้วใน Firestore (id ซ้ำ → token คนละอันแต่ id เดียวกัน → ลิงก์อัปเดตพัง)
+// แก้โดยคำนวณเลขถัดไปจากรายการ ticket ที่ sync มาจาก Firestore จริงๆ ทุกครั้งที่จะสร้างใหม่
+function nextTicketId() {
+  const maxNum = tickets.reduce((max, t) => {
+    const m = /^TK(\d+)$/.exec(t.id || '');
+    return m ? Math.max(max, parseInt(m[1], 10)) : max;
+  }, 0);
+  ticketCounter = Math.max(ticketCounter, maxNum + 1);
+  return 'TK' + String(ticketCounter++).padStart(4,'0');
+}
+
 function createTicket() {
   const note = document.getElementById('ticket-note').value.trim();
   if(!note) { showToast('กรุณาระบุรายละเอียดเหตุการณ์', 'error'); return; }
@@ -599,7 +612,7 @@ function createTicket() {
     const name = `${r.PREFIX||''} ${r.CUSTOMERNAME||''} ${r.CUSTOMERSIRNAME||''}`.trim();
     const addr = [r.ADDRESSNO, r.MOO?'ม.'+r.MOO:'', r.TUMBOL, r.AMPHOE, r.CHANGWAT].filter(Boolean).join(' ');
     ticket = {
-      id: 'TK' + String(ticketCounter++).padStart(4,'0'),
+      id: nextTicketId(),
       token: genTicketToken(),
       mode: 'normal',
       ca: r.CA, name, addr, tel: r.MOBILE_NO||'—',
@@ -627,7 +640,7 @@ function createTicket() {
     const tel = document.getElementById('emg-tel').value.trim() || '—';
     const addr = document.getElementById('emg-addr').value.trim() || `พิกัด ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
     ticket = {
-      id: 'TK' + String(ticketCounter++).padStart(4,'0'),
+      id: nextTicketId(),
       token: genTicketToken(),
       mode: 'emergency',
       ca: '—', name, addr, tel,
