@@ -349,7 +349,12 @@ textarea.form-control { resize:vertical; min-height:70px; }
       </div>
       <button class="btn btn-danger" style="width:100%;" onclick="createTicket()">⚡ สร้าง Ticket</button>
     </div>
+  </div>
+</div>
 
+<!-- TAB: TICKET LIST -->
+<div class="tab-pane" id="pane-ticketlist">
+  <div class="ticket-wrap">
     <div class="ticket-list-title">รายการแจ้งเหตุ</div>
     <div class="ticket-filter-row">
       <button class="btn btn-ghost" id="filter-all" onclick="setTicketFilter('all')">ทั้งหมด</button>
@@ -385,8 +390,12 @@ textarea.form-control { resize:vertical; min-height:70px; }
     <span class="nav-label">แดชบอร์ด</span>
   </button>
   <button class="nav-btn" id="btn-tab-ticket" onclick="switchTab('ticket')">
-    <span class="nav-icon-wrap"><span class="nav-icon">🎫</span><span class="nav-badge" id="nav-ticket-badge" style="display:none;"></span></span>
-    <span class="nav-label">แจ้งเหตุไฟฟ้าขัดข้อง</span>
+    <span class="nav-icon-wrap"><span class="nav-icon">🎫</span></span>
+    <span class="nav-label">แจ้งเหตุ</span>
+  </button>
+  <button class="nav-btn" id="btn-tab-ticketlist" onclick="switchTab('ticketlist')">
+    <span class="nav-icon-wrap"><span class="nav-icon">📋</span><span class="nav-badge" id="nav-ticket-badge" style="display:none;"></span></span>
+    <span class="nav-label">รายการแจ้งเหตุ</span>
   </button>
   <button class="nav-btn" id="btn-tab-map" onclick="switchTab('map')">
     <span class="nav-icon-wrap"><span class="nav-icon">🗺️</span></span>
