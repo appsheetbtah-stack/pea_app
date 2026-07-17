@@ -17,7 +17,7 @@
 :root {
   --bg:#0f1923; --surface:#162030; --surface2:#1e2d3d; --border:#2a3f55;
   --accent:#f5a623; --accent2:#e05c2a; --blue:#3b9ede; --green:#2ecc71; --red:#e74c3c;
-  --yellow:#f39c12; --text:#e8f0f8; --text2:#8aa0b8;
+  --yellow:#f39c12; --text:#e8f0f8; --text2:#a9bdd1;
   --mono:'IBM Plex Mono',monospace; --sans:'Sarabun',sans-serif;
   --topbar:52px; --botnav:56px;
 }
@@ -40,7 +40,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .topbar-title { font-size:15px; font-weight:700; flex:1; text-align:center; }
 .fb-dot { width:8px; height:8px; border-radius:50%; background:var(--yellow); flex-shrink:0; }
 .topbar-badge {
-  font-family:var(--mono); font-size:11px; color:var(--text2);
+  font-family:var(--mono); font-size:13px; color:var(--text2);
   background:var(--surface2); padding:3px 8px; border-radius:10px; flex-shrink:0;
 }
 
@@ -70,11 +70,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 }
 .nav-icon-wrap { position:relative; display:inline-block; }
 .nav-icon { font-size:20px; line-height:1; }
-.nav-label { font-size:11px; font-weight:600; }
+.nav-label { font-size:13px; font-weight:600; }
 .nav-badge {
   position:absolute; top:-4px; right:-10px; background:var(--red); color:#fff;
-  font-size:9px; font-family:var(--mono); border-radius:8px; padding:0 4px;
-  min-width:14px; text-align:center; line-height:14px;
+  font-size:10px; font-family:var(--mono); font-weight:700; border-radius:9px; padding:0 5px;
+  min-width:16px; text-align:center; line-height:16px;
 }
 
 /* ── DASHBOARD ── */
@@ -89,25 +89,25 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .stat-card.blue::before { background:var(--blue); }
 .stat-card.green::before { background:var(--green); }
 .stat-card.red::before { background:var(--red); }
-.stat-label { font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:8px; line-height:1.4; }
+.stat-label { font-size:13px; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:8px; line-height:1.4; }
 .stat-value { font-family:var(--mono); font-size:24px; font-weight:600; color:var(--text); line-height:1; }
-.stat-unit { font-size:11.5px; color:var(--text2); margin-top:5px; }
+.stat-unit { font-size:13px; color:var(--text2); margin-top:5px; }
 
 .charts-row { display:flex; flex-direction:column; gap:10px; }
 .chart-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
 .chart-card.full { grid-column:1 / -1; }
-.chart-title { font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:12px; }
+.chart-title { font-size:13px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:12px; }
 .bar-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 .bar-row:last-child { margin-bottom:0; }
-.bar-label { font-size:12px; color:var(--text2); width:140px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bar-label { font-size:13px; color:var(--text2); width:140px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .bar-track { flex:1; height:8px; background:var(--surface2); border-radius:4px; overflow:hidden; }
 .bar-fill { height:100%; border-radius:4px; background:var(--accent); transition:width .6s ease; }
 .bar-fill.blue { background:var(--blue); }
 .bar-fill.red { background:var(--red); }
 .bar-fill.yellow { background:var(--yellow); }
 .bar-fill.green { background:var(--green); }
-.bar-count { font-family:var(--mono); font-size:11px; color:var(--text2); width:44px; text-align:right; }
-.empty-note { font-size:12.5px; color:var(--text2); text-align:center; padding:10px 0; }
+.bar-count { font-family:var(--mono); font-size:13px; color:var(--text2); width:44px; text-align:right; }
+.empty-note { font-size:13px; color:var(--text2); text-align:center; padding:10px 0; }
 
 .btn {
   padding:10px 18px; border-radius:8px; border:none; cursor:pointer;
@@ -128,7 +128,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .form-title { font-size:14px; font-weight:700; margin-bottom:14px; color:var(--accent); }
 .form-row { display:grid; grid-template-columns:1fr; gap:10px; margin-bottom:10px; }
 .form-group { display:flex; flex-direction:column; gap:6px; }
-.form-label { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; }
+.form-label { font-size:13px; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; }
 .form-control {
   background:var(--surface2); border:1px solid var(--border);
   border-radius:8px; padding:10px 12px; color:var(--text);
@@ -138,13 +138,13 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 textarea.form-control { resize:vertical; min-height:70px; }
 .mode-btn {
   flex:1; border:1px solid var(--border); background:var(--surface2); color:var(--text2);
-  font-family:var(--sans); font-size:12.5px; font-weight:600; padding:10px 8px;
+  font-family:var(--sans); font-size:13px; font-weight:600; padding:10px 8px;
   border-radius:9px; cursor:pointer; transition:all .15s ease;
 }
 .mode-btn.active { border-color:var(--accent); background:rgba(245,166,35,0.12); color:var(--accent); }
 .loc-method-btn {
   border:1px solid var(--border); background:var(--surface2); color:var(--text2);
-  font-family:var(--sans); font-size:12px; font-weight:600; padding:8px 12px;
+  font-family:var(--sans); font-size:13px; font-weight:600; padding:8px 12px;
   border-radius:20px; cursor:pointer; transition:all .15s ease;
 }
 .loc-method-btn.active { border-color:var(--blue); background:rgba(59,158,222,0.12); color:var(--blue); }
@@ -156,11 +156,11 @@ textarea.form-control { resize:vertical; min-height:70px; }
 .dot-progress { background:var(--yellow); box-shadow:0 0 6px var(--yellow); }
 .dot-done { background:var(--green); }
 .ticket-info { flex:1; min-width:0; }
-.ticket-id { font-family:var(--mono); font-size:11px; color:var(--text2); margin-bottom:4px; }
+.ticket-id { font-family:var(--mono); font-size:13px; color:var(--text2); margin-bottom:4px; }
 .ticket-name { font-size:14px; font-weight:600; margin-bottom:3px; }
-.ticket-addr { font-size:12.5px; color:var(--text2); margin-bottom:6px; }
-.ticket-note { font-size:12.5px; color:var(--text); background:var(--surface2); padding:8px 10px; border-radius:6px; margin-bottom:8px; }
-.ticket-meta { display:flex; gap:8px; font-size:10.5px; color:var(--text2); font-family:var(--mono); flex-wrap:wrap; }
+.ticket-addr { font-size:13px; color:var(--text2); margin-bottom:6px; }
+.ticket-note { font-size:13px; color:var(--text); background:var(--surface2); padding:8px 10px; border-radius:6px; margin-bottom:8px; }
+.ticket-meta { display:flex; gap:8px; font-size:13px; color:var(--text2); font-family:var(--mono); flex-wrap:wrap; }
 .ticket-actions { display:flex; flex-direction:row; align-items:center; gap:8px; width:100%; }
 .ticket-card-top { display:flex; align-items:flex-start; gap:12px; }
 .ticket-filter-row { display:flex; gap:8px; flex-wrap:wrap; }
@@ -174,9 +174,9 @@ textarea.form-control { resize:vertical; min-height:70px; }
 .map-topbar-controls { padding:10px 14px 6px; }
 #map-full { flex:1; }
 .map-controls { display:flex; gap:8px; margin-bottom:10px; align-items:center; flex-wrap:wrap; }
-.map-controls .btn { padding:8px 12px; font-size:12px; }
+.map-controls .btn { padding:8px 12px; font-size:13px; }
 .btn-ghost.active-filter { border-color:var(--green); background:rgba(46,204,113,0.12); color:var(--green); }
-.map-legend { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:4px; font-size:12px; color:var(--text2); }
+.map-legend { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:4px; font-size:13px; color:var(--text2); }
 .legend-item { display:flex; align-items:center; gap:6px; }
 .legend-dot { width:10px; height:10px; border-radius:50%; }
 
@@ -323,7 +323,7 @@ textarea.form-control { resize:vertical; min-height:70px; }
           </div>
 
           <div id="loc-method-map" style="display:none;">
-            <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">แตะบนแผนที่เพื่อปักหมุดจุดเกิดเหตุ</div>
+            <div style="font-size:13px;color:var(--text2);margin-bottom:8px;">แตะบนแผนที่เพื่อปักหมุดจุดเกิดเหตุ</div>
             <div id="emg-pick-map" style="height:240px;border-radius:10px;overflow:hidden;border:1px solid var(--border);"></div>
             <div id="map-pick-result" style="margin-top:10px;font-size:13px;color:var(--text2);"></div>
           </div>
@@ -513,9 +513,9 @@ function ticketSearchUser() {
   if(!matches.length) { box.innerHTML=''; return; }
   box.innerHTML = `<div style="position:absolute;top:2px;left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:6px;z-index:500;overflow:hidden;">
     ${matches.map(r => `<div onclick='selectTicketUser(${JSON.stringify(r)})' style="padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background=''">
-      <span style="font-family:var(--mono);color:var(--accent);font-size:11px;">${r.CA}</span>
+      <span style="font-family:var(--mono);color:var(--accent);font-size:13px;">${r.CA}</span>
       ${r.PREFIX||''} ${r.CUSTOMERNAME} ${r.CUSTOMERSIRNAME}
-      <span style="color:var(--text2);font-size:11px;"> · ${r.TUMBOL} ${r.AMPHOE}</span>
+      <span style="color:var(--text2);font-size:13px;"> · ${r.TUMBOL} ${r.AMPHOE}</span>
     </div>`).join('')}
   </div>`;
 }
@@ -706,7 +706,7 @@ function renderTickets() {
       <div class="ticket-card-top">
         <div class="ticket-status-dot ${t.status==='open'?'dot-open':t.status==='progress'?'dot-progress':'dot-done'}"></div>
         <div class="ticket-info">
-          <div class="ticket-id">${t.id} · ${t.time} ${t.mode==='emergency'?'<span style="background:rgba(231,76,60,0.18);color:var(--red);font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;">🚨 ฉุกเฉิน</span>':''}</div>
+          <div class="ticket-id">${t.id} · ${t.time} ${t.mode==='emergency'?'<span style="background:rgba(231,76,60,0.18);color:var(--red);font-size:13px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;">🚨 ฉุกเฉิน</span>':''}</div>
           <div class="ticket-name">${t.name}</div>
           <div class="ticket-addr">📍 ${t.addr}</div>
           <div class="ticket-note">${t.note}</div>
@@ -719,9 +719,9 @@ function renderTickets() {
         </div>
       </div>
       <div class="ticket-actions">
-        ${t.lat?`<button class="btn btn-blue" style="font-size:12px;padding:6px 10px;" onclick="shareLocation('${t.id}')">📍 แชร์พิกัดช่าง</button>`:''}`+
-        `${t.token?`<a href="update.html?id=${t.id}&token=${t.token}" target="_blank" rel="noopener" class="btn btn-ghost" style="font-size:12px;padding:6px 10px;text-decoration:none;display:inline-flex;align-items:center;">📝 รายละเอียดงาน</a>`:''}`+
-        `<button class="btn btn-ghost" style="font-size:12px;padding:6px 10px;" onclick="deleteTicket('${t.id}')">🗑️</button>
+        ${t.lat?`<button class="btn btn-blue" style="font-size:13px;padding:6px 10px;" onclick="shareLocation('${t.id}')">📍 แชร์พิกัดช่าง</button>`:''}`+
+        `${t.token?`<a href="update.html?id=${t.id}&token=${t.token}" target="_blank" rel="noopener" class="btn btn-ghost" style="font-size:13px;padding:6px 10px;text-decoration:none;display:inline-flex;align-items:center;">📝 รายละเอียดงาน</a>`:''}`+
+        `<button class="btn btn-ghost" style="font-size:13px;padding:6px 10px;" onclick="deleteTicket('${t.id}')">🗑️</button>
       </div>
     </div>
   `).join('');
@@ -857,8 +857,8 @@ function renderTicketMarkers() {
         ${ticketStatusLabel(t.status)}<br>
         <small>${t.time}</small>
         <div style="display:flex;gap:6px;margin-top:8px;">
-          <a href="${navUrl}" target="_blank" rel="noopener" style="flex:1;text-align:center;background:#3b9ede;color:#fff;padding:6px 4px;border-radius:6px;font-size:12px;text-decoration:none;font-weight:600;">🧭 นำทาง</a>
-          ${updateUrl ? `<a href="${updateUrl}" target="_blank" rel="noopener" style="flex:1;text-align:center;background:#f5a623;color:#000;padding:6px 4px;border-radius:6px;font-size:12px;text-decoration:none;font-weight:600;">📝 รายละเอียดงาน</a>` : ''}
+          <a href="${navUrl}" target="_blank" rel="noopener" style="flex:1;text-align:center;background:#3b9ede;color:#fff;padding:6px 4px;border-radius:6px;font-size:13px;text-decoration:none;font-weight:600;">🧭 นำทาง</a>
+          ${updateUrl ? `<a href="${updateUrl}" target="_blank" rel="noopener" style="flex:1;text-align:center;background:#f5a623;color:#000;padding:6px 4px;border-radius:6px;font-size:13px;text-decoration:none;font-weight:600;">📝 รายละเอียดงาน</a>` : ''}
         </div>
       </div>
     `;

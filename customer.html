@@ -20,7 +20,7 @@
 :root {
   --bg:#0f1923; --surface:#162030; --surface2:#1e2d3d; --border:#2a3f55;
   --accent:#f5a623; --accent2:#e05c2a; --blue:#3b9ede; --green:#2ecc71; --red:#e74c3c;
-  --yellow:#f39c12; --text:#e8f0f8; --text2:#8aa0b8;
+  --yellow:#f39c12; --text:#e8f0f8; --text2:#a9bdd1;
   --mono:'IBM Plex Mono',monospace; --sans:'Sarabun',sans-serif;
   --topbar:52px; --botnav:56px;
 }
@@ -43,7 +43,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .topbar-title { font-size:15px; font-weight:700; flex:1; text-align:center; }
 .fb-dot { width:8px; height:8px; border-radius:50%; background:var(--yellow); flex-shrink:0; }
 .topbar-badge {
-  font-family:var(--mono); font-size:11px; color:var(--text2);
+  font-family:var(--mono); font-size:13px; color:var(--text2);
   background:var(--surface2); padding:3px 8px; border-radius:10px; flex-shrink:0;
 }
 
@@ -75,11 +75,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 }
 .nav-icon-wrap { position:relative; display:inline-block; }
 .nav-icon { font-size:20px; line-height:1; }
-.nav-label { font-size:11px; font-weight:600; }
+.nav-label { font-size:13px; font-weight:600; }
 .nav-badge {
   position:absolute; top:-4px; right:-10px; background:var(--red); color:#fff;
-  font-size:9px; font-family:var(--mono); border-radius:8px; padding:0 4px;
-  min-width:14px; text-align:center; line-height:14px;
+  font-size:10px; font-family:var(--mono); font-weight:700; border-radius:9px; padding:0 5px;
+  min-width:16px; text-align:center; line-height:16px;
 }
 
 /* ── DASHBOARD ── */
@@ -94,20 +94,20 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .stat-card.blue::before { background:var(--blue); }
 .stat-card.green::before { background:var(--green); }
 .stat-card.red::before { background:var(--red); }
-.stat-label { font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:8px; line-height:1.4; }
+.stat-label { font-size:13px; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:8px; line-height:1.4; }
 .stat-value { font-family:var(--mono); font-size:24px; font-weight:600; color:var(--text); line-height:1; }
-.stat-unit { font-size:11.5px; color:var(--text2); margin-top:5px; }
+.stat-unit { font-size:13px; color:var(--text2); margin-top:5px; }
 
 .charts-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .chart-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
-.chart-title { font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:12px; }
+.chart-title { font-size:13px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:12px; }
 .bar-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 .bar-row:last-child { margin-bottom:0; }
-.bar-label { font-size:12px; color:var(--text2); width:80px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bar-label { font-size:13px; color:var(--text2); width:80px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .bar-track { flex:1; height:8px; background:var(--surface2); border-radius:4px; overflow:hidden; }
 .bar-fill { height:100%; border-radius:4px; background:var(--accent); transition:width .6s ease; }
 .bar-fill.blue { background:var(--blue); }
-.bar-count { font-family:var(--mono); font-size:11px; color:var(--text2); width:44px; text-align:right; }
+.bar-count { font-family:var(--mono); font-size:13px; color:var(--text2); width:44px; text-align:right; }
 
 /* ── SEARCH ── */
 .search-wrap { padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
@@ -133,20 +133,20 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .btn-ghost.active-filter { border-color:var(--green); background:rgba(46,204,113,0.12); color:var(--green); }
 .btn-blue { background:var(--blue); color:#fff; }
 .btn-blue:hover { background:#2980b9; }
-.results-info { font-size:12.5px; color:var(--text2); font-family:var(--mono); }
+.results-info { font-size:13px; color:var(--text2); font-family:var(--mono); }
 
 .table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:8px; border:1px solid var(--border); }
-table { width:100%; border-collapse:collapse; font-size:12.5px; min-width:560px; }
+table { width:100%; border-collapse:collapse; font-size:13px; min-width:560px; }
 th {
   background:var(--surface2); color:var(--text2); text-align:left;
-  padding:9px 12px; font-weight:600; font-size:10.5px;
+  padding:9px 12px; font-weight:600; font-size:13px;
   text-transform:uppercase; letter-spacing:0.7px; border-bottom:1px solid var(--border);
   white-space:nowrap;
 }
 td { padding:9px 12px; border-bottom:1px solid rgba(42,63,85,0.5); color:var(--text); }
 tr:last-child td { border-bottom:none; }
 tr:hover td { background:var(--surface2); }
-.badge { display:inline-block; padding:2px 8px; border-radius:3px; font-size:11px; font-family:var(--mono); font-weight:500; }
+.badge { display:inline-block; padding:2px 8px; border-radius:3px; font-size:13px; font-family:var(--mono); font-weight:500; }
 .badge-normal { background:rgba(46,204,113,0.15); color:var(--green); }
 .badge-emete { background:rgba(59,158,222,0.15); color:var(--blue); }
 .badge-demand { background:rgba(245,166,35,0.15); color:var(--accent); }
@@ -155,7 +155,7 @@ tr:hover td { background:var(--surface2); }
 .badge-other { background:rgba(138,160,184,0.15); color:var(--text2); }
 .action-btn {
   padding:5px 12px; border-radius:6px; border:none; cursor:pointer;
-  font-size:12px; font-family:var(--sans); font-weight:600;
+  font-size:13px; font-family:var(--sans); font-weight:600;
   background:rgba(245,166,35,0.15); color:var(--accent); transition:all .15s;
 }
 .action-btn:hover { background:var(--accent); color:#000; }
@@ -163,12 +163,12 @@ tr:hover td { background:var(--surface2); }
 .pagination { display:flex; align-items:center; gap:4px; justify-content:center; flex-wrap:wrap; }
 .page-btn {
   padding:6px 10px; border-radius:6px; border:1px solid var(--border);
-  background:var(--surface); color:var(--text2); cursor:pointer; font-size:12px; transition:all .15s;
+  background:var(--surface); color:var(--text2); cursor:pointer; font-size:13px; transition:all .15s;
   min-width:34px; text-align:center;
 }
 .page-btn:hover, .page-btn.active { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
 .page-btn:disabled { opacity:0.3; cursor:default; }
-.page-info { font-size:12px; color:var(--text2); font-family:var(--mono); }
+.page-info { font-size:13px; color:var(--text2); font-family:var(--mono); }
 
 /* ── MODAL ── */
 .modal-overlay {
@@ -190,7 +190,7 @@ tr:hover td { background:var(--surface2); }
 .modal-close:hover { color:var(--text); }
 .modal-body { padding:18px; }
 .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
-.info-key { font-size:10.5px; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:4px; }
+.info-key { font-size:13px; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:4px; }
 .info-val { font-size:13.5px; color:var(--text); font-weight:500; }
 .info-val.mono { font-family:var(--mono); color:var(--accent); }
 .map-mini { height:180px; border-radius:8px; overflow:hidden; margin-bottom:16px; border:1px solid var(--border); }
@@ -203,7 +203,7 @@ tr:hover td { background:var(--surface2); }
 .form-title { font-size:14px; font-weight:700; margin-bottom:14px; color:var(--accent); }
 .form-row { display:grid; grid-template-columns:1fr; gap:10px; margin-bottom:10px; }
 .form-group { display:flex; flex-direction:column; gap:6px; }
-.form-label { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; }
+.form-label { font-size:13px; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; }
 .form-control {
   background:var(--surface2); border:1px solid var(--border);
   border-radius:8px; padding:10px 12px; color:var(--text);
@@ -213,13 +213,13 @@ tr:hover td { background:var(--surface2); }
 textarea.form-control { resize:vertical; min-height:70px; }
 .mode-btn {
   flex:1; border:1px solid var(--border); background:var(--surface2); color:var(--text2);
-  font-family:var(--sans); font-size:12.5px; font-weight:600; padding:10px 8px;
+  font-family:var(--sans); font-size:13px; font-weight:600; padding:10px 8px;
   border-radius:9px; cursor:pointer; transition:all .15s ease;
 }
 .mode-btn.active { border-color:var(--accent); background:rgba(245,166,35,0.12); color:var(--accent); }
 .loc-method-btn {
   border:1px solid var(--border); background:var(--surface2); color:var(--text2);
-  font-family:var(--sans); font-size:12px; font-weight:600; padding:8px 12px;
+  font-family:var(--sans); font-size:13px; font-weight:600; padding:8px 12px;
   border-radius:20px; cursor:pointer; transition:all .15s ease;
 }
 .loc-method-btn.active { border-color:var(--blue); background:rgba(59,158,222,0.12); color:var(--blue); }
@@ -231,11 +231,11 @@ textarea.form-control { resize:vertical; min-height:70px; }
 .dot-progress { background:var(--yellow); box-shadow:0 0 6px var(--yellow); }
 .dot-done { background:var(--green); }
 .ticket-info { flex:1; min-width:0; }
-.ticket-id { font-family:var(--mono); font-size:11px; color:var(--text2); margin-bottom:4px; }
+.ticket-id { font-family:var(--mono); font-size:13px; color:var(--text2); margin-bottom:4px; }
 .ticket-name { font-size:14px; font-weight:600; margin-bottom:3px; }
-.ticket-addr { font-size:12.5px; color:var(--text2); margin-bottom:6px; }
-.ticket-note { font-size:12.5px; color:var(--text); background:var(--surface2); padding:8px 10px; border-radius:6px; margin-bottom:8px; }
-.ticket-meta { display:flex; gap:8px; font-size:10.5px; color:var(--text2); font-family:var(--mono); flex-wrap:wrap; }
+.ticket-addr { font-size:13px; color:var(--text2); margin-bottom:6px; }
+.ticket-note { font-size:13px; color:var(--text); background:var(--surface2); padding:8px 10px; border-radius:6px; margin-bottom:8px; }
+.ticket-meta { display:flex; gap:8px; font-size:13px; color:var(--text2); font-family:var(--mono); flex-wrap:wrap; }
 .ticket-actions { display:flex; flex-direction:row; align-items:center; gap:8px; width:100%; }
 .ticket-card-top { display:flex; align-items:flex-start; gap:12px; }
 .empty-state { text-align:center; padding:50px 20px; color:var(--text2); }
@@ -246,8 +246,8 @@ textarea.form-control { resize:vertical; min-height:70px; }
 .map-topbar-controls { padding:10px 14px 6px; }
 #map-full { flex:1; }
 .map-controls { display:flex; gap:8px; margin-bottom:10px; align-items:center; flex-wrap:wrap; }
-.map-controls .btn { padding:8px 12px; font-size:12px; }
-.map-legend { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:4px; font-size:12px; color:var(--text2); }
+.map-controls .btn { padding:8px 12px; font-size:13px; }
+.map-legend { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:4px; font-size:13px; color:var(--text2); }
 .legend-item { display:flex; align-items:center; gap:6px; }
 .legend-dot { width:10px; height:10px; border-radius:50%; }
 
@@ -577,12 +577,12 @@ function renderTable() {
     const addr = [r.ADDRESSNO, r.MOO ? 'ม.'+r.MOO : ''].filter(Boolean).join(' ');
     const loc = [r.TUMBOL, r.AMPHOE].filter(Boolean).join(' ');
     return `<tr>
-      <td><span style="font-family:var(--mono);font-size:12px;color:var(--accent)">${hl(r.CA,q)}</span></td>
-      <td><span style="font-family:var(--mono);font-size:12px;color:var(--blue)">${hl(r.PEANO||'—',q)}</span></td>
+      <td><span style="font-family:var(--mono);font-size:13px;color:var(--accent)">${hl(r.CA,q)}</span></td>
+      <td><span style="font-family:var(--mono);font-size:13px;color:var(--blue)">${hl(r.PEANO||'—',q)}</span></td>
       <td>${hl(name,q)}</td>
       <td style="color:var(--text2)">${hl(addr,q)}</td>
       <td style="color:var(--text2)">${hl(loc,q)}</td>
-      <td><span style="font-family:var(--mono);font-size:12px">${hl(r.MOBILE_NO||'—',q)}</span></td>
+      <td><span style="font-family:var(--mono);font-size:13px">${hl(r.MOBILE_NO||'—',q)}</span></td>
       <td>${meterBadge(r.METERTYPE)}</td>
       <td><button class="action-btn" onclick='openUserModal(${JSON.stringify(r)})'>ดูข้อมูล</button></td>
     </tr>`;
@@ -625,7 +625,7 @@ function openUserModal(r) {
     <div class="info-item"><div class="info-key">เบอร์โทร</div><div class="info-val mono">${r.MOBILE_NO||'—'}</div></div>
     <div class="info-item col-span-2"><div class="info-key">ที่อยู่</div><div class="info-val">${addr}</div></div>
     <div class="info-item"><div class="info-key">ประเภทมิเตอร์</div><div class="info-val">${r.METERTYPE||'—'}</div></div>
-    <div class="info-item"><div class="info-key">พิกัด</div><div class="info-val mono" style="font-size:12px">${r.LATITUDE?.toFixed(6)||'—'}, ${r.LONGITUDE?.toFixed(6)||'—'}</div></div>
+    <div class="info-item"><div class="info-key">พิกัด</div><div class="info-val mono" style="font-size:13px">${r.LATITUDE?.toFixed(6)||'—'}, ${r.LONGITUDE?.toFixed(6)||'—'}</div></div>
   `;
   document.getElementById('modal-map-btn').onclick = () => { closeModal('modal-user'); switchTab('map'); setTimeout(()=>{ if(mapFull) mapFull.invalidateSize(); focusMapUser(r); },350); };
   document.getElementById('modal-user').classList.add('show');
@@ -733,7 +733,7 @@ function renderUserMarkers() {
   all.forEach(r => {
     userLayer.addLayer(
       L.marker([r.LATITUDE,r.LONGITUDE],{icon})
-        .bindPopup(`<b>${r.PREFIX||''} ${r.CUSTOMERNAME} ${r.CUSTOMERSIRNAME}</b><br>CA: ${r.CA}<br>PEANO: ${r.PEANO||'—'}<br>${r.TUMBOL} ${r.AMPHOE}<br><button onclick='openUserModal(${JSON.stringify(r)})' style="margin-top:8px;width:100%;background:#f5a623;color:#0f1923;border:none;border-radius:6px;padding:7px 10px;font-family:Sarabun,sans-serif;font-size:12.5px;font-weight:700;cursor:pointer">ดูข้อมูลผู้ใช้ไฟ →</button>`)
+        .bindPopup(`<b>${r.PREFIX||''} ${r.CUSTOMERNAME} ${r.CUSTOMERSIRNAME}</b><br>CA: ${r.CA}<br>PEANO: ${r.PEANO||'—'}<br>${r.TUMBOL} ${r.AMPHOE}<br><button onclick='openUserModal(${JSON.stringify(r)})' style="margin-top:8px;width:100%;background:#f5a623;color:#0f1923;border:none;border-radius:6px;padding:7px 10px;font-family:Sarabun,sans-serif;font-size:13px;font-weight:700;cursor:pointer">ดูข้อมูลผู้ใช้ไฟ →</button>`)
     );
   });
   if(userLayerVisible) userLayer.addTo(mapFull);
