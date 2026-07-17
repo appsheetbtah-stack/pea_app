@@ -36,6 +36,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .topbar-count {
   font-family:var(--mono); font-size:13px; color:var(--text2);
   background:var(--surface2); padding:3px 9px; border-radius:10px; flex-shrink:0; white-space:nowrap;
+  display:none;
 }
 
 /* ── TAB CONTENT ── */
@@ -77,10 +78,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .stat-unit { font-size:13px; color:var(--text2); margin-top:5px; }
 .charts-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .chart-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
+.chart-card.full { grid-column:1 / -1; }
 .chart-title { font-size:13px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:12px; }
 .bar-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 .bar-row:last-child { margin-bottom:0; }
-.bar-label { font-size:13px; color:var(--text2); width:80px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bar-label { font-size:13px; color:var(--text2); white-space:nowrap; flex-shrink:0; }
 .bar-track { flex:1; height:8px; background:var(--surface2); border-radius:4px; overflow:hidden; }
 .bar-fill { height:100%; border-radius:4px; background:var(--accent); transition:width .6s ease; }
 .bar-fill.blue { background:var(--blue); }
@@ -237,11 +239,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       </div>
     </div>
     <div class="charts-row">
-      <div class="chart-card">
+      <div class="chart-card full">
         <div class="chart-title">สถานะงาน</div>
         <div id="chart-status"></div>
       </div>
-      <div class="chart-card">
+      <div class="chart-card full">
         <div class="chart-title">ประเภทงาน</div>
         <div id="chart-category"></div>
       </div>
