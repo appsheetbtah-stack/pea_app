@@ -163,7 +163,14 @@ textarea.form-control { resize:vertical; min-height:70px; }
 .ticket-meta { display:flex; gap:8px; font-size:13px; color:var(--text2); font-family:var(--mono); flex-wrap:wrap; }
 .ticket-actions { display:flex; flex-direction:row; align-items:center; gap:8px; width:100%; }
 .ticket-card-top { display:flex; align-items:flex-start; gap:12px; }
-.ticket-filter-row { display:flex; gap:8px; flex-wrap:wrap; }
+.ticket-filter-row { display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; }
+.ticket-filter-row::-webkit-scrollbar { display:none; }
+.ticket-filter-chip {
+  flex-shrink:0; border:1px solid var(--border); background:var(--surface2); color:var(--text2);
+  font-family:var(--sans); font-size:13px; font-weight:600; padding:7px 14px;
+  border-radius:20px; cursor:pointer; white-space:nowrap; transition:all .15s;
+}
+.ticket-filter-chip.active { border-color:var(--accent); background:rgba(245,166,35,.15); color:var(--accent); }
 .empty-state { text-align:center; padding:50px 20px; color:var(--text2); }
 .empty-icon { font-size:44px; margin-bottom:12px; }
 .empty-text { font-size:14px; }
@@ -357,10 +364,10 @@ textarea.form-control { resize:vertical; min-height:70px; }
   <div class="ticket-wrap">
     <div class="ticket-list-title">รายการแจ้งเหตุ</div>
     <div class="ticket-filter-row">
-      <button class="btn btn-ghost" id="filter-all" onclick="setTicketFilter('all')">ทั้งหมด</button>
-      <button class="btn btn-ghost" id="filter-open" onclick="setTicketFilter('open')">🔴 รอดำเนินการ</button>
-      <button class="btn btn-ghost" id="filter-progress" onclick="setTicketFilter('progress')">🟡 กำลังดำเนินการ</button>
-      <button class="btn btn-ghost" id="filter-done" onclick="setTicketFilter('done')">🟢 แก้ไขแล้ว</button>
+      <button class="ticket-filter-chip" id="filter-all" onclick="setTicketFilter('all')">ทั้งหมด</button>
+      <button class="ticket-filter-chip" id="filter-open" onclick="setTicketFilter('open')">🔴 รอดำเนินการ</button>
+      <button class="ticket-filter-chip" id="filter-progress" onclick="setTicketFilter('progress')">🟡 กำลังดำเนินการ</button>
+      <button class="ticket-filter-chip" id="filter-done" onclick="setTicketFilter('done')">🟢 แก้ไขแล้ว</button>
     </div>
     <div id="ticket-list"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">ยังไม่มีรายการแจ้งเหตุ</div></div></div>
   </div>
@@ -688,7 +695,7 @@ function createTicket() {
 function setTicketFilter(filter) {
   ticketFilter = filter;
   ['all','open','progress','done'].forEach(f => {
-    document.getElementById('filter-'+f).classList.toggle('active-filter', f===filter);
+    document.getElementById('filter-'+f).classList.toggle('active', f===filter);
   });
   renderTickets();
 }
