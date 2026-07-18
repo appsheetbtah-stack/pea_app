@@ -1507,6 +1507,27 @@ function clearAll() {
   document.getElementById('recordTime').value =
     `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 })();
+
+// เติมข้อมูลหม้อแปลงล่วงหน้า เมื่อลิงก์มาจากหมุดในหน้าแผนที่อุปกรณ์ (equipment.html)
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const peaNo = params.get('peaNo');
+  const kva = params.get('kva');
+  const location = params.get('location');
+  const phase = params.get('phase');
+
+  if (phase === '1phase' || phase === '3phase') {
+    switchPhase(phase);
+  }
+  if (peaNo) document.getElementById('peaNo').value = peaNo;
+  if (location) document.getElementById('location').value = location;
+  if (kva && !isNaN(parseFloat(kva))) {
+    const kvaEl = document.getElementById('kva');
+    kvaEl.value = kva;
+    kvaEl.dataset.userEdited = '1'; // กันไม่ให้ switchPhase() ทับค่า kVA จริงที่ส่งมา
+  }
+  if (peaNo || location || kva) calculateAll();
+})();
 </script>
 </body>
 </html>
