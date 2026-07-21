@@ -9,6 +9,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f1923">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -133,7 +134,9 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .status-approval { background:rgba(231,76,60,.15);   color:var(--red); }
 .status-done     { background:rgba(46,204,113,.15);  color:var(--green); }
 
-.wc-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
+.wc-actions { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; }
+.wc-actions-left { display:flex; }
+.wc-actions-right { display:flex; gap:8px; }
 .icon-btn {
   background:var(--surface2); border:1px solid var(--border); color:var(--text2);
   width:34px; height:34px; border-radius:8px; cursor:pointer; font-size:15px;
@@ -141,6 +144,12 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 }
 .icon-btn:active { border-color:var(--accent); color:var(--accent); }
 .icon-btn.del:active { border-color:var(--red); color:var(--red); }
+.link-btn {
+  background:var(--surface2); border:1px solid var(--border); color:var(--accent);
+  padding:0 12px; height:34px; border-radius:8px; font-size:13px; font-weight:600;
+  display:inline-flex; align-items:center; gap:5px; text-decoration:none; transition:all .15s;
+}
+.link-btn:active { border-color:var(--accent); background:rgba(245,166,35,0.12); }
 
 /* ── FAB ── */
 .fab {
@@ -183,6 +192,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   background:var(--surface); cursor:not-allowed;
 }
 .field-hint { font-size:13px; color:var(--text2); margin-top:5px; }
+.drawing-upload-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.drawing-upload-status { font-size:13px; color:var(--text2); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.drawing-upload-status a { color:var(--accent); font-weight:600; text-decoration:none; }
+.drawing-upload-status.uploading { color:var(--blue); }
+.drawing-upload-status.error { color:var(--red); }
 .modal-footer {
   display:flex; gap:10px; padding:14px 18px; border-top:1px solid var(--border);
 }
@@ -313,6 +327,16 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         <label class="field-label">เลข WBS</label>
         <input class="field-input" id="f-wbs" placeholder="เช่น C-69-B-BRKCM.0XXX.XX.X">
         <div class="field-hint" id="f-wbs-hint"></div>
+      </div>
+      <div>
+        <label class="field-label">แบบแปลน (Google Drive)</label>
+        <div class="drawing-upload-row">
+          <button type="button" class="btn btn-blue" id="btn-upload-drawing" onclick="uploadDrawingFile()" style="flex-shrink:0;">📤 อัปโหลดไฟล์</button>
+          <input type="file" id="f-drawing-file-input" accept="application/pdf,image/*" style="display:none;" onchange="handleDrawingFileSelected(event)">
+          <div id="drawing-upload-status" class="drawing-upload-status"></div>
+        </div>
+        <input class="field-input" id="f-drawinglink" placeholder="หรือวางลิงก์ Google Drive เองที่นี่" inputmode="url" style="margin-top:8px;" oninput="renderDrawingLinkPreview()">
+        <div class="field-hint">อัปโหลดผ่านปุ่มด้านบน ระบบจะเก็บขึ้น Google Drive และตั้งค่าแชร์ให้อัตโนมัติ หรือจะวางลิงก์ที่มีอยู่แล้วเองก็ได้</div>
       </div>
       <div>
         <label class="field-label">สถานะ</label>
@@ -506,8 +530,13 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
           <div class="wc-job">${w.jobName || '—'}</div>
           <div class="wc-wbs">WBS: ${w.wbs || '—'}</div>
           <div class="wc-actions">
-            <button class="icon-btn" onclick="window.editItem('${w._id}')">✏️</button>
-            <button class="icon-btn del" onclick="window.deleteItem('${w._id}')">🗑️</button>
+            <div class="wc-actions-left">
+              ${w.drawingLink ? `<a class="link-btn" href="${w.drawingLink}" target="_blank" rel="noopener">📎 ดูแบบแปลน</a>` : ''}
+            </div>
+            <div class="wc-actions-right">
+              <button class="icon-btn" onclick="window.editItem('${w._id}')">✏️</button>
+              <button class="icon-btn del" onclick="window.deleteItem('${w._id}')">🗑️</button>
+            </div>
           </div>
         </div>`;
     }).join('');
@@ -558,6 +587,8 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       ? 'เช่น งานปรับปรุงไฟตก บ้าน...'
       : 'เช่น C140ม. บ.หนองอ้อ (นายเอกชัย ต้นน้อย)';
     document.getElementById('f-status').value = 'survey';
+    document.getElementById('f-drawinglink').value = '';
+    renderDrawingLinkPreview();
 
     const wbsInput = document.getElementById('f-wbs');
     const worktypeWrap = document.getElementById('worktype-wrap');
@@ -602,6 +633,8 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     document.getElementById('f-drawing-hint').textContent = 'แก้ไขเลขผังได้หากจำเป็น';
     document.getElementById('f-job').value = w.jobName || '';
     document.getElementById('f-status').value = w.status || 'survey';
+    document.getElementById('f-drawinglink').value = w.drawingLink || '';
+    renderDrawingLinkPreview();
 
     document.getElementById('worktype-wrap').style.display = 'none';
     const wbsInput = document.getElementById('f-wbs');
@@ -617,9 +650,14 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     const jobName = document.getElementById('f-job').value.trim();
     const wbs = document.getElementById('f-wbs').value.trim();
     const status = document.getElementById('f-status').value;
+    const drawingLink = document.getElementById('f-drawinglink').value.trim();
 
     if (!drawingNo || !jobName) {
       showToast('กรุณากรอกเลขผังและชื่องาน');
+      return;
+    }
+    if (drawingLink && !/^https?:\/\//i.test(drawingLink)) {
+      showToast('ลิงก์แบบแปลนต้องขึ้นต้นด้วย http:// หรือ https://');
       return;
     }
 
@@ -629,16 +667,16 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
     try {
       if (editingId) {
-        await updateDoc(doc(db, COLLECTION, editingId), { drawingNo, jobName, wbs, status });
+        await updateDoc(doc(db, COLLECTION, editingId), { drawingNo, jobName, wbs, status, drawingLink });
         const idx = allWorks.findIndex(w => w._id === editingId);
-        if (idx > -1) allWorks[idx] = { ...allWorks[idx], drawingNo, jobName, wbs, status };
+        if (idx > -1) allWorks[idx] = { ...allWorks[idx], drawingNo, jobName, wbs, status, drawingLink };
         showToast('บันทึกการแก้ไขแล้ว');
       } else {
         const docRef = await addDoc(collection(db, COLLECTION), {
-          category: currentCat, drawingNo, jobName, wbs, status,
+          category: currentCat, drawingNo, jobName, wbs, status, drawingLink,
           createdAt: Date.now()
         });
-        allWorks.push({ _id: docRef.id, category: currentCat, drawingNo, jobName, wbs, status, createdAt: Date.now() });
+        allWorks.push({ _id: docRef.id, category: currentCat, drawingNo, jobName, wbs, status, drawingLink, createdAt: Date.now() });
         showToast('เพิ่มงานใหม่แล้ว');
       }
       closeForm();
@@ -650,6 +688,122 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     } finally {
       btn.disabled = false;
       btn.textContent = 'บันทึก';
+    }
+  };
+
+  // ===== Google Drive Upload (แบบแปลน) =====
+  const GOOGLE_CLIENT_ID = '1006235611544-tv5slgr1vef55i8ol56embfdvrimns4i.apps.googleusercontent.com';
+  const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+  let driveTokenClient = null;
+  let driveAccessToken = null;
+
+  function getDriveTokenClient() {
+    if (driveTokenClient) return driveTokenClient;
+    if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) return null;
+    driveTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: DRIVE_SCOPE,
+      callback: '' // ตั้งค่าตอนเรียกใช้จริงแต่ละครั้ง
+    });
+    return driveTokenClient;
+  }
+
+  // ขอ access token จาก Google (เด้งหน้าล็อกอิน/ขออนุญาตครั้งแรกเท่านั้น ครั้งต่อไปเงียบๆ ถ้ายัง valid)
+  function requestDriveAccessToken() {
+    return new Promise((resolve, reject) => {
+      const client = getDriveTokenClient();
+      if (!client) {
+        reject(new Error('โหลดระบบล็อกอิน Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่'));
+        return;
+      }
+      client.callback = (resp) => {
+        if (resp.error) { reject(new Error(resp.error)); return; }
+        driveAccessToken = resp.access_token;
+        resolve(driveAccessToken);
+      };
+      client.requestAccessToken({ prompt: driveAccessToken ? '' : 'consent' });
+    });
+  }
+
+  window.uploadDrawingFile = function() {
+    document.getElementById('f-drawing-file-input').click();
+  };
+
+  window.handleDrawingFileSelected = async function(event) {
+    const file = event.target.files[0];
+    event.target.value = ''; // เคลียร์ input เผื่อเลือกไฟล์เดิมซ้ำ
+    if (!file) return;
+
+    const statusEl = document.getElementById('drawing-upload-status');
+    statusEl.className = 'drawing-upload-status uploading';
+    statusEl.textContent = '🔄 กำลังขออนุญาตเข้าถึง Google Drive...';
+
+    try {
+      const token = await requestDriveAccessToken();
+      statusEl.textContent = `🔄 กำลังอัปโหลด ${file.name}...`;
+      const result = await uploadFileToDrive(file, token);
+      document.getElementById('f-drawinglink').value = result.webViewLink;
+      renderDrawingLinkPreview();
+      statusEl.className = 'drawing-upload-status';
+      statusEl.textContent = '';
+      showToast('อัปโหลดไฟล์สำเร็จ ✓');
+    } catch (e) {
+      console.error(e);
+      statusEl.className = 'drawing-upload-status error';
+      statusEl.textContent = '⚠️ อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง';
+    }
+  };
+
+  // อัปโหลดไฟล์ไป Google Drive แบบ multipart แล้วตั้งค่าแชร์เป็น "ทุกคนที่มีลิงก์ดูได้" ให้อัตโนมัติ
+  async function uploadFileToDrive(file, token) {
+    const metadata = { name: `${currentCat}_${Date.now()}_${file.name}` };
+    const boundary = 'peaAppBoundary' + Date.now();
+    const metaPart =
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`;
+    const closeDelim = `\r\n--${boundary}--`;
+
+    const fileBuffer = await file.arrayBuffer();
+    const metaBytes = new TextEncoder().encode(metaPart);
+    const filePartHeader = new TextEncoder().encode(`--${boundary}\r\nContent-Type: ${file.type || 'application/octet-stream'}\r\n\r\n`);
+    const closeBytes = new TextEncoder().encode(closeDelim);
+
+    const body = new Blob([metaBytes, filePartHeader, fileBuffer, closeBytes]);
+
+    const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`
+      },
+      body
+    });
+    if (!uploadRes.ok) throw new Error('อัปโหลดไฟล์ไม่สำเร็จ: ' + uploadRes.status);
+    const uploaded = await uploadRes.json();
+
+    // ตั้งค่าแชร์ไฟล์ให้ "ทุกคนที่มีลิงก์ดูได้" อัตโนมัติ ไม่ต้องไปกดตั้งเองใน Drive
+    const permRes = await fetch(`https://www.googleapis.com/drive/v3/files/${uploaded.id}/permissions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ role: 'reader', type: 'anyone' })
+    });
+    if (!permRes.ok) console.warn('ตั้งค่าแชร์ไฟล์ไม่สำเร็จ อาจต้องเข้าไปตั้งเองใน Drive');
+
+    return uploaded;
+  }
+
+  window.renderDrawingLinkPreview = function() {
+    const link = document.getElementById('f-drawinglink').value.trim();
+    const statusEl = document.getElementById('drawing-upload-status');
+    if (statusEl.classList.contains('uploading')) return; // กำลังอัปโหลดอยู่ ไม่ต้องทับข้อความ
+    if (link) {
+      statusEl.className = 'drawing-upload-status';
+      statusEl.innerHTML = `📎 <a href="${link}" target="_blank" rel="noopener">เปิดไฟล์ที่แนบไว้</a>`;
+    } else {
+      statusEl.className = 'drawing-upload-status';
+      statusEl.textContent = 'ยังไม่มีไฟล์แนบ';
     }
   };
 
