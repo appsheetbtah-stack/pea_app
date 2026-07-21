@@ -740,8 +740,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
     try {
       const token = await requestDriveAccessToken();
+      statusEl.textContent = '🔄 กำลังเตรียมโฟลเดอร์...';
+      const folderId = await getCategoryFolderId(token);
       statusEl.textContent = `🔄 กำลังอัปโหลด ${file.name}...`;
-      const result = await uploadFileToDrive(file, token);
+      const result = await uploadFileToDrive(file, token, folderId);
       document.getElementById('f-drawinglink').value = result.webViewLink;
       renderDrawingLinkPreview();
       statusEl.className = 'drawing-upload-status';
@@ -754,9 +756,53 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     }
   };
 
+  // แคช ID โฟลเดอร์ไว้ในหน่วยความจำ กันไม่ต้องค้น/สร้างซ้ำทุกครั้งที่อัปโหลด (รีเซ็ตเมื่อโหลดหน้าใหม่)
+  const DRIVE_ROOT_FOLDER_NAME = 'PEA App - แบบแปลน';
+  const DRIVE_CATEGORY_FOLDER_NAME = { expansion: 'ขยายเขต', improvement: 'ปรับปรุงระบบจำหน่าย' };
+  let driveFolderCache = {};
+
+  // ค้นหาโฟลเดอร์ตามชื่อ+โฟลเดอร์แม่ ถ้าไม่เจอให้สร้างใหม่ คืนค่า folder id
+  async function findOrCreateFolder(name, parentId, token) {
+    const parentClause = parentId ? ` and '${parentId}' in parents` : " and 'root' in parents";
+    const q = encodeURIComponent(`name = '${name.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false${parentClause}`);
+    const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!searchRes.ok) throw new Error('ค้นหาโฟลเดอร์ไม่สำเร็จ: ' + searchRes.status);
+    const searchData = await searchRes.json();
+    if (searchData.files && searchData.files.length > 0) return searchData.files[0].id;
+
+    const createRes = await fetch('https://www.googleapis.com/drive/v3/files?fields=id', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: parentId ? [parentId] : undefined
+      })
+    });
+    if (!createRes.ok) throw new Error('สร้างโฟลเดอร์ไม่สำเร็จ: ' + createRes.status);
+    const created = await createRes.json();
+    return created.id;
+  }
+
+  // หา/สร้างโฟลเดอร์ปลายทางสำหรับหมวดงานปัจจุบัน: "PEA App - แบบแปลน" > "ขยายเขต" หรือ "ปรับปรุงระบบจำหน่าย"
+  async function getCategoryFolderId(token) {
+    if (driveFolderCache[currentCat]) return driveFolderCache[currentCat];
+    const rootId = driveFolderCache.__root || await findOrCreateFolder(DRIVE_ROOT_FOLDER_NAME, null, token);
+    driveFolderCache.__root = rootId;
+    const catName = DRIVE_CATEGORY_FOLDER_NAME[currentCat] || currentCat;
+    const catId = await findOrCreateFolder(catName, rootId, token);
+    driveFolderCache[currentCat] = catId;
+    return catId;
+  }
+
   // อัปโหลดไฟล์ไป Google Drive แบบ multipart แล้วตั้งค่าแชร์เป็น "ทุกคนที่มีลิงก์ดูได้" ให้อัตโนมัติ
-  async function uploadFileToDrive(file, token) {
-    const metadata = { name: `${currentCat}_${Date.now()}_${file.name}` };
+  async function uploadFileToDrive(file, token, folderId) {
+    const metadata = { name: `${currentCat}_${Date.now()}_${file.name}`, parents: folderId ? [folderId] : undefined };
     const boundary = 'peaAppBoundary' + Date.now();
     const metaPart =
       `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`;
