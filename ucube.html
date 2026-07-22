@@ -81,7 +81,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .ticket-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:8px; cursor:pointer; }
 .ticket-card:active { border-color:var(--accent); }
 .ticket-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
-.ticket-thumb { width:56px; height:56px; border-radius:8px; object-fit:cover; border:1px solid var(--border); flex-shrink:0; }
+.ticket-thumb-lg { width:76px; height:76px; border-radius:12px; object-fit:cover; border:2px solid var(--accent); flex-shrink:0; box-shadow:0 3px 10px rgba(0,0,0,.35); }
 .ticket-name { font-weight:700; font-size:15px; }
 .ticket-sub { font-size:13px; color:var(--text2); }
 .status-badge { font-size:12px; font-weight:700; padding:4px 10px; border-radius:20px; white-space:nowrap; flex-shrink:0; }
@@ -666,14 +666,16 @@ function renderList() {
     const meta = STATUS_META[t.status || 'pending'];
     return `
       <div class="ticket-card" onclick="openDetail('${escAttr(t.reqNo)}')" style="margin-bottom:12px;">
-        <div class="ticket-top">
-          <div>
-            <div class="ticket-name">${esc(t.customerName || '(ไม่มีชื่อ)')}${t.source === 'manual' ? ' <span class="source-badge">🆕 แจ้งเพิ่มเติม</span>' : ''}</div>
-            <div class="ticket-sub">PEANO: ${esc(t.peanoMeter || '-')}</div>
-          </div>
-          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
-            <span class="status-badge ${meta.cls}">${meta.label}</span>
-            ${(t.photoThumb || t.photoLink || t.photoFileId) ? `<img src="${escAttr(driveDisplayImageUrl(t))}" class="ticket-thumb" loading="lazy" onerror="this.style.display='none'" onclick="event.stopPropagation(); openDetail('${escAttr(t.reqNo)}')">` : ''}
+        <div style="display:flex; gap:12px; align-items:flex-start;">
+          ${(t.photoThumb || t.photoLink || t.photoFileId) ? `<img src="${escAttr(driveDisplayImageUrl(t))}" class="ticket-thumb-lg" loading="lazy" onerror="this.remove()">` : ''}
+          <div style="flex:1; min-width:0;">
+            <div class="ticket-top">
+              <div>
+                <div class="ticket-name">${esc(t.customerName || '(ไม่มีชื่อ)')}${t.source === 'manual' ? ' <span class="source-badge">🆕 แจ้งเพิ่มเติม</span>' : ''}</div>
+                <div class="ticket-sub">PEANO: ${esc(t.peanoMeter || '-')}</div>
+              </div>
+              <span class="status-badge ${meta.cls}">${meta.label}</span>
+            </div>
           </div>
         </div>
         <div class="ticket-detail-row">📍 ${esc(t.locationAddress || '-')}</div>
