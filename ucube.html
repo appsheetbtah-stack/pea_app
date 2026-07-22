@@ -1147,7 +1147,7 @@ async function handlePhotoSelected(event) {
   }
 
   try {
-    const token = await requestDriveAccessToken();
+    const token = driveAccessToken || await requestDriveAccessToken();
     const folderId = await getUcubePhotoFolderId(token);
     const result = await uploadPhotoToDrive(file, token, folderId);
 
