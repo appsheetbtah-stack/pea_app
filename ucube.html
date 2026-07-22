@@ -97,7 +97,8 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .empty-icon { font-size:40px; margin-bottom:10px; }
 
 /* ── MAP PANE ── */
-#map { flex:1; }
+.map-pane-inner { position:relative; flex:1; display:flex; flex-direction:column; min-height:0; }
+#map { flex:1; min-height:0; }
 .map-legend {
   position:absolute; top:10px; left:10px; right:10px; z-index:500;
   background:rgba(22,32,48,0.92); border:1px solid var(--border); border-radius:10px;
@@ -201,7 +202,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
 <!-- TAB: MAP -->
 <div class="tab-pane map-pane" id="pane-map">
-  <div style="position:relative; flex:1;">
+  <div class="map-pane-inner">
     <div class="map-legend">
       <span><i class="legend-dot" style="background:#a9bdd1"></i>รอตรวจสอบ</span>
       <span><i class="legend-dot" style="background:#e74c3c"></i>ชำรุด</span>
@@ -670,8 +671,17 @@ window.openScanner = openScanner;
 
 function closeScanner() {
   document.getElementById('scan-overlay').classList.remove('active');
-  if (html5QrCode) {
-    html5QrCode.stop().catch(() => {}).finally(() => { html5QrCode = null; });
+  if (!html5QrCode) return;
+  // ป้องกัน error กรณีกล้องไม่เคยเริ่มทำงานจริง (เช่น ผู้ใช้ปฏิเสธสิทธิ์กล้อง) แล้วมากด "ปิด" ทันที
+  try {
+    const stopPromise = html5QrCode.stop();
+    if (stopPromise && typeof stopPromise.then === 'function') {
+      stopPromise.catch(() => {}).finally(() => { html5QrCode = null; });
+    } else {
+      html5QrCode = null;
+    }
+  } catch (e) {
+    html5QrCode = null;
   }
 }
 window.closeScanner = closeScanner;
