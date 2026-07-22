@@ -380,6 +380,14 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     </div>
     <div class="modal-body">
       <div>
+        <label class="field-label">ใบงานของเดือน/ปี</label>
+        <div class="meter-input-row">
+          <select class="field-select" id="import-month" style="flex:1;"></select>
+          <select class="field-select" id="import-year" style="flex:1;"></select>
+        </div>
+        <div class="field-hint">เลือกเดือน/ปีของใบงานชุดนี้ ใช้สำหรับกรองและลบข้อมูลทั้งเดือนภายหลัง</div>
+      </div>
+      <div>
         <label class="field-label">เลือกไฟล์ .xlsx</label>
         <input type="file" id="import-file-input" accept=".xlsx,.xls" class="field-input" onchange="handleImportFileSelected(event)">
         <div class="field-hint">ใช้ไฟล์ดิบหรือไฟล์ที่ตัดคอลัมน์แล้วก็ได้ ระบบอ่านตามชื่อคอลัมน์อัตโนมัติ</div>
@@ -957,12 +965,31 @@ async function handlePhotoSelected(event) {
 window.handlePhotoSelected = handlePhotoSelected;
 
 // ══════════════════════════ IMPORT XLSX ══════════════════════════
+const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+
+function populateImportMonthYear() {
+  const now = new Date();
+  const curMonth = now.getMonth() + 1;    // 1-12
+  const curYearBE = now.getFullYear() + 543;
+
+  const monthSel = document.getElementById('import-month');
+  monthSel.innerHTML = THAI_MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
+  monthSel.value = curMonth;
+
+  const yearSel = document.getElementById('import-year');
+  const years = [];
+  for (let y = curYearBE - 1; y <= curYearBE + 1; y++) years.push(y);
+  yearSel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+  yearSel.value = curYearBE;
+}
+
 function openImportModal() {
   document.getElementById('import-overlay').classList.add('active');
   document.getElementById('import-preview').style.display = 'none';
   document.getElementById('import-status').textContent = '';
   document.getElementById('btn-confirm-import').disabled = true;
   document.getElementById('import-file-input').value = '';
+  populateImportMonthYear();
   parsedImportRows = null;
 }
 window.openImportModal = openImportModal;
@@ -1042,11 +1069,17 @@ async function confirmImport() {
   const btn = document.getElementById('btn-confirm-import');
   btn.disabled = true;
 
+  const batchMonth = parseInt(document.getElementById('import-month').value, 10);
+  const batchYear = parseInt(document.getElementById('import-year').value, 10);
+  const batchKey = `${batchYear}-${String(batchMonth).padStart(2, '0')}`;
+  const batchLabel = `${THAI_MONTHS[batchMonth - 1]} ${batchYear}`;
+
   const { doc, setDoc, getDoc } = window._fsLib;
   let done = 0;
 
   try {
-    for (const row of parsedImportRows) {
+    for (const row0 of parsedImportRows) {
+      const row = { ...row0, batchMonth, batchYear, batchKey, batchLabel };
       statusEl.textContent = `🔄 กำลังบันทึก ${done + 1}/${parsedImportRows.length}...`;
       const ref = doc(window._db, 'ucube_tickets', row.reqNo);
       const existingSnap = await getDoc(ref);
