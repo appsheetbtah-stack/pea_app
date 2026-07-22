@@ -210,6 +210,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   padding:10px 18px; border-radius:10px; font-size:13px; z-index:1000; opacity:0; pointer-events:none; transition:all .25s;
 }
 .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+.btn-danger { background:#e74c3c; color:#fff; }
+.source-badge { display:inline-block; font-size:10.5px; font-weight:700; color:var(--accent); background:rgba(245,166,35,.12); border:1px solid rgba(245,166,35,.3); border-radius:10px; padding:2px 8px; margin-left:6px; vertical-align:middle; }
+.batch-manage-box { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:10px; }
+.batch-manage-actions { display:flex; gap:8px; }
 </style>
 </head>
 <body>
@@ -217,6 +221,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 <div class="topbar">
   <a class="back-btn" href="index.html">← กลับ</a>
   <div class="topbar-title">🔲 U-cube ตรวจสอบมิเตอร์</div>
+  <button class="topbar-btn" onclick="openAddTicketModal()" title="เพิ่มใบงานด่วน">➕</button>
   <button class="topbar-btn" onclick="openImportModal()" title="นำเข้าไฟล์ xlsx">📥</button>
 </div>
 
@@ -356,6 +361,64 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   </div>
 </div>
 
+<!-- ══ ADD TICKET MODAL (เพิ่มใบงานด่วน) ══ -->
+<div class="modal-overlay" id="add-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">➕ เพิ่มใบงานด่วน</div>
+      <button class="modal-close" onclick="closeAddTicketModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div>
+        <label class="field-label">ชื่อ-สกุลลูกค้า</label>
+        <input class="field-input" id="add-customer" placeholder="ชื่อลูกค้า">
+      </div>
+      <div>
+        <label class="field-label">ที่อยู่ / จุดสังเกต</label>
+        <input class="field-input" id="add-address" placeholder="เช่น บ้านเลขที่, หมู่บ้าน, ตำบล">
+      </div>
+      <div>
+        <label class="field-label">PEANO มิเตอร์ (ถ้ามี)</label>
+        <input class="field-input" id="add-peano" placeholder="ไม่บังคับ">
+      </div>
+      <div>
+        <label class="field-label">พิกัด</label>
+        <div class="meter-input-row">
+          <input class="field-input" id="add-lat" type="number" placeholder="Lat" inputmode="decimal">
+          <input class="field-input" id="add-lng" type="number" placeholder="Long" inputmode="decimal">
+        </div>
+        <button class="btn btn-blue" style="width:100%;margin-top:8px;" onclick="useCurrentLocationForAdd()">📍 ใช้ตำแหน่งปัจจุบัน</button>
+        <div class="field-hint" id="add-location-hint"></div>
+      </div>
+      <div>
+        <label class="field-label">สาเหตุ/อาการที่แจ้ง</label>
+        <div class="field-input reason-picker-field" id="add-reasons-display" onclick="openReasonPicker('add')">เลือกสาเหตุ...</div>
+      </div>
+      <div>
+        <label class="field-label">สถานะเริ่มต้น</label>
+        <select class="field-input" id="add-status-select">
+          <option value="pending">⏳ รอตรวจสอบ</option>
+          <option value="broken">⚠️ มิเตอร์ชำรุด รอสับเปลี่ยน</option>
+          <option value="field">🔧 สับเปลี่ยนแล้ว (หน้างาน)</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label">ใบงานของเดือน/ปี</label>
+        <div class="meter-input-row">
+          <select class="field-select" id="add-month" style="flex:1;"></select>
+          <select class="field-select" id="add-year" style="flex:1;"></select>
+        </div>
+        <div class="field-hint">ค่าเริ่มต้นคือรอบปัจจุบัน ใบงานนี้จะไปรวมกับรอบเดือนที่เลือกในตัวกรอง</div>
+      </div>
+      <div class="field-hint">ใบงานนี้ยังไม่มี REQ_NO จริงจากระบบ SCS ระบบจะตั้งรหัสชั่วคราวให้ (ขึ้นต้นด้วย ADHOC-) และจะมี badge "🆕 แจ้งเพิ่มเติม" กำกับไว้ให้เห็นชัดว่าไม่ได้มาจากไฟล์นำเข้า</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAddTicketModal()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveAddTicket()">บันทึกใบงาน</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ SCANNER MODAL ══ -->
 <div class="modal-overlay" id="scan-overlay">
   <div class="modal">
@@ -428,6 +491,17 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         <div class="field-hint" style="margin-top:10px;">ใบงานที่มีอยู่แล้วจะอัปเดตแค่ข้อมูลจากไฟล์ สถานะที่ช่างทำไปแล้วจะไม่ถูกแตะต้อง</div>
       </div>
       <div class="upload-status" id="import-status"></div>
+
+      <div class="batch-manage-box">
+        <label class="field-label" style="margin-bottom:0;">📦 จัดการรอบใบงานเดิม</label>
+        <select class="field-select" id="batch-manage-select" onchange="updateBatchManageCount()"></select>
+        <div class="field-hint" id="batch-manage-count">เลือกรอบเดือน/ปีเพื่อดูจำนวนใบงาน</div>
+        <div class="batch-manage-actions">
+          <button class="btn btn-blue" style="flex:1;" onclick="exportBatchToExcel()">📤 ส่งออก Excel</button>
+          <button class="btn btn-danger" style="flex:1;" onclick="deleteBatchTickets()">🗑️ ลบรอบนี้ทั้งหมด</button>
+        </div>
+        <div class="upload-status" id="batch-manage-status"></div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeImportModal()">ยกเลิก</button>
@@ -590,7 +664,7 @@ function renderList() {
       <div class="ticket-card" onclick="openDetail('${escAttr(t.reqNo)}')" style="margin-bottom:12px;">
         <div class="ticket-top">
           <div>
-            <div class="ticket-name">${esc(t.customerName || '(ไม่มีชื่อ)')}</div>
+            <div class="ticket-name">${esc(t.customerName || '(ไม่มีชื่อ)')}${t.source === 'manual' ? ' <span class="source-badge">🆕 แจ้งเพิ่มเติม</span>' : ''}</div>
             <div class="ticket-sub">PEANO: ${esc(t.peanoMeter || '-')}</div>
           </div>
           <span class="status-badge ${meta.cls}">${meta.label}</span>
@@ -761,8 +835,9 @@ function renderReasonsSummary() {
   }
 }
 
-function openReasonPicker() {
-  pickerSelectedReasons = [...currentTicketReasons];
+function openReasonPicker(context) {
+  reasonPickerContext = context || 'detail';
+  pickerSelectedReasons = reasonPickerContext === 'add' ? [...addTicketReasons] : [...currentTicketReasons];
   document.getElementById('reason-search').value = '';
   renderReasonPickerList();
   document.getElementById('reason-overlay').classList.add('active');
@@ -815,9 +890,14 @@ function clearReasonPicker() {
 window.clearReasonPicker = clearReasonPicker;
 
 function doneReasonPicker() {
-  currentTicketReasons = [...pickerSelectedReasons];
-  renderReasonsSummary();
-  renderReportPreview();
+  if (reasonPickerContext === 'add') {
+    addTicketReasons = [...pickerSelectedReasons];
+    renderAddReasonsSummary();
+  } else {
+    currentTicketReasons = [...pickerSelectedReasons];
+    renderReasonsSummary();
+    renderReportPreview();
+  }
   closeReasonPicker();
 }
 window.doneReasonPicker = doneReasonPicker;
@@ -1069,6 +1149,9 @@ function openImportModal() {
   populateImportMonthYear();
   renderLegacyMigrationBox();
   parsedImportRows = null;
+  document.getElementById('batch-manage-status').textContent = '';
+  populateBatchManageSelect();
+  updateBatchManageCount();
 }
 window.openImportModal = openImportModal;
 
@@ -1238,6 +1321,200 @@ async function confirmImport() {
   }
 }
 window.confirmImport = confirmImport;
+
+// ══════════════════════════ เพิ่มใบงานด่วน (แจ้งกลางทาง) ══════════════════════════
+let addTicketReasons = [];
+let reasonPickerContext = 'detail';
+
+function populateMonthYearSelect(monthSelId, yearSelId) {
+  const now = new Date();
+  const curMonth = now.getMonth() + 1;
+  const curYearBE = now.getFullYear() + 543;
+  const monthSel = document.getElementById(monthSelId);
+  monthSel.innerHTML = THAI_MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
+  monthSel.value = curMonth;
+  const yearSel = document.getElementById(yearSelId);
+  const years = [];
+  for (let y = curYearBE - 1; y <= curYearBE + 1; y++) years.push(y);
+  yearSel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+  yearSel.value = curYearBE;
+}
+
+function renderAddReasonsSummary() {
+  const el = document.getElementById('add-reasons-display');
+  if (addTicketReasons.length > 0) {
+    el.textContent = addTicketReasons.join(', ');
+    el.classList.add('has-value');
+  } else {
+    el.textContent = 'เลือกสาเหตุ...';
+    el.classList.remove('has-value');
+  }
+}
+
+function openAddTicketModal() {
+  document.getElementById('add-customer').value = '';
+  document.getElementById('add-address').value = '';
+  document.getElementById('add-peano').value = '';
+  document.getElementById('add-lat').value = '';
+  document.getElementById('add-lng').value = '';
+  document.getElementById('add-location-hint').textContent = '';
+  document.getElementById('add-status-select').value = 'pending';
+  addTicketReasons = [];
+  renderAddReasonsSummary();
+  populateMonthYearSelect('add-month', 'add-year');
+  document.getElementById('add-overlay').classList.add('active');
+}
+window.openAddTicketModal = openAddTicketModal;
+
+function closeAddTicketModal() {
+  document.getElementById('add-overlay').classList.remove('active');
+}
+window.closeAddTicketModal = closeAddTicketModal;
+
+function useCurrentLocationForAdd() {
+  const hint = document.getElementById('add-location-hint');
+  if (!navigator.geolocation) { hint.textContent = '⚠️ อุปกรณ์นี้ไม่รองรับ GPS'; return; }
+  hint.textContent = '🔄 กำลังค้นหาตำแหน่ง...';
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      document.getElementById('add-lat').value = pos.coords.latitude.toFixed(6);
+      document.getElementById('add-lng').value = pos.coords.longitude.toFixed(6);
+      hint.textContent = '📍 ใช้ตำแหน่งปัจจุบันแล้ว (แก้ไขเลขได้ถ้าไม่ตรง)';
+    },
+    () => { hint.textContent = '⚠️ ดึงตำแหน่งไม่สำเร็จ ตรวจสอบสิทธิ์การใช้ตำแหน่ง'; },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+window.useCurrentLocationForAdd = useCurrentLocationForAdd;
+
+function generateAdhocReqNo() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const ymd = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+  const rand = Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
+  return `ADHOC-${ymd}-${rand}`;
+}
+
+async function saveAddTicket() {
+  const customerName = document.getElementById('add-customer').value.trim();
+  const locationAddress = document.getElementById('add-address').value.trim();
+  if (!customerName && !locationAddress) {
+    showToast('⚠️ กรอกชื่อลูกค้า หรือที่อยู่ อย่างน้อย 1 อย่าง');
+    return;
+  }
+  const peanoMeter = document.getElementById('add-peano').value.trim();
+  const lat = parseFloat(document.getElementById('add-lat').value) || 0;
+  const lng = parseFloat(document.getElementById('add-lng').value) || 0;
+  const status = document.getElementById('add-status-select').value || 'pending';
+  const batchMonth = parseInt(document.getElementById('add-month').value, 10);
+  const batchYear = parseInt(document.getElementById('add-year').value, 10);
+  const batchKey = `${batchYear}-${String(batchMonth).padStart(2, '0')}`;
+  const batchLabel = `${THAI_MONTHS[batchMonth - 1]} ${batchYear}`;
+  const reqNo = generateAdhocReqNo();
+
+  const ticket = {
+    reqNo, jobDate: formatNowDateTime(), mru: '', userno: '', peanoMeter,
+    meterSizeCode: '', customerName, locationAddress, anotherDetail: addTicketReasons.join(', '),
+    lat, lng, batchMonth, batchYear, batchKey, batchLabel,
+    status, reasons: [...addTicketReasons], checkDate: '', unitRead: '', newMeterNo: '', newUnitRead: '',
+    photoLink: '', photoThumb: '', source: 'manual', createdAt: Date.now(), updatedAt: Date.now()
+  };
+
+  try {
+    const { doc, setDoc } = window._fsLib;
+    await setDoc(doc(window._db, 'ucube_tickets', reqNo), ticket);
+    showToast('เพิ่มใบงานสำเร็จ ✓');
+    closeAddTicketModal();
+  } catch (e) {
+    console.error(e);
+    showToast('⚠️ บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง');
+  }
+}
+window.saveAddTicket = saveAddTicket;
+
+// ══════════════════════════ จัดการรอบใบงานเดิม (ส่งออก / ลบ) ══════════════════════════
+function populateBatchManageSelect() {
+  const sel = document.getElementById('batch-manage-select');
+  const batches = getBatchList();
+  if (batches.length === 0) {
+    sel.innerHTML = '<option value="">-- ไม่มีข้อมูล --</option>';
+    return;
+  }
+  sel.innerHTML = batches.map(([key, label]) => `<option value="${escAttr(key)}">${esc(label)}</option>`).join('');
+}
+window.populateBatchManageSelect = populateBatchManageSelect;
+
+function updateBatchManageCount() {
+  const sel = document.getElementById('batch-manage-select');
+  const key = sel.value;
+  const count = window.TICKETS.filter(t => t.batchKey === key).length;
+  document.getElementById('batch-manage-count').textContent = key ? `พบ ${count} ใบงานในรอบนี้` : 'ไม่มีข้อมูล';
+}
+window.updateBatchManageCount = updateBatchManageCount;
+
+function exportBatchToExcel() {
+  const sel = document.getElementById('batch-manage-select');
+  const key = sel.value;
+  if (!key) { showToast('⚠️ ไม่มีรอบใบงานให้ส่งออก'); return; }
+  const rows = window.TICKETS.filter(t => t.batchKey === key);
+  if (rows.length === 0) { showToast('⚠️ ไม่มีข้อมูลในรอบนี้'); return; }
+
+  const exportRows = rows.map(t => ({
+    REQ_NO: t.reqNo, JobDate: t.jobDate, MRU: t.mru, Userno: t.userno,
+    PEANO_Meter: t.peanoMeter, METER_SIZE_CODE: t.meterSizeCode, CustomerName: t.customerName,
+    LocationAddress: t.locationAddress, AnotherDetail: t.anotherDetail,
+    InstallPointLatitude: t.lat, InstallPointLongitude: t.lng,
+    สถานะ: (STATUS_META[t.status || 'pending'] || {}).label || t.status, สาเหตุ: (t.reasons || []).join(', '),
+    วันที่ตรวจสอบ: t.checkDate, หน่วยที่อ่านได้: t.unitRead, มิเตอร์ใหม่: t.newMeterNo, หน่วยที่เปลี่ยน: t.newUnitRead,
+    ที่มา: t.source === 'manual' ? 'แจ้งเพิ่มเติม' : 'นำเข้าไฟล์'
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(exportRows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'ใบงาน');
+  const label = sel.options[sel.selectedIndex].textContent.replace(/\s+/g, '_');
+  XLSX.writeFile(wb, `ucube_${label}.xlsx`);
+  showToast('ส่งออกไฟล์แล้ว ✓');
+}
+window.exportBatchToExcel = exportBatchToExcel;
+
+async function deleteBatchTickets() {
+  const sel = document.getElementById('batch-manage-select');
+  const key = sel.value;
+  if (!key) { showToast('⚠️ ไม่มีรอบใบงานให้ลบ'); return; }
+  const rows = window.TICKETS.filter(t => t.batchKey === key);
+  if (rows.length === 0) { showToast('⚠️ ไม่มีข้อมูลในรอบนี้'); return; }
+  const label = sel.options[sel.selectedIndex].textContent;
+
+  if (!confirm(`จะลบใบงาน ${rows.length} รายการของ "${label}" ทั้งหมด\nแนะนำให้กด "ส่งออก Excel" เก็บสำรองไว้ก่อน\nการลบนี้กู้คืนไม่ได้ ต้องการลบจริงหรือไม่?`)) return;
+  if (!confirm(`ยืนยันอีกครั้ง: ลบ "${label}" ทั้งหมด ${rows.length} รายการ?`)) return;
+
+  const statusEl = document.getElementById('batch-manage-status');
+  statusEl.className = 'upload-status uploading';
+  const { writeBatch, doc } = window._fsLib;
+
+  try {
+    let done = 0;
+    for (let i = 0; i < rows.length; i += 400) {
+      const chunk = rows.slice(i, i + 400);
+      const wb = writeBatch(window._db);
+      chunk.forEach(t => wb.delete(doc(window._db, 'ucube_tickets', t.reqNo)));
+      await wb.commit();
+      done += chunk.length;
+      statusEl.textContent = `🔄 กำลังลบ ${done}/${rows.length}...`;
+    }
+    statusEl.className = 'upload-status';
+    statusEl.textContent = '';
+    showToast(`ลบสำเร็จ ${rows.length} รายการ ✓`);
+    populateBatchManageSelect();
+    updateBatchManageCount();
+  } catch (e) {
+    console.error(e);
+    statusEl.className = 'upload-status error';
+    statusEl.textContent = '⚠️ ลบไม่สำเร็จ ลองใหม่อีกครั้ง';
+  }
+}
+window.deleteBatchTickets = deleteBatchTickets;
 </script>
 </body>
 </html>
