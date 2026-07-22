@@ -11,9 +11,6 @@
 <meta name="theme-color" content="#0f1923">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -77,6 +74,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   flex-shrink:0; border:1px solid var(--border); background:var(--surface2); color:var(--text2);
   font-family:var(--sans); font-size:13px; font-weight:600; padding:7px 14px;
   border-radius:20px; cursor:pointer; white-space:nowrap;
+  display:inline-flex; align-items:center; gap:6px;
 }
 .filter-chip.active { border-color:var(--accent); background:rgba(245,166,35,.15); color:var(--accent); }
 
@@ -117,6 +115,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 }
 .map-legend span { display:flex; align-items:center; gap:5px; }
 .legend-dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+.legend-pin {
+  width:20px; height:20px; border-radius:50%; display:inline-flex;
+  align-items:center; justify-content:center; font-size:11px; flex-shrink:0;
+  border:1.5px solid #0f1923;
+}
 
 .ticket-pin { background:transparent; border:none; }
 .pin-body {
@@ -224,10 +227,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     </div>
     <div class="filter-row" id="filter-row">
       <button class="filter-chip active" data-f="all" onclick="setFilter('all',this)">ทั้งหมด</button>
-      <button class="filter-chip" data-f="pending" onclick="setFilter('pending',this)">⚪ รอตรวจสอบ</button>
-      <button class="filter-chip" data-f="broken" onclick="setFilter('broken',this)">🔴 ชำรุด รอสับเปลี่ยน</button>
-      <button class="filter-chip" data-f="field" onclick="setFilter('field',this)">🟠 สับเปลี่ยนแล้ว(หน้างาน)</button>
-      <button class="filter-chip" data-f="sap" onclick="setFilter('sap',this)">🟢 สับเปลี่ยนแล้ว(SAP)</button>
+      <button class="filter-chip" data-f="pending" onclick="setFilter('pending',this)"><i class="legend-pin" style="background:#a9bdd1">⏳</i> รอตรวจสอบ</button>
+      <button class="filter-chip" data-f="normal" onclick="setFilter('normal',this)"><i class="legend-pin" style="background:#2ecc71">✅</i> ปกติ</button>
+      <button class="filter-chip" data-f="broken" onclick="setFilter('broken',this)"><i class="legend-pin" style="background:#e74c3c">⚠️</i> ชำรุด รอสับเปลี่ยน</button>
+      <button class="filter-chip" data-f="field" onclick="setFilter('field',this)"><i class="legend-pin" style="background:#f39c12">🔧</i> สับเปลี่ยนแล้ว(หน้างาน)</button>
+      <button class="filter-chip" data-f="sap" onclick="setFilter('sap',this)"><i class="legend-pin" style="background:#2ecc71">🏁</i> สับเปลี่ยนแล้ว(SAP)</button>
     </div>
     <div id="ticket-list"></div>
   </div>
@@ -237,10 +241,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 <div class="tab-pane map-pane" id="pane-map">
   <div class="map-pane-inner">
     <div class="map-legend">
-      <span><i class="legend-dot" style="background:#a9bdd1"></i>รอตรวจสอบ</span>
-      <span><i class="legend-dot" style="background:#e74c3c"></i>ชำรุด</span>
-      <span><i class="legend-dot" style="background:#f39c12"></i>หน้างาน</span>
-      <span><i class="legend-dot" style="background:#2ecc71"></i>SAP</span>
+      <span><i class="legend-pin" style="background:#a9bdd1">⏳</i>รอตรวจสอบ</span>
+      <span><i class="legend-pin" style="background:#2ecc71">✅</i>ปกติ</span>
+      <span><i class="legend-pin" style="background:#e74c3c">⚠️</i>ชำรุด</span>
+      <span><i class="legend-pin" style="background:#f39c12">🔧</i>หน้างาน</span>
+      <span><i class="legend-pin" style="background:#2ecc71">🏁</i>SAP</span>
     </div>
     <div id="map"></div>
   </div>
@@ -535,16 +540,9 @@ function viewOnMap(reqNo) {
   setTimeout(() => {
     if (!window.leafletMap) return;
     window.leafletMap.invalidateSize();
+    window.leafletMap.setView([t.lat, t.lng], 17);
     const marker = window.mapMarkers && window.mapMarkers[reqNo];
-    if (marker && window.mapCluster && window.mapCluster.zoomToShowLayer) {
-      window.mapCluster.zoomToShowLayer(marker, () => {
-        window.leafletMap.setView([t.lat, t.lng], 17);
-        marker.openPopup();
-      });
-    } else {
-      window.leafletMap.setView([t.lat, t.lng], 17);
-      if (marker) marker.openPopup();
-    }
+    if (marker) marker.openPopup();
   }, 350);
 }
 window.viewOnMap = viewOnMap;
@@ -564,7 +562,7 @@ function initMap() {
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap', maxZoom: 19
   }).addTo(window.leafletMap);
-  window.mapCluster = L.markerClusterGroup({ maxClusterRadius: 40, showCoverageOnHover: false });
+  window.mapCluster = L.layerGroup();
   window.mapCluster.addTo(window.leafletMap);
   window.mapReady = true;
   renderMapMarkers();
