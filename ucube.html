@@ -327,7 +327,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         <div class="photo-row">
           <img id="d-photo-preview" class="photo-preview" style="display:none;">
           <button class="btn btn-blue" onclick="document.getElementById('d-photo-input').click()">📷 ถ่าย/เลือกรูป</button>
-          <input type="file" id="d-photo-input" accept="image/*" style="display:none;" onchange="handlePhotoSelected(event)">
+          <input type="file" id="d-photo-input" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoSelected(event)">
         </div>
         <div class="upload-status" id="photo-upload-status"></div>
       </div>
