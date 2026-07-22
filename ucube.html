@@ -1021,7 +1021,7 @@ function getDriveTokenClient() {
 }
 
 function requestDriveAccessToken() {
-  return new Promise((resolve, reject) => {
+  const attempt = new Promise((resolve, reject) => {
     const client = getDriveTokenClient();
     if (!client) { reject(new Error('โหลดระบบล็อกอิน Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่')); return; }
     client.callback = (resp) => {
@@ -1031,6 +1031,14 @@ function requestDriveAccessToken() {
     };
     client.requestAccessToken({ prompt: driveAccessToken ? '' : 'consent' });
   });
+
+  // กัน popup ขอสิทธิ์ Google ค้างตลอดไปแบบไม่มี error (พบบ่อยเมื่อ popup ถูกบล็อก
+  // หรือเปิดแอปผ่านไอคอนหน้าจอโฮม/in-app browser ที่ Google ปิดกั้น OAuth popup)
+  const timeout = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('TIMEOUT_DRIVE_AUTH')), 20000);
+  });
+
+  return Promise.race([attempt, timeout]);
 }
 
 async function findOrCreateFolder(name, parentId, token) {
@@ -1086,6 +1094,14 @@ async function uploadPhotoToDrive(file, token, folderId) {
   return uploaded;
 }
 
+// ตรวจว่าเปิดแอปแบบที่ Google OAuth popup มักถูกบล็อก (ติดตั้งจากหน้าจอโฮม / เปิดผ่าน in-app browser)
+function isLikelyBlockedForDriveAuth() {
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const ua = navigator.userAgent || '';
+  const inAppBrowser = /Line\/|FBAN|FBAV|Instagram|MicroMessenger/i.test(ua);
+  return standalone || inAppBrowser;
+}
+
 async function handlePhotoSelected(event) {
   const file = event.target.files[0];
   event.target.value = '';
@@ -1098,6 +1114,10 @@ async function handlePhotoSelected(event) {
   const preview = document.getElementById('d-photo-preview');
   preview.src = URL.createObjectURL(file);
   preview.style.display = 'block';
+
+  if (isLikelyBlockedForDriveAuth()) {
+    statusEl.textContent = '🔄 กำลังอัปโหลดรูป... (ถ้าค้างนาน อาจเป็นเพราะเปิดแอปผ่านไอคอนหน้าจอโฮม/แอปแชท ลองเปิดผ่าน Chrome/Safari ปกติแทน)';
+  }
 
   try {
     const token = await requestDriveAccessToken();
@@ -1116,7 +1136,13 @@ async function handlePhotoSelected(event) {
   } catch (e) {
     console.error(e);
     statusEl.className = 'upload-status error';
-    statusEl.textContent = '⚠️ อัปโหลดรูปไม่สำเร็จ ลองใหม่อีกครั้ง';
+    if (e && e.message === 'TIMEOUT_DRIVE_AUTH') {
+      statusEl.textContent = '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ (หน้าต่างขอสิทธิ์อาจถูกบล็อก) ลองเปิดแอปผ่าน Chrome/Safari ปกติ ไม่ใช่ไอคอนหน้าจอโฮมหรือแอปแชท แล้วลองใหม่';
+    } else if (e && e.message === 'popup_closed_by_user' || e && e.message === 'popup_blocked_by_browser') {
+      statusEl.textContent = '⚠️ หน้าต่างขอสิทธิ์ Google ถูกปิดหรือถูกบล็อก ลองใหม่อีกครั้ง';
+    } else {
+      statusEl.textContent = '⚠️ อัปโหลดรูปไม่สำเร็จ ลองใหม่อีกครั้ง';
+    }
   }
 }
 window.handlePhotoSelected = handlePhotoSelected;
