@@ -177,14 +177,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .reason-picker-field::after { content:'▾'; color:var(--text2); flex-shrink:0; }
 .add-reason-row input { flex:1; }
 
-.status-options { display:flex; flex-direction:column; gap:8px; }
-.status-option { display:flex; align-items:center; gap:10px; padding:12px 14px; border:1px solid var(--border); border-radius:10px; background:var(--surface2); cursor:pointer; }
-.status-option.selected { border-color:var(--accent); background:rgba(245,166,35,.1); }
-.status-option input { accent-color:var(--accent); width:18px; height:18px; }
+
 
 .meter-input-row { display:flex; gap:8px; }
 .meter-input-row .field-input { flex:1; }
-.btn-scan { flex-shrink:0; width:44px; background:var(--blue); border:none; border-radius:8px; color:#fff; font-size:18px; cursor:pointer; }
+.btn-scan { flex-shrink:0; width:44px; background:var(--blue); border:none; border-radius:8px; color:#fff; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
 
 .photo-row { display:flex; align-items:center; gap:10px; }
 .photo-preview { width:64px; height:64px; border-radius:8px; object-fit:cover; border:1px solid var(--border); flex-shrink:0; }
@@ -303,7 +300,19 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         <label class="field-label">PEA มิเตอร์ที่สับเปลี่ยน (ตัวใหม่)</label>
         <div class="meter-input-row">
           <input class="field-input" id="d-newmeter" placeholder="พิมพ์เลขมิเตอร์ หรือกดสแกน">
-          <button class="btn-scan" onclick="openScanner()" title="สแกนบาร์โค้ด/QR">🔲</button>
+          <button class="btn-scan" onclick="openScanner()" title="สแกนบาร์โค้ด/QR">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+              <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+              <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+              <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+              <line x1="8" y1="8.5" x2="8" y2="15.5"/>
+              <line x1="11" y1="8.5" x2="11" y2="15.5"/>
+              <line x1="14" y1="8.5" x2="14" y2="15.5"/>
+              <line x1="16.5" y1="8.5" x2="16.5" y2="15.5"/>
+            </svg>
+          </button>
         </div>
         <div class="field-hint">สแกนได้ทั้งบาร์โค้ด (มิเตอร์จานหมุน) และ QR โค้ด (มิเตอร์ E)</div>
       </div>
@@ -318,20 +327,20 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         <div class="photo-row">
           <img id="d-photo-preview" class="photo-preview" style="display:none;">
           <button class="btn btn-blue" onclick="document.getElementById('d-photo-input').click()">📷 ถ่าย/เลือกรูป</button>
-          <input type="file" id="d-photo-input" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoSelected(event)">
+          <input type="file" id="d-photo-input" accept="image/*" style="display:none;" onchange="handlePhotoSelected(event)">
         </div>
         <div class="upload-status" id="photo-upload-status"></div>
       </div>
 
       <div>
         <label class="field-label">สถานะ</label>
-        <div class="status-options" id="d-status-options">
-          <label class="status-option" data-v="pending"><input type="radio" name="d-status" value="pending"> ⚪ รอตรวจสอบ</label>
-          <label class="status-option" data-v="normal"><input type="radio" name="d-status" value="normal"> ✅ ตรวจสอบแล้ว มิเตอร์ปกติ</label>
-          <label class="status-option" data-v="broken"><input type="radio" name="d-status" value="broken"> 🚑 มิเตอร์ชำรุด รอสับเปลี่ยน</label>
-          <label class="status-option" data-v="field"><input type="radio" name="d-status" value="field"> 🔄 สับเปลี่ยนมิเตอร์แล้ว (หน้างาน)</label>
-          <label class="status-option" data-v="sap"><input type="radio" name="d-status" value="sap"> 👍 สับเปลี่ยนมิเตอร์แล้ว (ระบบ SAP)</label>
-        </div>
+        <select class="field-input" id="d-status-select">
+          <option value="pending">⚪ รอตรวจสอบ</option>
+          <option value="normal">✅ ตรวจสอบแล้ว มิเตอร์ปกติ</option>
+          <option value="broken">🚑 มิเตอร์ชำรุด รอสับเปลี่ยน</option>
+          <option value="field">🔄 สับเปลี่ยนมิเตอร์แล้ว (หน้างาน)</option>
+          <option value="sap">👍 สับเปลี่ยนมิเตอร์แล้ว (ระบบ SAP)</option>
+        </select>
       </div>
 
       <div>
@@ -708,17 +717,9 @@ function openDetail(reqNo) {
   renderReasonsSummary();
 
   const statusVal = t.status || 'pending';
-  document.querySelectorAll('#d-status-options input').forEach(r => {
-    r.checked = (r.value === statusVal);
-    r.closest('.status-option').classList.toggle('selected', r.value === statusVal);
-  });
-  document.querySelectorAll('#d-status-options input').forEach(r => {
-    r.onchange = () => {
-      document.querySelectorAll('.status-option').forEach(o => o.classList.remove('selected'));
-      r.closest('.status-option').classList.add('selected');
-      renderReportPreview();
-    };
-  });
+  const statusSelect = document.getElementById('d-status-select');
+  statusSelect.value = statusVal;
+  statusSelect.onchange = () => renderReportPreview();
 
   const photoImg = document.getElementById('d-photo-preview');
   if (t.photoThumb || t.photoLink) {
@@ -826,8 +827,8 @@ function getSelectedReasons() {
 }
 
 function getSelectedStatus() {
-  const checked = document.querySelector('#d-status-options input:checked');
-  return checked ? checked.value : 'pending';
+  const select = document.getElementById('d-status-select');
+  return select ? select.value : 'pending';
 }
 
 function renderReportPreview() {
