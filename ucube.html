@@ -92,6 +92,17 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .status-sap      { background:rgba(46,204,113,.15); color:var(--green); }
 .ticket-detail-row { font-size:13px; color:var(--text2); display:flex; gap:6px; }
 .ticket-reqno { font-family:var(--mono); font-size:12px; color:var(--text2); }
+.ticket-latlng { font-family:var(--mono); font-size:12px; color:var(--text2); }
+.ticket-actions { display:flex; gap:8px; margin-top:2px; }
+.ticket-action-btn {
+  flex:1; display:flex; align-items:center; justify-content:center; gap:5px;
+  padding:8px 10px; border-radius:8px; border:1px solid var(--border);
+  background:var(--surface2); color:var(--text); font-family:var(--sans);
+  font-size:12.5px; font-weight:600; cursor:pointer;
+}
+.ticket-action-btn:active { border-color:var(--accent); }
+.ticket-action-btn.nav { background:rgba(59,158,222,.15); color:var(--blue); border-color:rgba(59,158,222,.3); }
+.ticket-action-btn:disabled { opacity:.4; cursor:not-allowed; }
 
 .empty-state { padding:60px 20px; text-align:center; color:var(--text2); }
 .empty-icon { font-size:40px; margin-bottom:10px; }
@@ -106,6 +117,22 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 }
 .map-legend span { display:flex; align-items:center; gap:5px; }
 .legend-dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+
+.ticket-pin { background:transparent; border:none; }
+.pin-body {
+  width:28px; height:28px; border-radius:50% 50% 50% 0; transform:rotate(45deg);
+  display:flex; align-items:center; justify-content:center;
+  border:2px solid #0f1923; box-shadow:0 1px 4px rgba(0,0,0,.4);
+  position:absolute; top:0; left:1px;
+}
+.pin-body span { transform:rotate(-45deg); font-size:14px; line-height:1; }
+.popup-actions { display:flex; gap:6px; margin-top:8px; }
+.popup-btn {
+  flex:1; padding:6px 8px; border-radius:6px; border:none; cursor:pointer;
+  font-family:'Sarabun',sans-serif; font-size:12.5px; font-weight:700; white-space:nowrap;
+}
+.popup-btn.detail { background:#f5a623; color:#000; }
+.popup-btn.nav { background:#3b9ede; color:#fff; }
 
 /* ── MODAL ── */
 .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:900; display:none; align-items:flex-end; justify-content:center; }
@@ -419,11 +446,11 @@ const REASON_PRESETS = [
 ];
 
 const STATUS_META = {
-  pending: { label: '⚪ รอตรวจสอบ',              cls: 'status-pending', color: '#a9bdd1' },
-  normal:  { label: '✅ ตรวจสอบแล้ว ปกติ',        cls: 'status-sap',     color: '#2ecc71' },
-  broken:  { label: '🔴 มิเตอร์ชำรุด รอสับเปลี่ยน', cls: 'status-broken',  color: '#e74c3c' },
-  field:   { label: '🟠 สับเปลี่ยนแล้ว (หน้างาน)', cls: 'status-field',   color: '#f39c12' },
-  sap:     { label: '🟢 สับเปลี่ยนแล้ว (SAP)',     cls: 'status-sap',     color: '#2ecc71' }
+  pending: { label: '⚪ รอตรวจสอบ',              cls: 'status-pending', color: '#a9bdd1', icon: '⏳' },
+  normal:  { label: '✅ ตรวจสอบแล้ว ปกติ',        cls: 'status-sap',     color: '#2ecc71', icon: '✅' },
+  broken:  { label: '🔴 มิเตอร์ชำรุด รอสับเปลี่ยน', cls: 'status-broken',  color: '#e74c3c', icon: '⚠️' },
+  field:   { label: '🟠 สับเปลี่ยนแล้ว (หน้างาน)', cls: 'status-field',   color: '#f39c12', icon: '🔧' },
+  sap:     { label: '🟢 สับเปลี่ยนแล้ว (SAP)',     cls: 'status-sap',     color: '#2ecc71', icon: '🏁' }
 };
 
 function showToast(msg) {
@@ -490,11 +517,43 @@ function renderList() {
         </div>
         <div class="ticket-detail-row">📍 ${esc(t.locationAddress || '-')}</div>
         <div class="ticket-detail-row">${esc(t.anotherDetail || '')}</div>
-        <div class="ticket-reqno">REQ: ${esc(t.reqNo)}</div>
+        <div class="ticket-latlng">Lat, Long: ${t.lat && t.lng ? esc(t.lat) + ', ' + esc(t.lng) : '-'}</div>
+        <div class="ticket-actions">
+          <button class="ticket-action-btn" ${t.lat && t.lng ? '' : 'disabled'} onclick="event.stopPropagation(); viewOnMap('${escAttr(t.reqNo)}')">🗺️ ดูแผนที่</button>
+          <button class="ticket-action-btn nav" ${t.lat && t.lng ? '' : 'disabled'} onclick="event.stopPropagation(); navigateTo(${t.lat}, ${t.lng})">🧭 นำทาง</button>
+        </div>
       </div>`;
   }).join('');
 }
 window.renderList = renderList;
+
+// ══════════════════════════ MAP VIEW / NAVIGATE ══════════════════════════
+function viewOnMap(reqNo) {
+  const t = window.TICKETS.find(x => x.reqNo === reqNo);
+  if (!t || !t.lat || !t.lng) return;
+  switchTab('map');
+  setTimeout(() => {
+    if (!window.leafletMap) return;
+    window.leafletMap.invalidateSize();
+    const marker = window.mapMarkers && window.mapMarkers[reqNo];
+    if (marker && window.mapCluster && window.mapCluster.zoomToShowLayer) {
+      window.mapCluster.zoomToShowLayer(marker, () => {
+        window.leafletMap.setView([t.lat, t.lng], 17);
+        marker.openPopup();
+      });
+    } else {
+      window.leafletMap.setView([t.lat, t.lng], 17);
+      if (marker) marker.openPopup();
+    }
+  }, 350);
+}
+window.viewOnMap = viewOnMap;
+
+function navigateTo(lat, lng) {
+  if (!lat || !lng) return;
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+}
+window.navigateTo = navigateTo;
 
 function esc(s) { return (s ?? '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function escAttr(s) { return (s ?? '').toString().replace(/'/g, "\\'"); }
@@ -514,17 +573,27 @@ function initMap() {
 function renderMapMarkers() {
   if (!window.mapReady) return;
   window.mapCluster.clearLayers();
+  window.mapMarkers = {};
   window.TICKETS.forEach(t => {
     if (!t.lat || !t.lng) return; // ข้ามรายการที่ไม่มีพิกัด (0,0 หรือว่าง)
     const meta = STATUS_META[t.status || 'pending'];
-    const marker = L.circleMarker([t.lat, t.lng], {
-      radius: 7, color: '#0f1923', weight: 1.5, fillColor: meta.color, fillOpacity: 0.9
-    }).bindPopup(`
+    const icon = L.divIcon({
+      className: 'ticket-pin',
+      html: `<div class="pin-body" style="background:${meta.color}"><span>${meta.icon}</span></div>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 30],
+      popupAnchor: [0, -28]
+    });
+    const marker = L.marker([t.lat, t.lng], { icon }).bindPopup(`
       <b>${esc(t.customerName || '-')}</b><br>
       PEANO: ${esc(t.peanoMeter || '-')}<br>
-      ${meta.label}<br>
-      <button onclick="openDetail('${escAttr(t.reqNo)}')" style="margin-top:6px;padding:5px 10px;border-radius:6px;border:none;background:#f5a623;color:#000;font-weight:700;cursor:pointer;">ดูรายละเอียด</button>
+      ${meta.label}
+      <div class="popup-actions">
+        <button class="popup-btn detail" onclick="openDetail('${escAttr(t.reqNo)}')">รายละเอียด</button>
+        <button class="popup-btn nav" onclick="navigateTo(${t.lat}, ${t.lng})">นำทาง</button>
+      </div>
     `, { maxWidth: 220 });
+    window.mapMarkers[t.reqNo] = marker;
     window.mapCluster.addLayer(marker);
   });
 }
