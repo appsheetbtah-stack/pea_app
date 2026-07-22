@@ -615,7 +615,24 @@ window.viewOnMap = viewOnMap;
 
 function navigateTo(lat, lng) {
   if (!lat || !lng) return;
-  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+  const ua = navigator.userAgent || navigator.vendor || '';
+  const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+  const isAndroid = /android/i.test(ua);
+  const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+
+  if (isAndroid) {
+    // เปิดแอป Google Maps โดยตรงผ่าน navigation intent ถ้าไม่มีแอปจะ fallback ไปหน้าเว็บ
+    const t = Date.now();
+    window.location.href = `google.navigation:q=${lat},${lng}`;
+    setTimeout(() => { if (Date.now() - t < 2000) window.open(webUrl, '_blank'); }, 1500);
+  } else if (isIOS) {
+    // เปิดแอป Google Maps บน iOS ถ้าติดตั้งไว้ ถ้าไม่มีจะ fallback ไปหน้าเว็บ
+    const t = Date.now();
+    window.location.href = `comgooglemaps://?daddr=${lat},${lng}&directionsmode=driving`;
+    setTimeout(() => { if (Date.now() - t < 2000) window.open(webUrl, '_blank'); }, 1200);
+  } else {
+    window.open(webUrl, '_blank');
+  }
 }
 window.navigateTo = navigateTo;
 
