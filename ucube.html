@@ -331,7 +331,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         <label class="field-label">รูปถ่าย</label>
         <div class="photo-row">
           <img id="d-photo-preview" class="photo-preview" style="display:none;">
-          <button class="btn btn-blue" onclick="document.getElementById('d-photo-input').click()">📷 ถ่าย/เลือกรูป</button>
+          <button class="btn btn-blue" onclick="onPhotoButtonClick()">📷 ถ่าย/เลือกรูป</button>
           <input type="file" id="d-photo-input" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoSelected(event)">
         </div>
         <div class="upload-status" id="photo-upload-status"></div>
@@ -1101,6 +1101,33 @@ function isLikelyBlockedForDriveAuth() {
   const inAppBrowser = /Line\/|FBAN|FBAV|Instagram|MicroMessenger/i.test(ua);
   return standalone || inAppBrowser;
 }
+
+// ขอสิทธิ์ Google Drive "ตอนแตะปุ่มนี้เลย" (ยังอยู่ในจังหวะ user gesture โดยตรง)
+// ก่อนเปิดกล้อง/แกลเลอรี่ เพราะถ้าขอหลังเลือกรูปเสร็จ มือถือส่วนใหญ่จะมองว่าไม่ใช่การแตะสดๆ แล้วบล็อก popup เงียบๆ
+async function onPhotoButtonClick() {
+  const statusEl = document.getElementById('photo-upload-status');
+  if (driveAccessToken) {
+    document.getElementById('d-photo-input').click();
+    return;
+  }
+  statusEl.className = 'upload-status uploading';
+  statusEl.textContent = '🔄 กำลังขอสิทธิ์เชื่อมต่อ Google Drive...';
+  try {
+    await requestDriveAccessToken();
+    statusEl.className = 'upload-status';
+    statusEl.textContent = '';
+    document.getElementById('d-photo-input').click();
+  } catch (e) {
+    console.error(e);
+    statusEl.className = 'upload-status error';
+    if (e && e.message === 'TIMEOUT_DRIVE_AUTH') {
+      statusEl.textContent = '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ (หมดเวลารอ) ตรวจสอบว่าอนุญาต popup ให้เว็บนี้แล้วลองแตะปุ่มอีกครั้ง';
+    } else {
+      statusEl.textContent = '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ ลองแตะปุ่ม "ถ่าย/เลือกรูป" อีกครั้ง';
+    }
+  }
+}
+window.onPhotoButtonClick = onPhotoButtonClick;
 
 async function handlePhotoSelected(event) {
   const file = event.target.files[0];
