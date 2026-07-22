@@ -211,6 +211,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 }
 .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 .btn-danger { background:#e74c3c; color:#fff; }
+.link-btn { color:var(--blue); text-decoration:underline; cursor:pointer; }
 .source-badge { display:inline-block; font-size:10.5px; font-weight:700; color:var(--accent); background:rgba(245,166,35,.12); border:1px solid rgba(245,166,35,.3); border-radius:10px; padding:2px 8px; margin-left:6px; vertical-align:middle; }
 .batch-manage-box { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:10px; }
 .batch-manage-actions { display:flex; gap:8px; }
@@ -335,6 +336,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
           <input type="file" id="d-photo-input" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoSelected(event)">
         </div>
         <div class="upload-status" id="photo-upload-status"></div>
+        <div class="field-hint" id="drive-account-info"></div>
       </div>
 
       <div>
@@ -804,6 +806,7 @@ function openDetail(reqNo) {
   }
   document.getElementById('photo-upload-status').textContent = t.photoLink ? '📎 มีรูปแนบแล้ว' : '';
   document.getElementById('photo-upload-status').className = 'upload-status';
+  renderDriveAccountInfo();
 
   renderReportPreview();
   document.getElementById('detail-overlay').classList.add('active');
@@ -1006,9 +1009,11 @@ window.closeScanner = closeScanner;
 
 // ══════════════════════════ GOOGLE DRIVE (รูปถ่าย) ══════════════════════════
 const GOOGLE_CLIENT_ID = '1006235611544-tv5slgr1vef55i8ol56embfdvrimns4i.apps.googleusercontent.com';
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
+const DRIVE_TARGET_EMAIL = 'appsheetbtah@gmail.com'; // บัญชีกลางที่ให้ทีมใช้เก็บรูปทั้งหมด กันรูปกระจัดกระจายหลายบัญชี
 let driveTokenClient = null;
 let driveAccessToken = null;
+let driveAccountEmail = null;
 let driveFolderCache = {};
 
 function getDriveTokenClient() {
@@ -1020,7 +1025,7 @@ function getDriveTokenClient() {
   return driveTokenClient;
 }
 
-function requestDriveAccessToken() {
+function requestDriveAccessToken(promptOverride) {
   const attempt = new Promise((resolve, reject) => {
     const client = getDriveTokenClient();
     if (!client) { reject(new Error('โหลดระบบล็อกอิน Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่')); return; }
@@ -1029,7 +1034,8 @@ function requestDriveAccessToken() {
       driveAccessToken = resp.access_token;
       resolve(driveAccessToken);
     };
-    client.requestAccessToken({ prompt: driveAccessToken ? '' : 'consent' });
+    const prompt = promptOverride !== undefined ? promptOverride : (driveAccessToken ? '' : 'consent');
+    client.requestAccessToken({ prompt, hint: DRIVE_TARGET_EMAIL });
   });
 
   // กัน popup ขอสิทธิ์ Google ค้างตลอดไปแบบไม่มี error (พบบ่อยเมื่อ popup ถูกบล็อก
@@ -1104,6 +1110,64 @@ function isLikelyBlockedForDriveAuth() {
 
 // ขอสิทธิ์ Google Drive "ตอนแตะปุ่มนี้เลย" (ยังอยู่ในจังหวะ user gesture โดยตรง)
 // ก่อนเปิดกล้อง/แกลเลอรี่ เพราะถ้าขอหลังเลือกรูปเสร็จ มือถือส่วนใหญ่จะมองว่าไม่ใช่การแตะสดๆ แล้วบล็อก popup เงียบๆ
+// ══════════════════════════ แสดงบัญชี Google Drive ที่เชื่อมต่ออยู่ (กันอัปโหลดผิดบัญชี) ══════════════════════════
+async function fetchDriveAccountEmail(token) {
+  try {
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.email || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function renderDriveAccountInfo() {
+  const el = document.getElementById('drive-account-info');
+  if (!el) return;
+  if (driveAccountEmail) {
+    if (driveAccountEmail.toLowerCase() === DRIVE_TARGET_EMAIL.toLowerCase()) {
+      el.innerHTML = `🔗 เชื่อมต่อ Google Drive บัญชี: <b>${esc(driveAccountEmail)}</b> ✓ (บัญชีหลักของทีม)`;
+      el.style.color = '';
+    } else {
+      el.innerHTML = `⚠️ กำลังใช้บัญชี <b>${esc(driveAccountEmail)}</b> ซึ่งไม่ใช่บัญชีหลักของทีม (${esc(DRIVE_TARGET_EMAIL)}) รูปจะไปเก็บอยู่ที่นี่แทน · <span class="link-btn" onclick="switchDriveAccount()">เปลี่ยนไปบัญชีหลัก</span>`;
+      el.style.color = 'var(--accent)';
+    }
+  } else if (driveAccessToken) {
+    el.innerHTML = `🔗 เชื่อมต่อ Google Drive แล้ว · <span class="link-btn" onclick="switchDriveAccount()">เปลี่ยนบัญชี</span>`;
+    el.style.color = '';
+  } else {
+    el.textContent = `ยังไม่ได้เชื่อมต่อ Google Drive (จะขอสิทธิ์ตอนกดปุ่ม "ถ่าย/เลือกรูป" ครั้งแรก แนะนำให้เลือกบัญชี ${DRIVE_TARGET_EMAIL})`;
+    el.style.color = '';
+  }
+}
+window.renderDriveAccountInfo = renderDriveAccountInfo;
+
+async function switchDriveAccount() {
+  driveAccessToken = null;
+  driveAccountEmail = null;
+  driveFolderCache = {};
+  renderDriveAccountInfo();
+  const statusEl = document.getElementById('photo-upload-status');
+  statusEl.className = 'upload-status uploading';
+  statusEl.textContent = '🔄 กำลังเลือกบัญชี Google...';
+  try {
+    const token = await requestDriveAccessToken('select_account');
+    driveAccountEmail = await fetchDriveAccountEmail(token);
+    statusEl.className = 'upload-status';
+    statusEl.textContent = '';
+    renderDriveAccountInfo();
+    showToast('เปลี่ยนบัญชีสำเร็จ ✓');
+  } catch (e) {
+    console.error(e);
+    statusEl.className = 'upload-status error';
+    statusEl.textContent = '⚠️ เปลี่ยนบัญชีไม่สำเร็จ ลองใหม่อีกครั้ง';
+  }
+}
+window.switchDriveAccount = switchDriveAccount;
+
 async function onPhotoButtonClick() {
   const statusEl = document.getElementById('photo-upload-status');
   if (driveAccessToken) {
@@ -1113,7 +1177,12 @@ async function onPhotoButtonClick() {
   statusEl.className = 'upload-status uploading';
   statusEl.textContent = '🔄 กำลังขอสิทธิ์เชื่อมต่อ Google Drive...';
   try {
-    await requestDriveAccessToken();
+    const token = await requestDriveAccessToken();
+    driveAccountEmail = await fetchDriveAccountEmail(token);
+    renderDriveAccountInfo();
+    if (driveAccountEmail && driveAccountEmail.toLowerCase() !== DRIVE_TARGET_EMAIL.toLowerCase()) {
+      showToast(`⚠️ นี่ไม่ใช่บัญชีหลักของทีม (${DRIVE_TARGET_EMAIL})`);
+    }
     statusEl.className = 'upload-status';
     statusEl.textContent = '';
     document.getElementById('d-photo-input').click();
