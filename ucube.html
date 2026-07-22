@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>U-cube ตรวจสอบ/สับเปลี่ยนมิเตอร์ - PEA</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f1923">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0f1923; --surface:#162030; --surface2:#1e2d3d; --border:#2a3f55;
+  --accent:#f5a623; --accent2:#e05c2a; --blue:#3b9ede; --green:#2ecc71; --red:#e74c3c;
+  --yellow:#f39c12; --text:#e8f0f8; --text2:#a9bdd1;
+  --mono:'IBM Plex Mono',monospace; --sans:'Sarabun',sans-serif;
+  --topbar:52px; --botnav:56px;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:15px; }
+
+/* ── TOPBAR ── */
+.topbar {
+  position:fixed; top:0; left:0; right:0; height:var(--topbar); z-index:600;
+  background:var(--surface); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:10px; padding:0 12px;
+}
+.back-btn {
+  color:var(--text2); text-decoration:none; font-size:13px;
+  display:flex; align-items:center; gap:4px;
+  padding:6px 10px; border:1px solid var(--border); border-radius:6px;
+  flex-shrink:0; transition:color .15s;
+}
+.back-btn:hover { color:var(--accent); border-color:var(--accent); }
+.topbar-title { font-size:15px; font-weight:700; flex:1; }
+.topbar-btn {
+  background:var(--surface2); border:1px solid var(--border); color:var(--text);
+  width:34px; height:34px; border-radius:8px; font-size:16px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.topbar-btn:active { border-color:var(--accent); color:var(--accent); }
+
+/* ── TAB CONTENT ── */
+.tab-pane { position:fixed; top:var(--topbar); left:0; right:0; bottom:var(--botnav); overflow-y:auto; display:none; }
+.tab-pane.active { display:block; }
+.tab-pane.map-pane { display:none; overflow:hidden; flex-direction:column; }
+.tab-pane.map-pane.active { display:flex; }
+
+/* ── BOTTOM NAV ── */
+.bottom-nav { position:fixed; bottom:0; left:0; right:0; height:var(--botnav); z-index:600; background:var(--surface); border-top:1px solid var(--border); display:flex; }
+.nav-btn { flex:1; background:none; border:none; color:var(--text2); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; cursor:pointer; }
+.nav-btn.active { color:var(--accent); }
+.nav-icon { font-size:19px; }
+.nav-label { font-size:11px; font-weight:600; }
+
+/* ── LIST PANE ── */
+.list-wrap { padding:12px; display:flex; flex-direction:column; gap:12px; }
+.search-box {
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:10px 14px; display:flex; align-items:center; gap:8px;
+}
+.search-box input { flex:1; background:none; border:none; color:var(--text); font-family:var(--sans); font-size:14px; outline:none; }
+.filter-row { display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; }
+.filter-row::-webkit-scrollbar { display:none; }
+.filter-chip {
+  flex-shrink:0; border:1px solid var(--border); background:var(--surface2); color:var(--text2);
+  font-family:var(--sans); font-size:13px; font-weight:600; padding:7px 14px;
+  border-radius:20px; cursor:pointer; white-space:nowrap;
+}
+.filter-chip.active { border-color:var(--accent); background:rgba(245,166,35,.15); color:var(--accent); }
+
+.ticket-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:8px; cursor:pointer; }
+.ticket-card:active { border-color:var(--accent); }
+.ticket-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.ticket-name { font-weight:700; font-size:15px; }
+.ticket-sub { font-size:13px; color:var(--text2); }
+.status-badge { font-size:12px; font-weight:700; padding:4px 10px; border-radius:20px; white-space:nowrap; flex-shrink:0; }
+.status-pending  { background:rgba(169,189,209,.15); color:var(--text2); }
+.status-broken   { background:rgba(231,76,60,.15); color:var(--red); }
+.status-field    { background:rgba(243,156,18,.15); color:var(--yellow); }
+.status-sap      { background:rgba(46,204,113,.15); color:var(--green); }
+.ticket-detail-row { font-size:13px; color:var(--text2); display:flex; gap:6px; }
+.ticket-reqno { font-family:var(--mono); font-size:12px; color:var(--text2); }
+
+.empty-state { padding:60px 20px; text-align:center; color:var(--text2); }
+.empty-icon { font-size:40px; margin-bottom:10px; }
+
+/* ── MAP PANE ── */
+#map { flex:1; }
+.map-legend {
+  position:absolute; top:10px; left:10px; right:10px; z-index:500;
+  background:rgba(22,32,48,0.92); border:1px solid var(--border); border-radius:10px;
+  padding:8px 12px; font-size:12px; display:flex; gap:12px; flex-wrap:wrap;
+}
+.map-legend span { display:flex; align-items:center; gap:5px; }
+.legend-dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+
+/* ── MODAL ── */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:900; display:none; align-items:flex-end; justify-content:center; }
+.modal-overlay.active { display:flex; }
+.modal { background:var(--bg); width:100%; max-width:600px; max-height:92vh; overflow-y:auto; border-radius:16px 16px 0 0; border:1px solid var(--border); border-bottom:none; }
+.modal-header { position:sticky; top:0; background:var(--surface); border-bottom:1px solid var(--border); padding:14px 16px; display:flex; align-items:center; justify-content:space-between; z-index:2; }
+.modal-title { font-weight:700; font-size:15px; }
+.modal-close { background:none; border:none; color:var(--text2); font-size:20px; cursor:pointer; }
+.modal-body { padding:16px; display:flex; flex-direction:column; gap:16px; }
+.modal-footer { position:sticky; bottom:0; background:var(--surface); border-top:1px solid var(--border); padding:12px 16px; display:flex; gap:10px; }
+
+.info-block { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
+.info-row { display:flex; gap:10px; font-size:14px; }
+.info-label { color:var(--text2); flex-shrink:0; width:96px; }
+.info-value { font-weight:600; word-break:break-word; }
+
+.field-label { font-size:13px; color:var(--text2); margin-bottom:6px; display:block; font-weight:600; }
+.field-input, .field-select {
+  width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+  padding:10px 12px; color:var(--text); font-family:var(--sans); font-size:14px; outline:none;
+}
+.field-input:focus, .field-select:focus { border-color:var(--accent); }
+.field-hint { font-size:12px; color:var(--text2); margin-top:5px; }
+
+.checklist { display:flex; flex-direction:column; gap:2px; max-height:240px; overflow-y:auto; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:6px; }
+.checklist label { display:flex; align-items:center; gap:10px; padding:8px 6px; font-size:14px; border-radius:6px; }
+.checklist label:active { background:var(--border); }
+.checklist input[type=checkbox] { width:18px; height:18px; flex-shrink:0; accent-color:var(--accent); }
+.add-reason-row { display:flex; gap:8px; margin-top:8px; }
+.add-reason-row input { flex:1; }
+
+.status-options { display:flex; flex-direction:column; gap:8px; }
+.status-option { display:flex; align-items:center; gap:10px; padding:12px 14px; border:1px solid var(--border); border-radius:10px; background:var(--surface2); cursor:pointer; }
+.status-option.selected { border-color:var(--accent); background:rgba(245,166,35,.1); }
+.status-option input { accent-color:var(--accent); width:18px; height:18px; }
+
+.meter-input-row { display:flex; gap:8px; }
+.meter-input-row .field-input { flex:1; }
+.btn-scan { flex-shrink:0; width:44px; background:var(--blue); border:none; border-radius:8px; color:#fff; font-size:18px; cursor:pointer; }
+
+.photo-row { display:flex; align-items:center; gap:10px; }
+.photo-preview { width:64px; height:64px; border-radius:8px; object-fit:cover; border:1px solid var(--border); flex-shrink:0; }
+.btn { padding:10px 18px; border-radius:8px; border:none; cursor:pointer; font-family:var(--sans); font-size:14px; font-weight:600; white-space:nowrap; }
+.btn-primary { background:var(--accent); color:#000; flex:1; }
+.btn-ghost { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+.btn-blue { background:var(--blue); color:#fff; }
+.upload-status { font-size:13px; color:var(--text2); }
+.upload-status.uploading { color:var(--blue); }
+.upload-status.error { color:var(--red); }
+
+.report-box { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px; font-family:var(--mono); font-size:12.5px; line-height:1.6; white-space:pre-wrap; color:var(--text2); }
+
+/* ── IMPORT MODAL ── */
+.import-summary { display:flex; gap:10px; }
+.import-stat { flex:1; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px; text-align:center; }
+.import-stat .num { font-size:22px; font-weight:800; font-family:var(--mono); }
+.import-stat .lbl { font-size:12px; color:var(--text2); margin-top:2px; }
+
+/* ── QR SCANNER ── */
+#qr-reader { width:100%; border-radius:10px; overflow:hidden; }
+
+.toast {
+  position:fixed; bottom:calc(var(--botnav) + 16px); left:50%; transform:translateX(-50%) translateY(20px);
+  background:var(--surface2); border:1px solid var(--border); color:var(--text);
+  padding:10px 18px; border-radius:10px; font-size:13px; z-index:1000; opacity:0; pointer-events:none; transition:all .25s;
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="back-btn" href="index.html">← กลับ</a>
+  <div class="topbar-title">🔲 U-cube ตรวจสอบมิเตอร์</div>
+  <button class="topbar-btn" onclick="openImportModal()" title="นำเข้าไฟล์ xlsx">📥</button>
+</div>
+
+<!-- TAB: LIST -->
+<div class="tab-pane active" id="pane-list">
+  <div class="list-wrap">
+    <div class="search-box">
+      🔍 <input id="search-input" placeholder="ค้นหาชื่อ, PEANO, REQ_NO..." oninput="renderList()">
+    </div>
+    <div class="filter-row" id="filter-row">
+      <button class="filter-chip active" data-f="all" onclick="setFilter('all',this)">ทั้งหมด</button>
+      <button class="filter-chip" data-f="pending" onclick="setFilter('pending',this)">⚪ รอตรวจสอบ</button>
+      <button class="filter-chip" data-f="broken" onclick="setFilter('broken',this)">🔴 ชำรุด รอสับเปลี่ยน</button>
+      <button class="filter-chip" data-f="field" onclick="setFilter('field',this)">🟠 สับเปลี่ยนแล้ว(หน้างาน)</button>
+      <button class="filter-chip" data-f="sap" onclick="setFilter('sap',this)">🟢 สับเปลี่ยนแล้ว(SAP)</button>
+    </div>
+    <div id="ticket-list"></div>
+  </div>
+</div>
+
+<!-- TAB: MAP -->
+<div class="tab-pane map-pane" id="pane-map">
+  <div style="position:relative; flex:1;">
+    <div class="map-legend">
+      <span><i class="legend-dot" style="background:#a9bdd1"></i>รอตรวจสอบ</span>
+      <span><i class="legend-dot" style="background:#e74c3c"></i>ชำรุด</span>
+      <span><i class="legend-dot" style="background:#f39c12"></i>หน้างาน</span>
+      <span><i class="legend-dot" style="background:#2ecc71"></i>SAP</span>
+    </div>
+    <div id="map"></div>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="btn-tab-list" onclick="switchTab('list')">
+    <span class="nav-icon">📋</span><span class="nav-label">รายการ</span>
+  </button>
+  <button class="nav-btn" id="btn-tab-map" onclick="switchTab('map')">
+    <span class="nav-icon">🗺️</span><span class="nav-label">แผนที่</span>
+  </button>
+</nav>
+
+<!-- ══ DETAIL / EDIT MODAL ══ -->
+<div class="modal-overlay" id="detail-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="detail-title">รายละเอียดใบงาน</div>
+      <button class="modal-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="info-block" id="detail-info"></div>
+
+      <div>
+        <label class="field-label">วันที่เข้าตรวจสอบ</label>
+        <input class="field-input" id="d-checkdate" readonly>
+        <div class="field-hint">ระบบจะบันทึกวัน-เวลาปัจจุบันให้อัตโนมัติตอนกดบันทึก</div>
+      </div>
+
+      <div>
+        <label class="field-label">สาเหตุ/ยืนยัน (เลือกได้หลายข้อ)</label>
+        <div class="checklist" id="d-reasons"></div>
+        <div class="add-reason-row">
+          <input class="field-input" id="d-reason-custom" placeholder="เพิ่มเหตุผลอื่น...">
+          <button class="btn btn-ghost" onclick="addCustomReason()">+ เพิ่ม</button>
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label">หน่วยที่อ่านได้หน้างาน</label>
+        <input class="field-input" id="d-unit" type="number" placeholder="0" inputmode="decimal">
+      </div>
+
+      <div>
+        <label class="field-label">PEA มิเตอร์ที่สับเปลี่ยน (ตัวใหม่)</label>
+        <div class="meter-input-row">
+          <input class="field-input" id="d-newmeter" placeholder="พิมพ์เลขมิเตอร์ หรือกดสแกน">
+          <button class="btn-scan" onclick="openScanner()" title="สแกนบาร์โค้ด/QR">🔲</button>
+        </div>
+        <div class="field-hint">สแกนได้ทั้งบาร์โค้ด (มิเตอร์จานหมุน) และ QR โค้ด (มิเตอร์ E)</div>
+      </div>
+
+      <div>
+        <label class="field-label">หน่วย/ลูกที่เปลี่ยน</label>
+        <input class="field-input" id="d-newunit" type="number" placeholder="0" inputmode="decimal">
+      </div>
+
+      <div>
+        <label class="field-label">รูปถ่าย</label>
+        <div class="photo-row">
+          <img id="d-photo-preview" class="photo-preview" style="display:none;">
+          <button class="btn btn-blue" onclick="document.getElementById('d-photo-input').click()">📷 ถ่าย/เลือกรูป</button>
+          <input type="file" id="d-photo-input" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoSelected(event)">
+        </div>
+        <div class="upload-status" id="photo-upload-status"></div>
+      </div>
+
+      <div>
+        <label class="field-label">สถานะ</label>
+        <div class="status-options" id="d-status-options">
+          <label class="status-option" data-v="pending"><input type="radio" name="d-status" value="pending"> ⚪ รอตรวจสอบ</label>
+          <label class="status-option" data-v="normal"><input type="radio" name="d-status" value="normal"> ✅ ตรวจสอบแล้ว มิเตอร์ปกติ</label>
+          <label class="status-option" data-v="broken"><input type="radio" name="d-status" value="broken"> 🚑 มิเตอร์ชำรุด รอสับเปลี่ยน</label>
+          <label class="status-option" data-v="field"><input type="radio" name="d-status" value="field"> 🔄 สับเปลี่ยนมิเตอร์แล้ว (หน้างาน)</label>
+          <label class="status-option" data-v="sap"><input type="radio" name="d-status" value="sap"> 👍 สับเปลี่ยนมิเตอร์แล้ว (ระบบ SAP)</label>
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label">ออกรายงาน (คัดลอกไปวางต่อได้)</label>
+        <div class="report-box" id="d-report"></div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeDetail()">ปิด</button>
+      <button class="btn btn-primary" onclick="saveDetail()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCANNER MODAL ══ -->
+<div class="modal-overlay" id="scan-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">สแกนบาร์โค้ด / QR โค้ด</div>
+      <button class="modal-close" onclick="closeScanner()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="qr-reader"></div>
+      <div class="field-hint">เล็งกล้องไปที่บาร์โค้ดหรือ QR โค้ดบนมิเตอร์ ระบบจะอ่านค่าให้อัตโนมัติ</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ IMPORT MODAL ══ -->
+<div class="modal-overlay" id="import-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">นำเข้าใบงานจากไฟล์ SCS</div>
+      <button class="modal-close" onclick="closeImportModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div>
+        <label class="field-label">เลือกไฟล์ .xlsx</label>
+        <input type="file" id="import-file-input" accept=".xlsx,.xls" class="field-input" onchange="handleImportFileSelected(event)">
+        <div class="field-hint">ใช้ไฟล์ดิบหรือไฟล์ที่ตัดคอลัมน์แล้วก็ได้ ระบบอ่านตามชื่อคอลัมน์อัตโนมัติ</div>
+      </div>
+      <div id="import-preview" style="display:none;">
+        <div class="import-summary">
+          <div class="import-stat"><div class="num" id="import-total">0</div><div class="lbl">รายการทั้งหมด</div></div>
+          <div class="import-stat"><div class="num" id="import-new">0</div><div class="lbl">ใบงานใหม่</div></div>
+          <div class="import-stat"><div class="num" id="import-existing">0</div><div class="lbl">มีอยู่แล้ว (อัปเดตข้อมูล)</div></div>
+        </div>
+        <div class="field-hint" style="margin-top:10px;">ใบงานที่มีอยู่แล้วจะอัปเดตแค่ข้อมูลจากไฟล์ สถานะที่ช่างทำไปแล้วจะไม่ถูกแตะต้อง</div>
+      </div>
+      <div class="upload-status" id="import-status"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeImportModal()">ยกเลิก</button>
+      <button class="btn btn-primary" id="btn-confirm-import" onclick="confirmImport()" disabled>ยืนยันนำเข้า</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getFirestore, collection, onSnapshot, doc, setDoc, getDoc, query, orderBy
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyC7bzImCV7c89fLGhIq8OycWKQWRYdvZvE",
+    authDomain: "pea-system.firebaseapp.com",
+    projectId: "pea-system",
+    storageBucket: "pea-system.firebasestorage.app",
+    messagingSenderId: "1006235611544",
+    appId: "1:1006235611544:web:a7453d71ff56748166fbed",
+    measurementId: "G-V5NPYZ4KZW"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const COLLECTION = "ucube_tickets";
+
+  window._db = db;
+  window._fsLib = { collection, doc, setDoc, getDoc };
+
+  const q = query(collection(db, COLLECTION), orderBy("jobDate", "desc"));
+  onSnapshot(q, (snap) => {
+    window.TICKETS = snap.docs.map(d => d.data());
+    renderList();
+    if (window.mapReady) renderMapMarkers();
+  }, (err) => {
+    console.error("Firestore listen error:", err);
+  });
+</script>
+
+<script>
+// ══════════════════════════ STATE ══════════════════════════
+window.TICKETS = [];
+let currentFilter = 'all';
+let editingReqNo = null;
+let parsedImportRows = null;
+
+const REASON_PRESETS = [
+  'มิเตอร์ปกติ', 'บ้านว่าง', 'ไฟเกษตรไม่ได้ใช้งาน', 'ไฟสาธารณะไม่ได้ใช้งาน',
+  'ไฟทางหลวง ชำรุดเป็นบางหลอด', 'ไม้แป้นชำรุด', 'มิเตอร์ชำรุด', 'มิเตอร์คว่ำหน้า',
+  'น้ำเข้า', 'มดเข้า', 'CCใหม่', 'แตกร้าว', 'ช็อตไหม้', 'ไม่หมุนขณะมีโหลด', 'หมุนขณะมีโหลด'
+];
+
+const STATUS_META = {
+  pending: { label: '⚪ รอตรวจสอบ',              cls: 'status-pending', color: '#a9bdd1' },
+  normal:  { label: '✅ ตรวจสอบแล้ว ปกติ',        cls: 'status-sap',     color: '#2ecc71' },
+  broken:  { label: '🔴 มิเตอร์ชำรุด รอสับเปลี่ยน', cls: 'status-broken',  color: '#e74c3c' },
+  field:   { label: '🟠 สับเปลี่ยนแล้ว (หน้างาน)', cls: 'status-field',   color: '#f39c12' },
+  sap:     { label: '🟢 สับเปลี่ยนแล้ว (SAP)',     cls: 'status-sap',     color: '#2ecc71' }
+};
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ══════════════════════════ TABS ══════════════════════════
+function switchTab(tab) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('pane-' + tab).classList.add('active');
+  document.getElementById('btn-tab-' + tab).classList.add('active');
+  if (tab === 'map') {
+    if (!window.mapReady) initMap();
+    setTimeout(() => window.leafletMap && window.leafletMap.invalidateSize(), 100);
+  }
+}
+window.switchTab = switchTab;
+
+// ══════════════════════════ FILTER / SEARCH ══════════════════════════
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderList();
+}
+window.setFilter = setFilter;
+
+function matchesFilter(t) {
+  if (currentFilter === 'all') return true;
+  return (t.status || 'pending') === currentFilter;
+}
+
+function matchesSearch(t, q) {
+  if (!q) return true;
+  const hay = [t.customerName, t.peanoMeter, t.reqNo, t.locationAddress].join(' ').toLowerCase();
+  return hay.includes(q);
+}
+
+// ══════════════════════════ LIST RENDER ══════════════════════════
+function renderList() {
+  const q = (document.getElementById('search-input').value || '').trim().toLowerCase();
+  const items = window.TICKETS.filter(t => matchesFilter(t) && matchesSearch(t, q));
+  const el = document.getElementById('ticket-list');
+
+  if (items.length === 0) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div>ไม่พบรายการ</div>`;
+    return;
+  }
+
+  el.innerHTML = items.map(t => {
+    const meta = STATUS_META[t.status || 'pending'];
+    return `
+      <div class="ticket-card" onclick="openDetail('${escapeAttr(t.reqNo)}')" style="margin-bottom:12px;">
+        <div class="ticket-top">
+          <div>
+            <div class="ticket-name">${esc(t.customerName || '(ไม่มีชื่อ)')}</div>
+            <div class="ticket-sub">PEANO: ${esc(t.peanoMeter || '-')}</div>
+          </div>
+          <span class="status-badge ${meta.cls}">${meta.label}</span>
+        </div>
+        <div class="ticket-detail-row">📍 ${esc(t.locationAddress || '-')}</div>
+        <div class="ticket-detail-row">${esc(t.anotherDetail || '')}</div>
+        <div class="ticket-reqno">REQ: ${esc(t.reqNo)}</div>
+      </div>`;
+  }).join('');
+}
+window.renderList = renderList;
+
+function esc(s) { return (s ?? '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escAttr(s) { return (s ?? '').toString().replace(/'/g, "\\'"); }
+
+// ══════════════════════════ MAP ══════════════════════════
+function initMap() {
+  window.leafletMap = L.map('map').setView([16.80, 99.98], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap', maxZoom: 19
+  }).addTo(window.leafletMap);
+  window.mapCluster = L.markerClusterGroup({ maxClusterRadius: 40, showCoverageOnHover: false });
+  window.mapCluster.addTo(window.leafletMap);
+  window.mapReady = true;
+  renderMapMarkers();
+}
+
+function renderMapMarkers() {
+  if (!window.mapReady) return;
+  window.mapCluster.clearLayers();
+  window.TICKETS.forEach(t => {
+    if (!t.lat || !t.lng) return; // ข้ามรายการที่ไม่มีพิกัด (0,0 หรือว่าง)
+    const meta = STATUS_META[t.status || 'pending'];
+    const marker = L.circleMarker([t.lat, t.lng], {
+      radius: 7, color: '#0f1923', weight: 1.5, fillColor: meta.color, fillOpacity: 0.9
+    }).bindPopup(`
+      <b>${esc(t.customerName || '-')}</b><br>
+      PEANO: ${esc(t.peanoMeter || '-')}<br>
+      ${meta.label}<br>
+      <button onclick="openDetail('${escAttr(t.reqNo)}')" style="margin-top:6px;padding:5px 10px;border-radius:6px;border:none;background:#f5a623;color:#000;font-weight:700;cursor:pointer;">ดูรายละเอียด</button>
+    `, { maxWidth: 220 });
+    window.mapCluster.addLayer(marker);
+  });
+}
+window.renderMapMarkers = renderMapMarkers;
+
+// ══════════════════════════ DETAIL MODAL ══════════════════════════
+function openDetail(reqNo) {
+  const t = window.TICKETS.find(x => x.reqNo === reqNo);
+  if (!t) return;
+  editingReqNo = reqNo;
+
+  document.getElementById('detail-title').textContent = t.customerName || reqNo;
+  document.getElementById('detail-info').innerHTML = `
+    <div class="info-row"><span class="info-label">REQ_NO</span><span class="info-value">${esc(t.reqNo)}</span></div>
+    <div class="info-row"><span class="info-label">MRU</span><span class="info-value">${esc(t.mru)}</span></div>
+    <div class="info-row"><span class="info-label">Userno</span><span class="info-value">${esc(t.userno)}</span></div>
+    <div class="info-row"><span class="info-label">PEANO</span><span class="info-value">${esc(t.peanoMeter)}</span></div>
+    <div class="info-row"><span class="info-label">ขนาดมิเตอร์</span><span class="info-value">${esc(t.meterSizeCode)}</span></div>
+    <div class="info-row"><span class="info-label">ที่อยู่</span><span class="info-value">${esc(t.locationAddress)}</span></div>
+    <div class="info-row"><span class="info-label">รายละเอียด</span><span class="info-value">${esc(t.anotherDetail)}</span></div>
+    <div class="info-row"><span class="info-label">วันที่ออกใบงาน</span><span class="info-value">${esc(t.jobDate)}</span></div>
+  `;
+
+  document.getElementById('d-checkdate').value = t.checkDate || '(ยังไม่ตรวจ)';
+  document.getElementById('d-unit').value = t.unitRead || '';
+  document.getElementById('d-newmeter').value = t.newMeterNo || '';
+  document.getElementById('d-newunit').value = t.newUnitRead || '';
+
+  renderReasonChecklist(t.reasons || []);
+
+  const statusVal = t.status || 'pending';
+  document.querySelectorAll('#d-status-options input').forEach(r => {
+    r.checked = (r.value === statusVal);
+    r.closest('.status-option').classList.toggle('selected', r.value === statusVal);
+  });
+  document.querySelectorAll('#d-status-options input').forEach(r => {
+    r.onchange = () => {
+      document.querySelectorAll('.status-option').forEach(o => o.classList.remove('selected'));
+      r.closest('.status-option').classList.add('selected');
+      renderReportPreview();
+    };
+  });
+
+  const photoImg = document.getElementById('d-photo-preview');
+  if (t.photoThumb || t.photoLink) {
+    photoImg.src = t.photoThumb || t.photoLink;
+    photoImg.style.display = 'block';
+  } else {
+    photoImg.style.display = 'none';
+  }
+  document.getElementById('photo-upload-status').textContent = t.photoLink ? '📎 มีรูปแนบแล้ว' : '';
+  document.getElementById('photo-upload-status').className = 'upload-status';
+
+  renderReportPreview();
+  document.getElementById('detail-overlay').classList.add('active');
+}
+window.openDetail = openDetail;
+
+function closeDetail() {
+  document.getElementById('detail-overlay').classList.remove('active');
+  editingReqNo = null;
+}
+window.closeDetail = closeDetail;
+
+function renderReasonChecklist(selected) {
+  const allReasons = [...new Set([...REASON_PRESETS, ...selected])];
+  const el = document.getElementById('d-reasons');
+  el.innerHTML = allReasons.map(r => `
+    <label><input type="checkbox" value="${escAttr(r)}" ${selected.includes(r) ? 'checked' : ''} onchange="renderReportPreview()"> ${esc(r)}</label>
+  `).join('');
+}
+
+function addCustomReason() {
+  const input = document.getElementById('d-reason-custom');
+  const val = input.value.trim();
+  if (!val) return;
+  const current = getSelectedReasons();
+  current.push(val);
+  input.value = '';
+  renderReasonChecklist(current);
+  renderReportPreview();
+}
+window.addCustomReason = addCustomReason;
+
+function getSelectedReasons() {
+  return [...document.querySelectorAll('#d-reasons input:checked')].map(i => i.value);
+}
+
+function getSelectedStatus() {
+  const checked = document.querySelector('#d-status-options input:checked');
+  return checked ? checked.value : 'pending';
+}
+
+function renderReportPreview() {
+  const t = window.TICKETS.find(x => x.reqNo === editingReqNo);
+  if (!t) return;
+  const reasons = getSelectedReasons().join(', ') || '-';
+  const status = STATUS_META[getSelectedStatus()].label;
+  const report =
+`*_* รายงานตรวจสอบ/สับเปลี่ยนมิเตอร์ *_*
+MRU: ${t.mru || '-'}
+USER No: ${t.userno || '-'}
+PEA No: ${t.peanoMeter || '-'}
+ชื่อ-สกุล: ${t.customerName || '-'}
+วันที่ตรวจสอบ: ${document.getElementById('d-checkdate').value || '-'}
+สาเหตุ: ${reasons}
+หน่วยที่อ่านได้: ${document.getElementById('d-unit').value || '-'}
+มิเตอร์ใหม่: ${document.getElementById('d-newmeter').value || '-'}
+สถานะ: ${status}
+Lat,Long: ${t.lat || '-'}, ${t.lng || '-'}`;
+  document.getElementById('d-report').textContent = report;
+}
+window.renderReportPreview = renderReportPreview;
+
+async function saveDetail() {
+  if (!editingReqNo) return;
+  const t = window.TICKETS.find(x => x.reqNo === editingReqNo);
+  if (!t) return;
+
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const checkDate = `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()+543} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+  const updated = {
+    ...t,
+    checkDate,
+    reasons: getSelectedReasons(),
+    unitRead: document.getElementById('d-unit').value,
+    newMeterNo: document.getElementById('d-newmeter').value,
+    newUnitRead: document.getElementById('d-newunit').value,
+    status: getSelectedStatus(),
+    updatedAt: Date.now()
+  };
+
+  try {
+    const { doc, setDoc } = window._fsLib;
+    await setDoc(doc(window._db, 'ucube_tickets', editingReqNo), updated);
+    showToast('บันทึกเรียบร้อย ✓');
+    closeDetail();
+  } catch (e) {
+    console.error(e);
+    showToast('⚠️ บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง');
+  }
+}
+window.saveDetail = saveDetail;
+
+// ══════════════════════════ BARCODE / QR SCANNER ══════════════════════════
+let html5QrCode = null;
+
+function openScanner() {
+  document.getElementById('scan-overlay').classList.add('active');
+  html5QrCode = new Html5Qrcode('qr-reader');
+  html5QrCode.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 240, height: 240 } },
+    (decodedText) => {
+      document.getElementById('d-newmeter').value = decodedText;
+      renderReportPreview();
+      closeScanner();
+      showToast('สแกนสำเร็จ ✓');
+    },
+    () => {} // เงียบไว้ระหว่างยังไม่เจอโค้ด ไม่ต้องแจ้งทุกเฟรม
+  ).catch(err => {
+    console.error(err);
+    showToast('⚠️ เปิดกล้องไม่สำเร็จ ตรวจสอบสิทธิ์การใช้กล้อง');
+    closeScanner();
+  });
+}
+window.openScanner = openScanner;
+
+function closeScanner() {
+  document.getElementById('scan-overlay').classList.remove('active');
+  if (html5QrCode) {
+    html5QrCode.stop().catch(() => {}).finally(() => { html5QrCode = null; });
+  }
+}
+window.closeScanner = closeScanner;
+
+// ══════════════════════════ GOOGLE DRIVE (รูปถ่าย) ══════════════════════════
+const GOOGLE_CLIENT_ID = '1006235611544-tv5slgr1vef55i8ol56embfdvrimns4i.apps.googleusercontent.com';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+let driveTokenClient = null;
+let driveAccessToken = null;
+let driveFolderCache = {};
+
+function getDriveTokenClient() {
+  if (driveTokenClient) return driveTokenClient;
+  if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) return null;
+  driveTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID, scope: DRIVE_SCOPE, callback: ''
+  });
+  return driveTokenClient;
+}
+
+function requestDriveAccessToken() {
+  return new Promise((resolve, reject) => {
+    const client = getDriveTokenClient();
+    if (!client) { reject(new Error('โหลดระบบล็อกอิน Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่')); return; }
+    client.callback = (resp) => {
+      if (resp.error) { reject(new Error(resp.error)); return; }
+      driveAccessToken = resp.access_token;
+      resolve(driveAccessToken);
+    };
+    client.requestAccessToken({ prompt: driveAccessToken ? '' : 'consent' });
+  });
+}
+
+async function findOrCreateFolder(name, parentId, token) {
+  const parentClause = parentId ? ` and '${parentId}' in parents` : " and 'root' in parents";
+  const qStr = encodeURIComponent(`name = '${name.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false${parentClause}`);
+  const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${qStr}&fields=files(id,name)`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  if (!searchRes.ok) throw new Error('ค้นหาโฟลเดอร์ไม่สำเร็จ: ' + searchRes.status);
+  const searchData = await searchRes.json();
+  if (searchData.files && searchData.files.length > 0) return searchData.files[0].id;
+
+  const createRes = await fetch('https://www.googleapis.com/drive/v3/files?fields=id', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: parentId ? [parentId] : undefined })
+  });
+  if (!createRes.ok) throw new Error('สร้างโฟลเดอร์ไม่สำเร็จ: ' + createRes.status);
+  return (await createRes.json()).id;
+}
+
+async function getUcubePhotoFolderId(token) {
+  if (driveFolderCache.ucube) return driveFolderCache.ucube;
+  const rootId = driveFolderCache.__root || await findOrCreateFolder('PEA App - รูปตรวจสอบมิเตอร์', null, token);
+  driveFolderCache.__root = rootId;
+  driveFolderCache.ucube = rootId;
+  return rootId;
+}
+
+async function uploadPhotoToDrive(file, token, folderId) {
+  const metadata = { name: `${editingReqNo}_${Date.now()}_${file.name}`, parents: [folderId] };
+  const boundary = 'peaAppBoundary' + Date.now();
+  const metaBytes = new TextEncoder().encode(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`);
+  const filePartHeader = new TextEncoder().encode(`--${boundary}\r\nContent-Type: ${file.type || 'image/jpeg'}\r\n\r\n`);
+  const closeBytes = new TextEncoder().encode(`\r\n--${boundary}--`);
+  const fileBuffer = await file.arrayBuffer();
+  const body = new Blob([metaBytes, filePartHeader, fileBuffer, closeBytes]);
+
+  const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink,thumbnailLink', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body
+  });
+  if (!uploadRes.ok) throw new Error('อัปโหลดไม่สำเร็จ: ' + uploadRes.status);
+  const uploaded = await uploadRes.json();
+
+  await fetch(`https://www.googleapis.com/drive/v3/files/${uploaded.id}/permissions`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role: 'reader', type: 'anyone' })
+  }).catch(() => {});
+
+  return uploaded;
+}
+
+async function handlePhotoSelected(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file || !editingReqNo) return;
+
+  const statusEl = document.getElementById('photo-upload-status');
+  statusEl.className = 'upload-status uploading';
+  statusEl.textContent = '🔄 กำลังอัปโหลดรูป...';
+
+  const preview = document.getElementById('d-photo-preview');
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = 'block';
+
+  try {
+    const token = await requestDriveAccessToken();
+    const folderId = await getUcubePhotoFolderId(token);
+    const result = await uploadPhotoToDrive(file, token, folderId);
+
+    // อัปเดตข้อมูลรูปเข้า Firestore ทันที ไม่ต้องรอกดบันทึกฟอร์ม กันรูปหายถ้าปิดฟอร์มก่อน
+    const t = window.TICKETS.find(x => x.reqNo === editingReqNo);
+    const { doc, setDoc } = window._fsLib;
+    const updated = { ...t, photoLink: result.webViewLink, photoThumb: result.thumbnailLink || '', updatedAt: Date.now() };
+    await setDoc(doc(window._db, 'ucube_tickets', editingReqNo), updated);
+
+    statusEl.className = 'upload-status';
+    statusEl.textContent = '📎 อัปโหลดรูปสำเร็จ';
+    showToast('อัปโหลดรูปสำเร็จ ✓');
+  } catch (e) {
+    console.error(e);
+    statusEl.className = 'upload-status error';
+    statusEl.textContent = '⚠️ อัปโหลดรูปไม่สำเร็จ ลองใหม่อีกครั้ง';
+  }
+}
+window.handlePhotoSelected = handlePhotoSelected;
+
+// ══════════════════════════ IMPORT XLSX ══════════════════════════
+function openImportModal() {
+  document.getElementById('import-overlay').classList.add('active');
+  document.getElementById('import-preview').style.display = 'none';
+  document.getElementById('import-status').textContent = '';
+  document.getElementById('btn-confirm-import').disabled = true;
+  document.getElementById('import-file-input').value = '';
+  parsedImportRows = null;
+}
+window.openImportModal = openImportModal;
+
+function closeImportModal() {
+  document.getElementById('import-overlay').classList.remove('active');
+}
+window.closeImportModal = closeImportModal;
+
+// รองรับทั้งไฟล์ดิบ (17 คอลัมน์) และไฟล์ที่ตัดคอลัมน์แล้ว (11 คอลัมน์) — ดึงตามชื่อคอลัมน์ ไม่สนจำนวน/ลำดับ
+function handleImportFileSelected(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('import-status');
+  statusEl.className = 'upload-status uploading';
+  statusEl.textContent = '🔄 กำลังอ่านไฟล์...';
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+      const mapped = rows.map(r => ({
+        reqNo: String(r.REQ_NO || '').trim(),
+        jobDate: formatExcelDate(r.JobDate),
+        mru: String(r.MRU || '').trim(),
+        userno: String(r.Userno || '').trim(),
+        peanoMeter: String(r.PEANO_Meter || '').trim(),
+        meterSizeCode: String(r.METER_SIZE_CODE || '').trim(),
+        customerName: String(r.CustomerName || '').trim(),
+        locationAddress: String(r.LocationAddress || '').trim(),
+        anotherDetail: String(r.AnotherDetail || '').trim(),
+        lat: parseFloat(r.InstallPointLatitude) || 0,
+        lng: parseFloat(r.InstallPointLongitude) || 0
+      })).filter(r => r.reqNo);
+
+      parsedImportRows = mapped;
+
+      const existingReqNos = new Set(window.TICKETS.map(t => t.reqNo));
+      const newCount = mapped.filter(r => !existingReqNos.has(r.reqNo)).length;
+      const existCount = mapped.length - newCount;
+
+      document.getElementById('import-total').textContent = mapped.length;
+      document.getElementById('import-new').textContent = newCount;
+      document.getElementById('import-existing').textContent = existCount;
+      document.getElementById('import-preview').style.display = 'block';
+      document.getElementById('btn-confirm-import').disabled = mapped.length === 0;
+
+      statusEl.className = 'upload-status';
+      statusEl.textContent = mapped.length ? '' : '⚠️ ไม่พบข้อมูลที่อ่านได้ในไฟล์นี้';
+    } catch (err) {
+      console.error(err);
+      statusEl.className = 'upload-status error';
+      statusEl.textContent = '⚠️ อ่านไฟล์ไม่สำเร็จ ตรวจสอบว่าเป็นไฟล์ xlsx ที่ถูกต้อง';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+window.handleImportFileSelected = handleImportFileSelected;
+
+function formatExcelDate(val) {
+  if (!val) return '';
+  if (val instanceof Date) return val.toLocaleDateString('th-TH');
+  if (typeof val === 'number') {
+    const d = XLSX.SSF.parse_date_code(val);
+    if (d) return `${d.d}/${d.m}/${d.y}`;
+  }
+  return String(val);
+}
+
+async function confirmImport() {
+  if (!parsedImportRows || parsedImportRows.length === 0) return;
+  const statusEl = document.getElementById('import-status');
+  statusEl.className = 'upload-status uploading';
+  const btn = document.getElementById('btn-confirm-import');
+  btn.disabled = true;
+
+  const { doc, setDoc, getDoc } = window._fsLib;
+  let done = 0;
+
+  try {
+    for (const row of parsedImportRows) {
+      statusEl.textContent = `🔄 กำลังบันทึก ${done + 1}/${parsedImportRows.length}...`;
+      const ref = doc(window._db, 'ucube_tickets', row.reqNo);
+      const existingSnap = await getDoc(ref);
+
+      if (existingSnap.exists()) {
+        // REQ_NO เดิม — อัปเดตแค่ข้อมูลจากไฟล์ ไม่แตะสถานะ/ผลตรวจที่ช่างทำไปแล้ว
+        const existing = existingSnap.data();
+        await setDoc(ref, { ...existing, ...row, status: existing.status, checkDate: existing.checkDate,
+          reasons: existing.reasons, unitRead: existing.unitRead, newMeterNo: existing.newMeterNo,
+          newUnitRead: existing.newUnitRead, photoLink: existing.photoLink, photoThumb: existing.photoThumb,
+          updatedAt: Date.now() });
+      } else {
+        // REQ_NO ใหม่ — สร้างใบงานใหม่ สถานะเริ่มต้น "รอตรวจสอบ"
+        await setDoc(ref, { ...row, status: 'pending', reasons: [], createdAt: Date.now(), updatedAt: Date.now() });
+      }
+      done++;
+    }
+    statusEl.className = 'upload-status';
+    statusEl.textContent = '';
+    showToast(`นำเข้าสำเร็จ ${done} รายการ ✓`);
+    closeImportModal();
+  } catch (e) {
+    console.error(e);
+    statusEl.className = 'upload-status error';
+    statusEl.textContent = `⚠️ นำเข้าไม่สำเร็จระหว่างรายการที่ ${done + 1} ลองใหม่อีกครั้ง`;
+    btn.disabled = false;
+  }
+}
+window.confirmImport = confirmImport;
+</script>
+</body>
+</html>
