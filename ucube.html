@@ -453,7 +453,7 @@ function renderList() {
   el.innerHTML = items.map(t => {
     const meta = STATUS_META[t.status || 'pending'];
     return `
-      <div class="ticket-card" onclick="openDetail('${escapeAttr(t.reqNo)}')" style="margin-bottom:12px;">
+      <div class="ticket-card" onclick="openDetail('${escAttr(t.reqNo)}')" style="margin-bottom:12px;">
         <div class="ticket-top">
           <div>
             <div class="ticket-name">${esc(t.customerName || '(ไม่มีชื่อ)')}</div>
