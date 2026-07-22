@@ -724,6 +724,17 @@ window.navigateTo = navigateTo;
 function esc(s) { return (s ?? '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function escAttr(s) { return (s ?? '').toString().replace(/'/g, "\\'"); }
 
+// thumbnailLink ที่ Drive API ส่งกลับมาตอนอัปโหลดใช้ได้ไม่เสถียร (ผูกกับ session ตอนนั้น) พอเปิดใหม่ภายหลังมักโหลดไม่ขึ้น
+// ใช้ endpoint สาธารณะของ Drive แทน ซึ่งใช้ได้ถาวรตราบใดที่ไฟล์ยัง share แบบ "anyone with link" อยู่
+function driveDisplayImageUrl(t) {
+  if (t.photoFileId) return `https://drive.google.com/thumbnail?id=${t.photoFileId}&sz=w1000`;
+  if (t.photoLink) {
+    const m = t.photoLink.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1000`;
+  }
+  return t.photoThumb || t.photoLink || '';
+}
+
 // ══════════════════════════ MAP ══════════════════════════
 function initMap() {
   window.leafletMap = L.map('map').setView([16.80, 99.98], 11);
@@ -798,8 +809,9 @@ function openDetail(reqNo) {
   statusSelect.onchange = () => renderReportPreview();
 
   const photoImg = document.getElementById('d-photo-preview');
-  if (t.photoThumb || t.photoLink) {
-    photoImg.src = t.photoThumb || t.photoLink;
+  if (t.photoThumb || t.photoLink || t.photoFileId) {
+    photoImg.onerror = () => { photoImg.style.display = 'none'; };
+    photoImg.src = driveDisplayImageUrl(t);
     photoImg.style.display = 'block';
   } else {
     photoImg.style.display = 'none';
@@ -1223,7 +1235,11 @@ async function handlePhotoSelected(event) {
     // อัปเดตข้อมูลรูปเข้า Firestore ทันที ไม่ต้องรอกดบันทึกฟอร์ม กันรูปหายถ้าปิดฟอร์มก่อน
     const t = window.TICKETS.find(x => x.reqNo === editingReqNo);
     const { doc, setDoc } = window._fsLib;
-    const updated = { ...t, photoLink: result.webViewLink, photoThumb: result.thumbnailLink || '', updatedAt: Date.now() };
+    const updated = {
+      ...t, photoLink: result.webViewLink, photoFileId: result.id,
+      photoThumb: `https://drive.google.com/thumbnail?id=${result.id}&sz=w1000`,
+      updatedAt: Date.now()
+    };
     await setDoc(doc(window._db, 'ucube_tickets', editingReqNo), updated);
 
     statusEl.className = 'upload-status';
