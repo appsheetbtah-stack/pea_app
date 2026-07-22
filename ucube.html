@@ -135,6 +135,12 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .checklist label:active { background:var(--border); }
 .checklist input[type=checkbox] { width:18px; height:18px; flex-shrink:0; accent-color:var(--accent); }
 .add-reason-row { display:flex; gap:8px; margin-top:8px; }
+.reason-picker-field {
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  cursor:pointer; color:var(--text2); min-height:20px;
+}
+.reason-picker-field.has-value { color:var(--text); }
+.reason-picker-field::after { content:'▾'; color:var(--text2); flex-shrink:0; }
 .add-reason-row input { flex:1; }
 
 .status-options { display:flex; flex-direction:column; gap:8px; }
@@ -235,17 +241,13 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
       <div>
         <label class="field-label">วันที่เข้าตรวจสอบ</label>
-        <input class="field-input" id="d-checkdate" readonly>
-        <div class="field-hint">ระบบจะบันทึกวัน-เวลาปัจจุบันให้อัตโนมัติตอนกดบันทึก</div>
+        <input class="field-input" id="d-checkdate" oninput="renderReportPreview()">
+        <div class="field-hint">ค่าเริ่มต้นคือวัน-เวลาปัจจุบัน (แก้ไขเองได้) ถ้าเคยตรวจและบันทึกไปแล้ว จะแสดงวันที่ที่บันทึกไว้เดิม ไม่ถูกเขียนทับใหม่</div>
       </div>
 
       <div>
-        <label class="field-label">สาเหตุ/ยืนยัน (เลือกได้หลายข้อ)</label>
-        <div class="checklist" id="d-reasons"></div>
-        <div class="add-reason-row">
-          <input class="field-input" id="d-reason-custom" placeholder="เพิ่มเหตุผลอื่น...">
-          <button class="btn btn-ghost" onclick="addCustomReason()">+ เพิ่ม</button>
-        </div>
+        <label class="field-label">สาเหตุ/ยืนยัน</label>
+        <div class="field-input reason-picker-field" id="d-reasons-display" onclick="openReasonPicker()">เลือกสาเหตุ...</div>
       </div>
 
       <div>
@@ -311,6 +313,28 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     <div class="modal-body">
       <div id="qr-reader"></div>
       <div class="field-hint">เล็งกล้องไปที่บาร์โค้ดหรือ QR โค้ดบนมิเตอร์ ระบบจะอ่านค่าให้อัตโนมัติ</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ REASON PICKER MODAL ══ -->
+<div class="modal-overlay" id="reason-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">สาเหตุ/ยืนยัน</div>
+      <button class="modal-close" onclick="closeReasonPicker()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input class="field-input" id="reason-search" placeholder="ค้นหา..." oninput="renderReasonPickerList()">
+      <div class="checklist" id="reason-picker-list" style="max-height:340px;"></div>
+      <div class="add-reason-row">
+        <input class="field-input" id="d-reason-custom" placeholder="เพิ่มเหตุผลอื่น...">
+        <button class="btn btn-ghost" onclick="addCustomReason()">+ เพิ่ม</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="clearReasonPicker()">ล้างทั้งหมด</button>
+      <button class="btn btn-primary" onclick="doneReasonPicker()">เสร็จสิ้น</button>
     </div>
   </div>
 </div>
@@ -385,6 +409,8 @@ window.TICKETS = [];
 let currentFilter = 'all';
 let editingReqNo = null;
 let parsedImportRows = null;
+let currentTicketReasons = [];   // สาเหตุที่เลือกไว้จริงของ ticket ที่กำลังแก้ไข
+let pickerSelectedReasons = [];  // สาเหตุที่กำลังเลือกอยู่ใน dropdown picker (ยังไม่กด "เสร็จสิ้น")
 
 const REASON_PRESETS = [
   'มิเตอร์ปกติ', 'บ้านว่าง', 'ไฟเกษตรไม่ได้ใช้งาน', 'ไฟสาธารณะไม่ได้ใช้งาน',
@@ -522,12 +548,13 @@ function openDetail(reqNo) {
     <div class="info-row"><span class="info-label">วันที่ออกใบงาน</span><span class="info-value">${esc(t.jobDate)}</span></div>
   `;
 
-  document.getElementById('d-checkdate').value = t.checkDate || '(ยังไม่ตรวจ)';
+  document.getElementById('d-checkdate').value = t.checkDate || formatNowDateTime();
   document.getElementById('d-unit').value = t.unitRead || '';
   document.getElementById('d-newmeter').value = t.newMeterNo || '';
   document.getElementById('d-newunit').value = t.newUnitRead || '';
 
-  renderReasonChecklist(t.reasons || []);
+  currentTicketReasons = [...(t.reasons || [])];
+  renderReasonsSummary();
 
   const statusVal = t.status || 'pending';
   document.querySelectorAll('#d-status-options input').forEach(r => {
@@ -563,28 +590,88 @@ function closeDetail() {
 }
 window.closeDetail = closeDetail;
 
-function renderReasonChecklist(selected) {
-  const allReasons = [...new Set([...REASON_PRESETS, ...selected])];
-  const el = document.getElementById('d-reasons');
-  el.innerHTML = allReasons.map(r => `
-    <label><input type="checkbox" value="${escAttr(r)}" ${selected.includes(r) ? 'checked' : ''} onchange="renderReportPreview()"> ${esc(r)}</label>
+// วัน-เวลาปัจจุบัน ใช้เป็นค่าเริ่มต้นของ "วันที่เข้าตรวจสอบ" เฉพาะตอนที่ยังไม่เคยบันทึกไว้เท่านั้น
+function formatNowDateTime() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()+543} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+}
+
+// ══════════════════════════ REASON PICKER (dropdown) ══════════════════════════
+function renderReasonsSummary() {
+  const el = document.getElementById('d-reasons-display');
+  if (currentTicketReasons.length > 0) {
+    el.textContent = currentTicketReasons.join(', ');
+    el.classList.add('has-value');
+  } else {
+    el.textContent = 'เลือกสาเหตุ...';
+    el.classList.remove('has-value');
+  }
+}
+
+function openReasonPicker() {
+  pickerSelectedReasons = [...currentTicketReasons];
+  document.getElementById('reason-search').value = '';
+  renderReasonPickerList();
+  document.getElementById('reason-overlay').classList.add('active');
+}
+window.openReasonPicker = openReasonPicker;
+
+function closeReasonPicker() {
+  document.getElementById('reason-overlay').classList.remove('active');
+}
+window.closeReasonPicker = closeReasonPicker;
+
+function renderReasonPickerList() {
+  const q = (document.getElementById('reason-search').value || '').trim().toLowerCase();
+  const allReasons = [...new Set([...REASON_PRESETS, ...pickerSelectedReasons])];
+  const filtered = allReasons.filter(r => r.toLowerCase().includes(q));
+  const el = document.getElementById('reason-picker-list');
+  if (filtered.length === 0) {
+    el.innerHTML = `<div class="empty-state" style="padding:24px;">ไม่พบรายการที่ค้นหา</div>`;
+    return;
+  }
+  el.innerHTML = filtered.map(r => `
+    <label><input type="checkbox" value="${escAttr(r)}" ${pickerSelectedReasons.includes(r) ? 'checked' : ''} onchange="toggleReasonInPicker('${escAttr(r)}', this.checked)"> ${esc(r)}</label>
   `).join('');
 }
+window.renderReasonPickerList = renderReasonPickerList;
+
+function toggleReasonInPicker(reason, checked) {
+  if (checked) {
+    if (!pickerSelectedReasons.includes(reason)) pickerSelectedReasons.push(reason);
+  } else {
+    pickerSelectedReasons = pickerSelectedReasons.filter(r => r !== reason);
+  }
+}
+window.toggleReasonInPicker = toggleReasonInPicker;
 
 function addCustomReason() {
   const input = document.getElementById('d-reason-custom');
   const val = input.value.trim();
   if (!val) return;
-  const current = getSelectedReasons();
-  current.push(val);
+  if (!pickerSelectedReasons.includes(val)) pickerSelectedReasons.push(val);
   input.value = '';
-  renderReasonChecklist(current);
-  renderReportPreview();
+  renderReasonPickerList();
 }
 window.addCustomReason = addCustomReason;
 
+function clearReasonPicker() {
+  pickerSelectedReasons = [];
+  renderReasonPickerList();
+}
+window.clearReasonPicker = clearReasonPicker;
+
+function doneReasonPicker() {
+  currentTicketReasons = [...pickerSelectedReasons];
+  renderReasonsSummary();
+  renderReportPreview();
+  closeReasonPicker();
+}
+window.doneReasonPicker = doneReasonPicker;
+
 function getSelectedReasons() {
-  return [...document.querySelectorAll('#d-reasons input:checked')].map(i => i.value);
+  return currentTicketReasons;
 }
 
 function getSelectedStatus() {
@@ -618,9 +705,8 @@ async function saveDetail() {
   const t = window.TICKETS.find(x => x.reqNo === editingReqNo);
   if (!t) return;
 
-  const now = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  const checkDate = `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()+543} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  // ใช้ค่าที่อยู่ในช่อง "วันที่เข้าตรวจสอบ" ตรงๆ (ผู้ใช้แก้ไขเองได้ ไม่สร้างเวลาปัจจุบันทับซ้ำทุกครั้งที่บันทึก)
+  const checkDate = document.getElementById('d-checkdate').value.trim();
 
   const updated = {
     ...t,
