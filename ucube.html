@@ -213,6 +213,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 .btn-danger { background:#e74c3c; color:#fff; }
 .link-btn { color:var(--blue); text-decoration:underline; cursor:pointer; }
+.my-location-btn {
+  width:34px; height:34px; background:var(--surface); border:2px solid rgba(0,0,0,.2); border-radius:4px;
+  font-size:16px; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
+}
+.my-location-btn:disabled { opacity:.6; }
 .source-badge { display:inline-block; font-size:10.5px; font-weight:700; color:var(--accent); background:rgba(245,166,35,.12); border:1px solid rgba(245,166,35,.3); border-radius:10px; padding:2px 8px; margin-left:6px; vertical-align:middle; }
 .batch-manage-box { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:10px; }
 .batch-manage-actions { display:flex; gap:8px; }
@@ -483,7 +488,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       </div>
       <div>
         <label class="field-label">เลือกไฟล์ .xlsx</label>
-        <input type="file" id="import-file-input" accept=".xlsx,.xls" class="field-input" onchange="handleImportFileSelected(event)">
+        <input type="file" id="import-file-input" accept=".xlsx,.xls" style="display:none;" onchange="handleImportFileSelected(event)">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <button type="button" class="btn btn-blue" style="flex-shrink:0;" onclick="document.getElementById('import-file-input').click()">📁 เลือกไฟล์</button>
+          <span id="import-file-name" style="font-size:13px; color:var(--text2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">ยังไม่ได้เลือกไฟล์ใด</span>
+        </div>
         <div class="field-hint">ใช้ไฟล์ดิบหรือไฟล์ที่ตัดคอลัมน์แล้วก็ได้ ระบบอ่านตามชื่อคอลัมน์อัตโนมัติ</div>
       </div>
       <div id="import-preview" style="display:none;">
@@ -744,7 +753,23 @@ function driveDisplayImageUrl(t) {
 
 // ══════════════════════════ MAP ══════════════════════════
 function initMap() {
-  window.leafletMap = L.map('map').setView([16.80, 99.98], 11);
+  window.leafletMap = L.map('map', { zoomControl: false }).setView([16.80, 99.98], 11);
+  L.control.zoom({ position: 'bottomright' }).addTo(window.leafletMap);
+
+  // ปุ่ม "ตำแหน่งของฉัน"
+  const LocateControl = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd: function() {
+      const btn = L.DomUtil.create('button', 'leaflet-bar my-location-btn');
+      btn.type = 'button';
+      btn.title = 'ตำแหน่งของฉัน';
+      btn.innerHTML = '📍';
+      L.DomEvent.disableClickPropagation(btn);
+      L.DomEvent.on(btn, 'click', () => locateMyPosition(btn));
+      return btn;
+    }
+  });
+  new LocateControl().addTo(window.leafletMap);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap', maxZoom: 19
   }).addTo(window.leafletMap);
@@ -753,6 +778,34 @@ function initMap() {
   window.mapReady = true;
   renderMapMarkers();
 }
+
+let myLocationMarker = null;
+let myLocationCircle = null;
+
+function locateMyPosition(btn) {
+  if (!navigator.geolocation) { showToast('⚠️ อุปกรณ์นี้ไม่รองรับ GPS'); return; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳'; }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      if (myLocationMarker) window.leafletMap.removeLayer(myLocationMarker);
+      if (myLocationCircle) window.leafletMap.removeLayer(myLocationCircle);
+      myLocationMarker = L.circleMarker([latitude, longitude], {
+        radius: 8, color: '#fff', weight: 2, fillColor: '#3b9ede', fillOpacity: 1
+      }).addTo(window.leafletMap);
+      myLocationCircle = L.circle([latitude, longitude], { radius: accuracy, color: '#3b9ede', weight: 1, fillOpacity: 0.1 }).addTo(window.leafletMap);
+      window.leafletMap.setView([latitude, longitude], 16);
+      if (btn) { btn.disabled = false; btn.innerHTML = '📍'; }
+    },
+    (err) => {
+      console.error(err);
+      showToast('⚠️ ดึงตำแหน่งไม่สำเร็จ ตรวจสอบสิทธิ์การใช้ตำแหน่ง');
+      if (btn) { btn.disabled = false; btn.innerHTML = '📍'; }
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+window.locateMyPosition = locateMyPosition;
 
 function renderMapMarkers() {
   if (!window.mapReady) return;
@@ -1342,6 +1395,7 @@ function openImportModal() {
   document.getElementById('import-status').textContent = '';
   document.getElementById('btn-confirm-import').disabled = true;
   document.getElementById('import-file-input').value = '';
+  document.getElementById('import-file-name').textContent = 'ยังไม่ได้เลือกไฟล์ใด';
   populateImportMonthYear();
   renderLegacyMigrationBox();
   parsedImportRows = null;
@@ -1411,6 +1465,7 @@ window.closeImportModal = closeImportModal;
 function handleImportFileSelected(event) {
   const file = event.target.files[0];
   if (!file) return;
+  document.getElementById('import-file-name').textContent = file.name;
   const statusEl = document.getElementById('import-status');
   statusEl.className = 'upload-status uploading';
   statusEl.textContent = '🔄 กำลังอ่านไฟล์...';
