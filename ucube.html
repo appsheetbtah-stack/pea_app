@@ -527,7 +527,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         <label class="field-label" style="margin-bottom:0;">📦 จัดการรอบใบงานเดิม</label>
         <select class="field-select" id="batch-manage-select" onchange="updateBatchManageCount()"></select>
         <div class="field-hint" id="batch-manage-count">เลือกรอบเดือน/ปีเพื่อดูจำนวนใบงาน</div>
-        <button class="btn btn-blue" style="width:100%;" onclick="printMeterLabels()">🏷️ พิมพ์ป้ายมิเตอร์เก่า (2 คอลัมน์)</button>
+        <button class="btn btn-blue" style="width:100%;" onclick="printMeterLabels()">🏷️ พิมพ์ป้ายติดมิเตอร์</button>
         <div class="batch-manage-actions">
           <button class="btn btn-blue" style="flex:1;" onclick="exportBatchToExcel()">📤 ส่งออก Excel</button>
           <button class="btn btn-danger" style="flex:1;" onclick="deleteBatchTickets()">🗑️ ลบรอบนี้ทั้งหมด</button>
@@ -1800,10 +1800,11 @@ function printMeterLabels() {
   const key = sel.value;
   if (!key) { showToast('⚠️ เลือกรอบเดือน/ปีก่อน'); return; }
 
-  // พิมพ์เฉพาะใบงานที่สับเปลี่ยนมิเตอร์จริงแล้ว (มีเลขมิเตอร์ใหม่กรอกไว้) เพราะป้ายนี้ไว้ติดมิเตอร์เก่าที่ถอดออกมา
-  const rows = window.TICKETS.filter(t => t.batchKey === key && (t.newMeterNo || '').toString().trim());
+  // พิมพ์เฉพาะใบงานที่สับเปลี่ยนมิเตอร์จริงแล้ว (สถานะ "สับเปลี่ยนมิเตอร์แล้ว" ทั้งแบบหน้างานและระบบ SAP)
+  // เพราะป้ายนี้ไว้ติดมิเตอร์เก่าที่ถอดออกมา ไม่ใช้เงื่อนไขจากช่อง "มิเตอร์ใหม่" เพราะบางครั้งช่างไม่ได้กรอกเลขไว้ทุกใบ
+  const rows = window.TICKETS.filter(t => t.batchKey === key && (t.status === 'field' || t.status === 'sap'));
   if (rows.length === 0) {
-    showToast('⚠️ ไม่พบใบงานที่สับเปลี่ยนมิเตอร์แล้วในรอบนี้ (ต้องกรอก "มิเตอร์ใหม่" ไว้ก่อน)');
+    showToast('⚠️ ไม่พบใบงานที่สับเปลี่ยนมิเตอร์แล้วในรอบนี้ (ต้องตั้งสถานะเป็น "สับเปลี่ยนมิเตอร์แล้ว" ก่อน)');
     return;
   }
 
