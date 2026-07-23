@@ -758,7 +758,7 @@ function initMap() {
 
   // ปุ่ม "ตำแหน่งของฉัน"
   const LocateControl = L.Control.extend({
-    options: { position: 'topright' },
+    options: { position: 'bottomright' },
     onAdd: function() {
       const btn = L.DomUtil.create('button', 'leaflet-bar my-location-btn');
       btn.type = 'button';
