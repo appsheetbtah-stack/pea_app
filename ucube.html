@@ -40,7 +40,8 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   flex-shrink:0; transition:color .15s;
 }
 .back-btn:hover { color:var(--accent); border-color:var(--accent); }
-.topbar-title { font-size:15px; font-weight:700; flex:1; }
+.topbar-title { font-size:15px; font-weight:700; flex:1; display:flex; align-items:center; gap:8px; }
+.meter-icon { flex-shrink:0; }
 .topbar-btn {
   background:var(--surface2); border:1px solid var(--border); color:var(--text);
   width:34px; height:34px; border-radius:8px; font-size:16px; cursor:pointer;
@@ -227,7 +228,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
 <div class="topbar">
   <a class="back-btn" href="index.html">← กลับ</a>
-  <div class="topbar-title">🔲 U-cube ตรวจสอบมิเตอร์</div>
+  <div class="topbar-title">
+    <img class="meter-icon" width="22" height="22" alt="" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgd2lkdGg9IjIyIiBoZWlnaHQ9IjIyIiBmaWxsPSJub25lIj4KPHJlY3QgeD0iNiIgeT0iNCIgd2lkdGg9IjM2IiBoZWlnaHQ9IjM0IiByeD0iNyIgZmlsbD0iIzViNmI3OCIvPgo8cmVjdCB4PSI2IiB5PSI0IiB3aWR0aD0iMzYiIGhlaWdodD0iMzQiIHJ4PSI3IiBmaWxsPSJ1cmwoI21ldGVyU2hpbmUpIi8+CjxyZWN0IHg9IjEiIHk9IjEyIiB3aWR0aD0iNCIgaGVpZ2h0PSIxMCIgcng9IjIiIGZpbGw9IiMzZDRjNTgiLz4KPHJlY3QgeD0iNDMiIHk9IjEyIiB3aWR0aD0iNCIgaGVpZ2h0PSIxMCIgcng9IjIiIGZpbGw9IiMzZDRjNTgiLz4KPHJlY3QgeD0iMTEiIHk9IjkiIHdpZHRoPSIyNiIgaGVpZ2h0PSIxMiIgcng9IjIuNSIgZmlsbD0iI2JmZTBmNyIvPgo8Y2lyY2xlIGN4PSIxNiIgY3k9IjI1LjUiIHI9IjMiIGZpbGw9IiMzZmI1NmIiLz4KPGNpcmNsZSBjeD0iMjQiIGN5PSIyNS41IiByPSIzIiBmaWxsPSIjZjJjOTRjIi8+CjxjaXJjbGUgY3g9IjMyIiBjeT0iMjUuNSIgcj0iMyIgZmlsbD0iI2U1NTMzZCIvPgo8cmVjdCB4PSIxMSIgeT0iMzAuNSIgd2lkdGg9IjI2IiBoZWlnaHQ9IjQiIHJ4PSIyIiBmaWxsPSIjM2Q0YzU4Ii8+CjxyZWN0IHg9IjQiIHk9IjM4IiB3aWR0aD0iNDAiIGhlaWdodD0iOCIgcng9IjQiIGZpbGw9IiNjN2NlZDMiLz4KPGNpcmNsZSBjeD0iMTEiIGN5PSI0MiIgcj0iMyIgZmlsbD0iIzdhODQ4YiIvPgo8Y2lyY2xlIGN4PSIyMCIgY3k9IjQyIiByPSIzIiBmaWxsPSIjN2E4NDhiIi8+CjxjaXJjbGUgY3g9IjI5IiBjeT0iNDIiIHI9IjMiIGZpbGw9IiM3YTg0OGIiLz4KPGNpcmNsZSBjeD0iMzgiIGN5PSI0MiIgcj0iMyIgZmlsbD0iIzdhODQ4YiIvPgo8ZGVmcz4KPGxpbmVhckdyYWRpZW50IGlkPSJtZXRlclNoaW5lIiB4MT0iNiIgeTE9IjQiIHgyPSI0MiIgeTI9IjM4IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CjxzdG9wIHN0b3AtY29sb3I9IiNmZmYiIHN0b3Atb3BhY2l0eT0iLjE4Ii8+CjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iI2ZmZiIgc3RvcC1vcGFjaXR5PSIwIi8+CjwvbGluZWFyR3JhZGllbnQ+CjwvZGVmcz4KPC9zdmc+">
+    <span>U-cube ตรวจสอบมิเตอร์</span>
+  </div>
   <button class="topbar-btn" onclick="openAddTicketModal()" title="เพิ่มใบงานด่วน">➕</button>
   <button class="topbar-btn" onclick="openImportModal()" title="นำเข้าไฟล์ xlsx">📥</button>
 </div>
