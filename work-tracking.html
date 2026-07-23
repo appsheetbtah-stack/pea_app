@@ -151,8 +151,6 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 }
 .link-btn:active { border-color:var(--accent); background:rgba(245,166,35,0.12); }
 .text-link { color:var(--accent); text-decoration:underline; cursor:pointer; }
-.drawing-attached-box { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px; margin-top:8px; font-size:14px; font-weight:600; color:var(--green); }
-.btn-danger { background:var(--red); color:#fff; }
 
 /* ── FAB ── */
 .fab {
@@ -210,6 +208,18 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .btn-cancel { background:var(--surface2); color:var(--text2); }
 .btn-save { background:var(--accent); color:#0f1923; border:none; }
 .btn-save:disabled { opacity:.5; }
+
+.btn {
+  padding:11px 14px; border-radius:9px; font-family:var(--sans); font-size:14px;
+  font-weight:600; cursor:pointer; border:1px solid transparent; display:inline-flex;
+  align-items:center; justify-content:center; gap:6px; text-decoration:none;
+  transition:filter .15s, background .15s; -webkit-tap-highlight-color:transparent;
+}
+.btn:active { filter:brightness(0.9); }
+.btn-blue { background:var(--blue); color:#fff; }
+.btn-ghost { background:var(--surface2); color:var(--text); border-color:var(--border); }
+.btn-danger { background:var(--red); color:#fff; }
+.drawing-attached-box { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px; margin-top:8px; font-size:14px; font-weight:600; color:var(--green); }
 
 .toast {
   position:fixed; bottom:calc(var(--botnav) + 10px); left:50%; transform:translateX(-50%);
