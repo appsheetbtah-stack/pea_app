@@ -150,6 +150,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   display:inline-flex; align-items:center; gap:5px; text-decoration:none; transition:all .15s;
 }
 .link-btn:active { border-color:var(--accent); background:rgba(245,166,35,0.12); }
+.text-link { color:var(--accent); text-decoration:underline; cursor:pointer; }
 
 /* ── FAB ── */
 .fab {
@@ -337,6 +338,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         </div>
         <input class="field-input" id="f-drawinglink" placeholder="หรือวางลิงก์ Google Drive เองที่นี่" inputmode="url" style="margin-top:8px;" oninput="renderDrawingLinkPreview()">
         <div class="field-hint">อัปโหลดผ่านปุ่มด้านบน ระบบจะเก็บขึ้น Google Drive และตั้งค่าแชร์ให้อัตโนมัติ หรือจะวางลิงก์ที่มีอยู่แล้วเองก็ได้</div>
+        <div class="field-hint" id="drive-account-info"></div>
       </div>
       <div>
         <label class="field-label">สถานะ</label>
@@ -693,9 +695,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
   // ===== Google Drive Upload (แบบแปลน) =====
   const GOOGLE_CLIENT_ID = '1006235611544-tv5slgr1vef55i8ol56embfdvrimns4i.apps.googleusercontent.com';
-  const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+  const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
+  const DRIVE_TARGET_EMAIL = 'appsheetbtah@gmail.com'; // บัญชีกลางที่ให้ทีมใช้เก็บไฟล์ทั้งหมด กันไฟล์กระจัดกระจายหลายบัญชี
   let driveTokenClient = null;
   let driveAccessToken = null;
+  let driveAccountEmail = null;
 
   function getDriveTokenClient() {
     if (driveTokenClient) return driveTokenClient;
@@ -709,7 +713,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   }
 
   // ขอ access token จาก Google (เด้งหน้าล็อกอิน/ขออนุญาตครั้งแรกเท่านั้น ครั้งต่อไปเงียบๆ ถ้ายัง valid)
-  function requestDriveAccessToken() {
+  function requestDriveAccessToken(promptOverride) {
     const attempt = new Promise((resolve, reject) => {
       const client = getDriveTokenClient();
       if (!client) {
@@ -721,7 +725,8 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         driveAccessToken = resp.access_token;
         resolve(driveAccessToken);
       };
-      client.requestAccessToken({ prompt: driveAccessToken ? '' : 'consent' });
+      const prompt = promptOverride !== undefined ? promptOverride : (driveAccessToken ? '' : 'consent');
+      client.requestAccessToken({ prompt, hint: DRIVE_TARGET_EMAIL });
     });
 
     // กัน popup ขอสิทธิ์ Google ค้างตลอดไปแบบไม่มี error (พบบ่อยเมื่อ popup ถูกบล็อก
@@ -732,6 +737,54 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
     return Promise.race([attempt, timeout]);
   }
+
+  async function fetchDriveAccountEmail(token) {
+    try {
+      const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.email || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function renderDriveAccountInfo() {
+    const el = document.getElementById('drive-account-info');
+    if (!el) return;
+    if (driveAccountEmail) {
+      if (driveAccountEmail.toLowerCase() === DRIVE_TARGET_EMAIL.toLowerCase()) {
+        el.innerHTML = `🔗 เชื่อมต่อ Google Drive บัญชี: <b>${driveAccountEmail}</b> ✓ (บัญชีหลักของทีม)`;
+        el.style.color = '';
+      } else {
+        el.innerHTML = `⚠️ กำลังใช้บัญชี <b>${driveAccountEmail}</b> ซึ่งไม่ใช่บัญชีหลักของทีม (${DRIVE_TARGET_EMAIL}) · <span class="text-link" onclick="switchDriveAccount()">เปลี่ยนไปบัญชีหลัก</span>`;
+        el.style.color = '#f5a623';
+      }
+    }
+  }
+  window.renderDriveAccountInfo = renderDriveAccountInfo;
+
+  window.switchDriveAccount = async function() {
+    driveAccessToken = null;
+    driveAccountEmail = null;
+    const statusEl = document.getElementById('drawing-upload-status');
+    statusEl.className = 'drawing-upload-status uploading';
+    statusEl.textContent = '🔄 กำลังเลือกบัญชี Google...';
+    try {
+      const token = await requestDriveAccessToken('select_account');
+      driveAccountEmail = await fetchDriveAccountEmail(token);
+      renderDriveAccountInfo();
+      statusEl.className = 'drawing-upload-status';
+      statusEl.textContent = '';
+      showToast('เปลี่ยนบัญชีสำเร็จ ✓');
+    } catch (e) {
+      console.error(e);
+      statusEl.className = 'drawing-upload-status error';
+      statusEl.textContent = '⚠️ เปลี่ยนบัญชีไม่สำเร็จ ลองใหม่อีกครั้ง';
+    }
+  };
 
   // ขอสิทธิ์ Google Drive "ตอนแตะปุ่มนี้เลย" (ยังอยู่ในจังหวะ user gesture โดยตรง)
   // ก่อนเปิดตัวเลือกไฟล์ เพราะถ้าขอหลังเลือกไฟล์เสร็จ มือถือส่วนใหญ่จะมองว่าไม่ใช่การแตะสดๆ แล้วบล็อก popup เงียบๆ
@@ -744,7 +797,12 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     statusEl.className = 'drawing-upload-status uploading';
     statusEl.textContent = '🔄 กำลังขอสิทธิ์เชื่อมต่อ Google Drive...';
     try {
-      await requestDriveAccessToken();
+      const token = await requestDriveAccessToken();
+      driveAccountEmail = await fetchDriveAccountEmail(token);
+      renderDriveAccountInfo();
+      if (driveAccountEmail && driveAccountEmail.toLowerCase() !== DRIVE_TARGET_EMAIL.toLowerCase()) {
+        showToast(`⚠️ นี่ไม่ใช่บัญชีหลักของทีม (${DRIVE_TARGET_EMAIL})`);
+      }
       statusEl.className = 'drawing-upload-status';
       statusEl.textContent = '';
       document.getElementById('f-drawing-file-input').click();
