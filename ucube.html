@@ -333,7 +333,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         <label class="field-label">รูปถ่าย</label>
         <img id="d-photo-preview" class="photo-preview" style="display:none;">
         <div class="photo-row">
-          <button class="btn btn-blue" style="flex:1;" onclick="onPhotoButtonClick()">📷 ถ่าย/เลือกรูป</button>
+          <button class="btn btn-blue" style="flex:1;" onclick="onPhotoButtonClick()">📷 ถ่ายรูป</button>
           <button class="btn btn-danger" id="btn-delete-photo" style="flex:1;display:none;" onclick="deletePhoto()">🗑️ ลบรูป</button>
         </div>
         <input type="file" id="d-photo-input" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoSelected(event)">
@@ -1161,7 +1161,7 @@ function renderDriveAccountInfo() {
     el.innerHTML = `🔗 เชื่อมต่อ Google Drive แล้ว · <span class="link-btn" onclick="switchDriveAccount()">เปลี่ยนบัญชี</span>`;
     el.style.color = '';
   } else {
-    el.textContent = `ยังไม่ได้เชื่อมต่อ Google Drive (จะขอสิทธิ์ตอนกดปุ่ม "ถ่าย/เลือกรูป" ครั้งแรก แนะนำให้เลือกบัญชี ${DRIVE_TARGET_EMAIL})`;
+    el.textContent = `ยังไม่ได้เชื่อมต่อ Google Drive (จะขอสิทธิ์ตอนกดปุ่ม "ถ่ายรูป" ครั้งแรก แนะนำให้เลือกบัญชี ${DRIVE_TARGET_EMAIL})`;
     el.style.color = '';
   }
 }
@@ -1214,7 +1214,7 @@ async function onPhotoButtonClick() {
     if (e && e.message === 'TIMEOUT_DRIVE_AUTH') {
       statusEl.textContent = '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ (หมดเวลารอ) ตรวจสอบว่าอนุญาต popup ให้เว็บนี้แล้วลองแตะปุ่มอีกครั้ง';
     } else {
-      statusEl.textContent = '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ ลองแตะปุ่ม "ถ่าย/เลือกรูป" อีกครั้ง';
+      statusEl.textContent = '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ ลองแตะปุ่ม "ถ่ายรูป" อีกครั้ง';
     }
   }
 }
@@ -1300,7 +1300,7 @@ async function deletePhoto() {
     document.getElementById('btn-delete-photo').style.display = 'none';
     statusEl.className = 'upload-status';
     statusEl.textContent = '';
-    showToast('ลบรูปแล้ว ✓ กดปุ่ม "ถ่าย/เลือกรูป" เพื่อถ่ายใหม่ได้เลย');
+    showToast('ลบรูปแล้ว ✓ กดปุ่ม "ถ่ายรูป" เพื่อถ่ายใหม่ได้เลย');
 
     // ลบไฟล์จริงออกจาก Drive แบบเงียบๆ ด้วย (ถ้ามี token และไฟล์เดิมอยู่)
     if (oldPhotoFileId && driveAccessToken) {
