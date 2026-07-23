@@ -213,6 +213,20 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 }
 .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 .btn-danger { background:#e74c3c; color:#fff; }
+
+#print-labels-sheet { display:none; }
+.print-label-grid { display:grid; grid-template-columns:1fr 1fr; gap:6mm; }
+.print-label {
+  border:1px dashed #000; border-radius:4px; padding:9px 11px; font-size:11.5px;
+  line-height:1.55; white-space:pre-line; color:#000; break-inside:avoid; page-break-inside:avoid;
+}
+.print-label-title { font-weight:700; font-size:12.5px; margin-bottom:4px; }
+@media print {
+  body * { visibility:hidden; }
+  #print-labels-sheet, #print-labels-sheet * { visibility:visible; }
+  #print-labels-sheet { display:block; position:absolute; top:0; left:0; width:100%; }
+  @page { size:A4; margin:10mm; }
+}
 .link-btn { color:var(--blue); text-decoration:underline; cursor:pointer; }
 .my-location-btn {
   width:34px; height:34px; background:var(--surface); border:2px solid rgba(0,0,0,.2); border-radius:4px;
@@ -513,6 +527,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         <label class="field-label" style="margin-bottom:0;">📦 จัดการรอบใบงานเดิม</label>
         <select class="field-select" id="batch-manage-select" onchange="updateBatchManageCount()"></select>
         <div class="field-hint" id="batch-manage-count">เลือกรอบเดือน/ปีเพื่อดูจำนวนใบงาน</div>
+        <button class="btn btn-blue" style="width:100%;" onclick="printMeterLabels()">🏷️ พิมพ์ป้ายมิเตอร์เก่า (2 คอลัมน์)</button>
         <div class="batch-manage-actions">
           <button class="btn btn-blue" style="flex:1;" onclick="exportBatchToExcel()">📤 ส่งออก Excel</button>
           <button class="btn btn-danger" style="flex:1;" onclick="deleteBatchTickets()">🗑️ ลบรอบนี้ทั้งหมด</button>
@@ -528,6 +543,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- ══ แผ่นป้ายมิเตอร์เก่า สำหรับพิมพ์ (แสดงเฉพาะตอนสั่งพิมพ์) ══ -->
+<div id="print-labels-sheet">
+  <div class="print-label-grid" id="print-labels-grid"></div>
+</div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -1770,6 +1790,44 @@ async function deleteBatchTickets() {
   }
 }
 window.deleteBatchTickets = deleteBatchTickets;
+
+// ══════════════════════════ พิมพ์ป้ายมิเตอร์เก่า (สำหรับติดก่อนส่งคืนคลัง) ══════════════════════════
+// ใช้ window.print() ของเบราว์เซอร์แทนไลบรารีสร้าง PDF โดยตรง เพราะไลบรารี PDF ส่วนใหญ่ไม่รองรับฟอนต์ไทยดี
+// การพิมพ์ผ่านเบราว์เซอร์จะใช้ฟอนต์ Sarabun ที่หน้าเว็บโหลดอยู่แล้ว ได้ตัวหนังสือไทยคมชัดแน่นอน
+// ผู้ใช้กด "พิมพ์" แล้วเลือกปลายทางเป็น "บันทึกเป็น PDF" ในหน้าต่างพิมพ์ของเบราว์เซอร์ได้เลย
+function printMeterLabels() {
+  const sel = document.getElementById('batch-manage-select');
+  const key = sel.value;
+  if (!key) { showToast('⚠️ เลือกรอบเดือน/ปีก่อน'); return; }
+
+  // พิมพ์เฉพาะใบงานที่สับเปลี่ยนมิเตอร์จริงแล้ว (มีเลขมิเตอร์ใหม่กรอกไว้) เพราะป้ายนี้ไว้ติดมิเตอร์เก่าที่ถอดออกมา
+  const rows = window.TICKETS.filter(t => t.batchKey === key && (t.newMeterNo || '').toString().trim());
+  if (rows.length === 0) {
+    showToast('⚠️ ไม่พบใบงานที่สับเปลี่ยนมิเตอร์แล้วในรอบนี้ (ต้องกรอก "มิเตอร์ใหม่" ไว้ก่อน)');
+    return;
+  }
+
+  const grid = document.getElementById('print-labels-grid');
+  grid.innerHTML = rows.map(t => {
+    const reasons = (t.reasons || []).join(', ') || '-';
+    const status = (STATUS_META[t.status || 'pending'] || {}).label || t.status || '-';
+    const body =
+`MRU: ${t.mru || '-'}
+USER No: ${t.userno || '-'}
+PEA No (มิเตอร์เก่า): ${t.peanoMeter || '-'}
+ชื่อ-สกุล: ${t.customerName || '-'}
+วันที่ตรวจสอบ: ${t.checkDate || '-'}
+สาเหตุ: ${reasons}
+หน่วยที่อ่านได้: ${t.unitRead || '-'}
+มิเตอร์ใหม่: ${t.newMeterNo || '-'}
+สถานะ: ${status}`;
+    return `<div class="print-label"><div class="print-label-title">*_* รายงานตรวจสอบ/สับเปลี่ยนมิเตอร์ *_*</div>${esc(body)}</div>`;
+  }).join('');
+
+  showToast(`เตรียมป้าย ${rows.length} ใบ กำลังเปิดหน้าต่างพิมพ์...`);
+  setTimeout(() => window.print(), 150); // รอ DOM render กริดให้เสร็จก่อนค่อยสั่งพิมพ์
+}
+window.printMeterLabels = printMeterLabels;
 </script>
 </body>
 </html>
