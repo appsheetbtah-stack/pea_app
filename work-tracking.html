@@ -710,7 +710,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
   // ขอ access token จาก Google (เด้งหน้าล็อกอิน/ขออนุญาตครั้งแรกเท่านั้น ครั้งต่อไปเงียบๆ ถ้ายัง valid)
   function requestDriveAccessToken() {
-    return new Promise((resolve, reject) => {
+    const attempt = new Promise((resolve, reject) => {
       const client = getDriveTokenClient();
       if (!client) {
         reject(new Error('โหลดระบบล็อกอิน Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่'));
@@ -723,10 +723,40 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       };
       client.requestAccessToken({ prompt: driveAccessToken ? '' : 'consent' });
     });
+
+    // กัน popup ขอสิทธิ์ Google ค้างตลอดไปแบบไม่มี error (พบบ่อยเมื่อ popup ถูกบล็อก
+    // หรือขอสิทธิ์หลังจากตัวเลือกไฟล์เปิด-ปิดไปแล้ว ทำให้ไม่ใช่ user gesture ที่ trusted อีกต่อไป)
+    const timeout = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('TIMEOUT_DRIVE_AUTH')), 20000);
+    });
+
+    return Promise.race([attempt, timeout]);
   }
 
-  window.uploadDrawingFile = function() {
-    document.getElementById('f-drawing-file-input').click();
+  // ขอสิทธิ์ Google Drive "ตอนแตะปุ่มนี้เลย" (ยังอยู่ในจังหวะ user gesture โดยตรง)
+  // ก่อนเปิดตัวเลือกไฟล์ เพราะถ้าขอหลังเลือกไฟล์เสร็จ มือถือส่วนใหญ่จะมองว่าไม่ใช่การแตะสดๆ แล้วบล็อก popup เงียบๆ
+  window.uploadDrawingFile = async function() {
+    const statusEl = document.getElementById('drawing-upload-status');
+    if (driveAccessToken) {
+      document.getElementById('f-drawing-file-input').click();
+      return;
+    }
+    statusEl.className = 'drawing-upload-status uploading';
+    statusEl.textContent = '🔄 กำลังขอสิทธิ์เชื่อมต่อ Google Drive...';
+    try {
+      await requestDriveAccessToken();
+      statusEl.className = 'drawing-upload-status';
+      statusEl.textContent = '';
+      document.getElementById('f-drawing-file-input').click();
+    } catch (e) {
+      console.error(e);
+      statusEl.className = 'drawing-upload-status error';
+      if (e && e.message === 'TIMEOUT_DRIVE_AUTH') {
+        statusEl.textContent = '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ (หมดเวลารอ) ตรวจสอบว่าอนุญาต popup ให้เว็บนี้แล้วลองแตะปุ่มอีกครั้ง';
+      } else {
+        statusEl.textContent = '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ ลองแตะปุ่ม "อัปโหลดไฟล์" อีกครั้ง';
+      }
+    }
   };
 
   window.handleDrawingFileSelected = async function(event) {
@@ -739,7 +769,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     statusEl.textContent = '🔄 กำลังขออนุญาตเข้าถึง Google Drive...';
 
     try {
-      const token = await requestDriveAccessToken();
+      const token = driveAccessToken || await requestDriveAccessToken();
       statusEl.textContent = '🔄 กำลังเตรียมโฟลเดอร์...';
       const folderId = await getCategoryFolderId(token);
       statusEl.textContent = `🔄 กำลังอัปโหลด ${file.name}...`;
