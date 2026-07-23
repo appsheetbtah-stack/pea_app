@@ -152,6 +152,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .link-btn:active { border-color:var(--accent); background:rgba(245,166,35,0.12); }
 .text-link { color:var(--accent); text-decoration:underline; cursor:pointer; }
 .drawing-attached-box { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px; margin-top:8px; font-size:14px; font-weight:600; color:var(--green); }
+.btn-danger { background:var(--red); color:#fff; }
 
 /* ── FAB ── */
 .fab {
@@ -344,6 +345,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
             <a id="drawinglink-open-btn" class="btn btn-blue" style="flex:1; text-align:center;" href="#" target="_blank" rel="noopener">📂 เปิดดูไฟล์</a>
             <button type="button" class="btn btn-ghost" style="flex:1;" onclick="editDrawingLink()">✏️ เปลี่ยนไฟล์/ลิงก์</button>
           </div>
+          <button type="button" class="btn btn-danger" style="width:100%; margin-top:8px;" onclick="deleteDrawingFile()">🗑️ ลบไฟล์</button>
         </div>
 
         <input class="field-input" id="f-drawinglink" placeholder="หรือวางลิงก์ Google Drive เองที่นี่" inputmode="url" style="margin-top:8px;" oninput="renderDrawingLinkPreview()">
@@ -962,6 +964,24 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     linkInput.style.display = 'block';
     document.getElementById('drawinglink-hint').style.display = 'block';
     linkInput.focus();
+  };
+
+  window.deleteDrawingFile = async function() {
+    if (!confirm('ลบไฟล์แบบแปลนนี้ออกจากใบงานหรือไม่?')) return;
+    const linkInput = document.getElementById('f-drawinglink');
+    const oldLink = linkInput.value.trim();
+    linkInput.value = '';
+    renderDrawingLinkPreview();
+    showToast('ลบไฟล์แล้ว ✓ กด "บันทึก" เพื่อยืนยัน');
+
+    // ลบไฟล์จริงออกจาก Drive แบบเงียบๆ ด้วย (ถ้ามี token และดึงรหัสไฟล์จากลิงก์ได้)
+    const m = oldLink.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (m && driveAccessToken) {
+      fetch(`https://www.googleapis.com/drive/v3/files/${m[1]}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${driveAccessToken}` }
+      }).catch(() => {});
+    }
   };
 
   window.deleteItem = async function(id) {
