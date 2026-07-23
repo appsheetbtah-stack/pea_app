@@ -151,6 +151,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 }
 .link-btn:active { border-color:var(--accent); background:rgba(245,166,35,0.12); }
 .text-link { color:var(--accent); text-decoration:underline; cursor:pointer; }
+.drawing-attached-box { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px; margin-top:8px; font-size:14px; font-weight:600; color:var(--green); }
 
 /* ── FAB ── */
 .fab {
@@ -336,8 +337,17 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
           <input type="file" id="f-drawing-file-input" accept="application/pdf,image/*" style="display:none;" onchange="handleDrawingFileSelected(event)">
           <div id="drawing-upload-status" class="drawing-upload-status"></div>
         </div>
+
+        <div id="drawinglink-attached" class="drawing-attached-box" style="display:none;">
+          <span>✅ มีไฟล์แบบแปลนแล้ว</span>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <a id="drawinglink-open-btn" class="btn btn-blue" style="flex:1; text-align:center;" href="#" target="_blank" rel="noopener">📂 เปิดดูไฟล์</a>
+            <button type="button" class="btn btn-ghost" style="flex:1;" onclick="editDrawingLink()">✏️ เปลี่ยนไฟล์/ลิงก์</button>
+          </div>
+        </div>
+
         <input class="field-input" id="f-drawinglink" placeholder="หรือวางลิงก์ Google Drive เองที่นี่" inputmode="url" style="margin-top:8px;" oninput="renderDrawingLinkPreview()">
-        <div class="field-hint">อัปโหลดผ่านปุ่มด้านบน ระบบจะเก็บขึ้น Google Drive และตั้งค่าแชร์ให้อัตโนมัติ หรือจะวางลิงก์ที่มีอยู่แล้วเองก็ได้</div>
+        <div class="field-hint" id="drawinglink-hint">อัปโหลดผ่านปุ่มด้านบน ระบบจะเก็บขึ้น Google Drive และตั้งค่าแชร์ให้อัตโนมัติ หรือจะวางลิงก์ที่มีอยู่แล้วเองก็ได้</div>
         <div class="field-hint" id="drive-account-info"></div>
       </div>
       <div>
@@ -930,15 +940,28 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
   window.renderDrawingLinkPreview = function() {
     const link = document.getElementById('f-drawinglink').value.trim();
-    const statusEl = document.getElementById('drawing-upload-status');
-    if (statusEl.classList.contains('uploading')) return; // กำลังอัปโหลดอยู่ ไม่ต้องทับข้อความ
+    const attachedBox = document.getElementById('drawinglink-attached');
+    const linkInput = document.getElementById('f-drawinglink');
+    const hint = document.getElementById('drawinglink-hint');
     if (link) {
-      statusEl.className = 'drawing-upload-status';
-      statusEl.innerHTML = `📎 <a href="${link}" target="_blank" rel="noopener">เปิดไฟล์ที่แนบไว้</a>`;
+      document.getElementById('drawinglink-open-btn').href = link;
+      attachedBox.style.display = 'block';
+      linkInput.style.display = 'none';
+      hint.style.display = 'none';
     } else {
-      statusEl.className = 'drawing-upload-status';
-      statusEl.textContent = 'ยังไม่มีไฟล์แนบ';
+      attachedBox.style.display = 'none';
+      linkInput.style.display = 'block';
+      hint.style.display = 'block';
     }
+  };
+
+  // ให้แก้ไข/เปลี่ยนลิงก์เองได้ ถ้าอัปโหลดผิดไฟล์หรืออยากวางลิงก์อื่นแทน
+  window.editDrawingLink = function() {
+    document.getElementById('drawinglink-attached').style.display = 'none';
+    const linkInput = document.getElementById('f-drawinglink');
+    linkInput.style.display = 'block';
+    document.getElementById('drawinglink-hint').style.display = 'block';
+    linkInput.focus();
   };
 
   window.deleteItem = async function(id) {
