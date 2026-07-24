@@ -56,11 +56,27 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .tab-pane.map-pane.active { display:flex; }
 
 /* ── BOTTOM NAV ── */
-.bottom-nav { position:fixed; bottom:0; left:0; right:0; height:var(--botnav); z-index:600; background:var(--surface); border-top:1px solid var(--border); display:flex; }
-.nav-btn { flex:1; background:none; border:none; color:var(--text2); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; cursor:pointer; }
+.bottom-nav {
+  position:fixed; bottom:0; left:0; right:0; height:var(--botnav); z-index:600;
+  background:var(--surface); border-top:1px solid var(--border); display:flex;
+  box-shadow:0 -6px 18px rgba(0,0,0,.35);
+}
+.nav-btn {
+  flex:1; background:none; border:none; color:var(--text2); display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:3px; cursor:pointer; padding:6px 4px;
+  transition:color .2s;
+}
 .nav-btn.active { color:var(--accent); }
-.nav-icon { font-size:19px; }
+.nav-btn:active .nav-icon { transform:scale(.88); }
+.nav-icon {
+  font-size:19px; width:38px; height:38px; display:flex; align-items:center; justify-content:center;
+  border-radius:50%; border:1.5px solid transparent; transition:all .2s cubic-bezier(.34,1.56,.64,1);
+}
+.nav-btn.active .nav-icon {
+  transform:translateY(-3px) scale(1.06);
+}
 .nav-label { font-size:11px; font-weight:600; }
+.nav-btn.active .nav-label { font-weight:700; }
 
 /* ── LIST PANE ── */
 .list-wrap { padding:12px; display:flex; flex-direction:column; gap:12px; }
@@ -223,6 +239,14 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 .btn-danger { background:#e74c3c; color:#fff; }
 
+.fab {
+  position:fixed; right:18px; bottom:calc(var(--botnav) + 18px); width:56px; height:56px; border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),var(--accent2)); border:none; color:#0f1923;
+  font-size:26px; font-weight:700; cursor:pointer; box-shadow:0 4px 16px rgba(245,166,35,.4);
+  display:flex; align-items:center; justify-content:center; z-index:590;
+}
+.fab:active { transform:scale(.93); }
+
 #print-labels-sheet { display:none; }
 .print-label-grid { display:grid; grid-template-columns:1fr 1fr; gap:6mm; }
 .print-label {
@@ -255,7 +279,6 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     <img class="meter-icon" width="22" height="22" alt="" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgd2lkdGg9IjIyIiBoZWlnaHQ9IjIyIiBmaWxsPSJub25lIj4KPHJlY3QgeD0iNiIgeT0iNCIgd2lkdGg9IjM2IiBoZWlnaHQ9IjM0IiByeD0iNyIgZmlsbD0iIzViNmI3OCIvPgo8cmVjdCB4PSI2IiB5PSI0IiB3aWR0aD0iMzYiIGhlaWdodD0iMzQiIHJ4PSI3IiBmaWxsPSJ1cmwoI21ldGVyU2hpbmUpIi8+CjxyZWN0IHg9IjEiIHk9IjEyIiB3aWR0aD0iNCIgaGVpZ2h0PSIxMCIgcng9IjIiIGZpbGw9IiMzZDRjNTgiLz4KPHJlY3QgeD0iNDMiIHk9IjEyIiB3aWR0aD0iNCIgaGVpZ2h0PSIxMCIgcng9IjIiIGZpbGw9IiMzZDRjNTgiLz4KPHJlY3QgeD0iMTEiIHk9IjkiIHdpZHRoPSIyNiIgaGVpZ2h0PSIxMiIgcng9IjIuNSIgZmlsbD0iI2JmZTBmNyIvPgo8Y2lyY2xlIGN4PSIxNiIgY3k9IjI1LjUiIHI9IjMiIGZpbGw9IiMzZmI1NmIiLz4KPGNpcmNsZSBjeD0iMjQiIGN5PSIyNS41IiByPSIzIiBmaWxsPSIjZjJjOTRjIi8+CjxjaXJjbGUgY3g9IjMyIiBjeT0iMjUuNSIgcj0iMyIgZmlsbD0iI2U1NTMzZCIvPgo8cmVjdCB4PSIxMSIgeT0iMzAuNSIgd2lkdGg9IjI2IiBoZWlnaHQ9IjQiIHJ4PSIyIiBmaWxsPSIjM2Q0YzU4Ii8+CjxyZWN0IHg9IjQiIHk9IjM4IiB3aWR0aD0iNDAiIGhlaWdodD0iOCIgcng9IjQiIGZpbGw9IiNjN2NlZDMiLz4KPGNpcmNsZSBjeD0iMTEiIGN5PSI0MiIgcj0iMyIgZmlsbD0iIzdhODQ4YiIvPgo8Y2lyY2xlIGN4PSIyMCIgY3k9IjQyIiByPSIzIiBmaWxsPSIjN2E4NDhiIi8+CjxjaXJjbGUgY3g9IjI5IiBjeT0iNDIiIHI9IjMiIGZpbGw9IiM3YTg0OGIiLz4KPGNpcmNsZSBjeD0iMzgiIGN5PSI0MiIgcj0iMyIgZmlsbD0iIzdhODQ4YiIvPgo8ZGVmcz4KPGxpbmVhckdyYWRpZW50IGlkPSJtZXRlclNoaW5lIiB4MT0iNiIgeTE9IjQiIHgyPSI0MiIgeTI9IjM4IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CjxzdG9wIHN0b3AtY29sb3I9IiNmZmYiIHN0b3Atb3BhY2l0eT0iLjE4Ii8+CjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iI2ZmZiIgc3RvcC1vcGFjaXR5PSIwIi8+CjwvbGluZWFyR3JhZGllbnQ+CjwvZGVmcz4KPC9zdmc+">
     <span>U-cube ตรวจสอบมิเตอร์</span>
   </div>
-  <button class="topbar-btn" onclick="openAddTicketModal()" title="เพิ่มใบงานด่วน">➕</button>
   <button class="topbar-btn" onclick="openImportModal()" title="นำเข้าไฟล์ / จัดการข้อมูล">⚙️</button>
 </div>
 
@@ -307,6 +330,8 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     <span class="nav-icon">🗺️</span><span class="nav-label">แผนที่</span>
   </button>
 </nav>
+
+<button class="fab" onclick="openAddTicketModal()" title="เพิ่มใบงานด่วน">+</button>
 
 <!-- ══ DETAIL / EDIT MODAL ══ -->
 <div class="modal-overlay" id="detail-overlay">
@@ -648,6 +673,7 @@ function switchTab(tab) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('pane-' + tab).classList.add('active');
   document.getElementById('btn-tab-' + tab).classList.add('active');
+  document.querySelector('.fab').style.display = (tab === 'map') ? 'none' : 'flex';
   if (tab === 'map') {
     if (!window.mapReady) initMap();
     setTimeout(() => window.leafletMap && window.leafletMap.invalidateSize(), 100);

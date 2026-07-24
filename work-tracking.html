@@ -48,19 +48,25 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .bottom-nav {
   position:fixed; bottom:0; left:0; right:0; height:var(--botnav); z-index:600;
   background:var(--surface); border-top:1px solid var(--border); display:flex;
+  box-shadow:0 -6px 18px rgba(0,0,0,.35);
 }
 .nav-btn {
   flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
   gap:3px; background:none; border:none; color:var(--text2);
-  cursor:pointer; font-family:var(--sans); transition:color .15s; padding:4px 6px; position:relative;
+  cursor:pointer; font-family:var(--sans); transition:color .2s; padding:6px 4px;
 }
 .nav-btn.active { color:var(--accent); }
-.nav-btn.active::after {
-  content:''; position:absolute; top:0; left:20%; right:20%; height:2px;
-  background:var(--accent); border-radius:0 0 2px 2px;
+.nav-btn:active .nav-icon { transform:scale(.88); }
+.nav-icon {
+  font-size:19px; width:38px; height:38px; display:flex; align-items:center;
+  justify-content:center; border-radius:50%; border:1.5px solid transparent;
+  transition:all .2s cubic-bezier(.34,1.56,.64,1);
 }
-.nav-icon { font-size:20px; line-height:1; }
-.nav-label { font-size:13px; font-weight:600; text-align:center; line-height:1.25; }
+.nav-btn.active .nav-icon {
+  transform:translateY(-3px) scale(1.06);
+}
+.nav-label { font-size:11px; font-weight:600; text-align:center; line-height:1.25; }
+.nav-btn.active .nav-label { font-weight:700; }
 
 /* ── DASHBOARD ── */
 .db-wrap { padding:14px 14px 20px; display:flex; flex-direction:column; gap:14px; }
