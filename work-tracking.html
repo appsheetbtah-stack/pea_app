@@ -328,6 +328,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         <label class="field-label">ชื่องาน</label>
         <input class="field-input" id="f-job" placeholder="เช่น C140ม. บ.หนองอ้อ (นายเอกชัย ต้นน้อย) หรือ งานปรับปรุงไฟตก บ้าน...">
       </div>
+      <div>
+        <label class="field-label">เบอร์โทร</label>
+        <input class="field-input" id="f-phone" type="tel" inputmode="tel" placeholder="เช่น 081-234-5678">
+      </div>
       <div id="worktype-wrap" style="display:none">
         <label class="field-label">ลักษณะงาน</label>
         <select class="field-select" id="f-worktype">
@@ -559,6 +563,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
             </div>
             <div class="wc-actions-right">
               <button class="icon-btn" onclick="window.editItem('${w._id}')">✏️</button>
+              ${w.phone ? `<a class="icon-btn" href="tel:${w.phone}" onclick="event.stopPropagation()">📞</a>` : `<button class="icon-btn" style="opacity:.35;" onclick="event.stopPropagation(); showToast('ยังไม่ได้บันทึกเบอร์โทรไว้')">📞</button>`}
               <button class="icon-btn del" onclick="window.deleteItem('${w._id}')">🗑️</button>
             </div>
           </div>
@@ -607,6 +612,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     drawingInput.readOnly = false;
     document.getElementById('f-drawing-hint').textContent = 'สร้างอัตโนมัติ — แก้ไขได้หากต้องการ';
     document.getElementById('f-job').value = '';
+    document.getElementById('f-phone').value = '';
     document.getElementById('f-job').placeholder = (currentCat === 'improvement')
       ? 'เช่น งานปรับปรุงไฟตก บ้าน...'
       : 'เช่น C140ม. บ.หนองอ้อ (นายเอกชัย ต้นน้อย)';
@@ -656,6 +662,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     drawingInput.readOnly = false;
     document.getElementById('f-drawing-hint').textContent = 'แก้ไขเลขผังได้หากจำเป็น';
     document.getElementById('f-job').value = w.jobName || '';
+    document.getElementById('f-phone').value = w.phone || '';
     document.getElementById('f-status').value = w.status || 'survey';
     document.getElementById('f-drawinglink').value = w.drawingLink || '';
     renderDrawingLinkPreview();
@@ -672,6 +679,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   window.saveItem = async function() {
     const drawingNo = document.getElementById('f-drawing').value.trim();
     const jobName = document.getElementById('f-job').value.trim();
+    const phone = document.getElementById('f-phone').value.trim();
     const wbs = document.getElementById('f-wbs').value.trim();
     const status = document.getElementById('f-status').value;
     const drawingLink = document.getElementById('f-drawinglink').value.trim();
@@ -691,16 +699,16 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
     try {
       if (editingId) {
-        await updateDoc(doc(db, COLLECTION, editingId), { drawingNo, jobName, wbs, status, drawingLink });
+        await updateDoc(doc(db, COLLECTION, editingId), { drawingNo, jobName, phone, wbs, status, drawingLink });
         const idx = allWorks.findIndex(w => w._id === editingId);
-        if (idx > -1) allWorks[idx] = { ...allWorks[idx], drawingNo, jobName, wbs, status, drawingLink };
+        if (idx > -1) allWorks[idx] = { ...allWorks[idx], drawingNo, jobName, phone, wbs, status, drawingLink };
         showToast('บันทึกการแก้ไขแล้ว');
       } else {
         const docRef = await addDoc(collection(db, COLLECTION), {
-          category: currentCat, drawingNo, jobName, wbs, status, drawingLink,
+          category: currentCat, drawingNo, jobName, phone, wbs, status, drawingLink,
           createdAt: Date.now()
         });
-        allWorks.push({ _id: docRef.id, category: currentCat, drawingNo, jobName, wbs, status, drawingLink, createdAt: Date.now() });
+        allWorks.push({ _id: docRef.id, category: currentCat, drawingNo, jobName, phone, wbs, status, drawingLink, createdAt: Date.now() });
         showToast('เพิ่มงานใหม่แล้ว');
       }
       closeForm();
