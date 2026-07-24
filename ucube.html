@@ -1149,6 +1149,27 @@ let driveAccessToken = null;
 let driveAccountEmail = null;
 let driveFolderCache = {};
 
+// เก็บ token/อีเมลไว้ใน localStorage ให้ใช้ข้ามหน้า/ข้ามการเปิดแอปใหม่ได้ (ไม่ต้องขอสิทธิ์ Google ซ้ำทุกครั้งที่สลับหน้า)
+(function loadSavedDriveAuth() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('ucube_drive_token') || 'null');
+    if (saved && saved.token && saved.expiresAt && Date.now() < saved.expiresAt) {
+      driveAccessToken = saved.token;
+    }
+    driveAccountEmail = localStorage.getItem('ucube_drive_email') || null;
+  } catch (e) {}
+})();
+
+function saveDriveToken(token, expiresInSec) {
+  try {
+    localStorage.setItem('ucube_drive_token', JSON.stringify({
+      token, expiresAt: Date.now() + ((expiresInSec || 3500) * 1000) - 60000 // เผื่อไว้ 1 นาทีก่อนหมดอายุจริง
+    }));
+    localStorage.setItem('ucube_drive_authorized', '1');
+    if (driveAccountEmail) localStorage.setItem('ucube_drive_email', driveAccountEmail);
+  } catch (e) {}
+}
+
 function getDriveTokenClient() {
   if (driveTokenClient) return driveTokenClient;
   if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) return null;
@@ -1163,11 +1184,19 @@ function requestDriveAccessToken(promptOverride) {
     const client = getDriveTokenClient();
     if (!client) { reject(new Error('โหลดระบบล็อกอิน Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่')); return; }
     client.callback = (resp) => {
-      if (resp.error) { reject(new Error(resp.error)); return; }
+      if (resp.error) {
+        // ขอแบบเงียบๆ ไม่สำเร็จ (เช่น ออกจากระบบ Google แล้ว) รอบหน้าให้กลับไปขอ consent เต็มรูปแบบใหม่
+        try { localStorage.removeItem('ucube_drive_authorized'); } catch (e) {}
+        reject(new Error(resp.error));
+        return;
+      }
       driveAccessToken = resp.access_token;
+      saveDriveToken(resp.access_token, resp.expires_in);
       resolve(driveAccessToken);
     };
-    const prompt = promptOverride !== undefined ? promptOverride : (driveAccessToken ? '' : 'consent');
+    let everAuthorized = false;
+    try { everAuthorized = !!localStorage.getItem('ucube_drive_authorized'); } catch (e) {}
+    const prompt = promptOverride !== undefined ? promptOverride : ((driveAccessToken || everAuthorized) ? '' : 'consent');
     client.requestAccessToken({ prompt, hint: DRIVE_TARGET_EMAIL });
   });
 
@@ -1289,6 +1318,7 @@ async function switchDriveAccount() {
   try {
     const token = await requestDriveAccessToken('select_account');
     driveAccountEmail = await fetchDriveAccountEmail(token);
+    try { localStorage.setItem('ucube_drive_email', driveAccountEmail || ''); } catch (e) {}
     statusEl.className = 'upload-status';
     statusEl.textContent = '';
     renderDriveAccountInfo();
@@ -1312,6 +1342,7 @@ async function onPhotoButtonClick() {
   try {
     const token = await requestDriveAccessToken();
     driveAccountEmail = await fetchDriveAccountEmail(token);
+    try { localStorage.setItem('ucube_drive_email', driveAccountEmail || ''); } catch (e) {}
     renderDriveAccountInfo();
     if (driveAccountEmail && driveAccountEmail.toLowerCase() !== DRIVE_TARGET_EMAIL.toLowerCase()) {
       showToast(`⚠️ นี่ไม่ใช่บัญชีหลักของทีม (${DRIVE_TARGET_EMAIL})`);
