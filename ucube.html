@@ -90,6 +90,15 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .status-broken   { background:rgba(231,76,60,.15); color:var(--red); }
 .status-field    { background:rgba(243,156,18,.15); color:var(--yellow); }
 .status-sap      { background:rgba(46,204,113,.15); color:var(--green); }
+.tc-photo-placeholder {
+  width:76px; height:76px; border-radius:12px; flex-shrink:0; background:var(--surface2);
+  border:2px dashed var(--border); display:flex; align-items:center; justify-content:center; font-size:26px;
+}
+.tc-meter-chip {
+  background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:7px 10px;
+  font-family:var(--mono); font-size:12.5px; color:var(--text); margin-top:4px;
+}
+.tc-reason { font-size:13px; color:var(--text2); margin-top:4px; }
 .ticket-detail-row { font-size:13px; color:var(--text2); display:flex; gap:6px; }
 .ticket-reqno { font-family:var(--mono); font-size:12px; color:var(--text2); }
 .ticket-latlng { font-family:var(--mono); font-size:12px; color:var(--text2); }
@@ -247,7 +256,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     <span>U-cube ตรวจสอบมิเตอร์</span>
   </div>
   <button class="topbar-btn" onclick="openAddTicketModal()" title="เพิ่มใบงานด่วน">➕</button>
-  <button class="topbar-btn" onclick="openImportModal()" title="นำเข้าไฟล์ xlsx">📥</button>
+  <button class="topbar-btn" onclick="openImportModal()" title="นำเข้าไฟล์ / จัดการข้อมูล">⚙️</button>
 </div>
 
 <!-- TAB: LIST -->
@@ -607,6 +616,25 @@ const STATUS_META = {
   sap:     { label: '🏁 สับเปลี่ยนแล้ว (SAP)',     cls: 'status-sap',     color: '#2ecc71', icon: '🏁' }
 };
 
+// ป้ายสถานะแบบย่อ ไว้ใช้ในการ์ดรายการเท่านั้น (หน้ารายละเอียด/รายงาน ยังใช้ label เต็มจาก STATUS_META เหมือนเดิม)
+const STATUS_SHORT_LABEL = {
+  pending: '⏳ รอตรวจ', normal: '✅ ปกติ', broken: '⚠️ ชำรุด',
+  field: '🔧 สับเปลี่ยนแล้ว', sap: '🏁 สับเปลี่ยนแล้ว'
+};
+
+// แยกข้อความดิบจากไฟล์ SCS (สเปกมิเตอร์ + เลข Note + สาเหตุ ถูกรวมมาเป็นก้อนเดียวใน anotherDetail)
+// ออกเป็น 3 ส่วนเพื่อโชว์แยกกันในการ์ด ถ้ารูปแบบไม่ตรง (regex จับไม่ได้) จะคืนค่า meterSpec เป็นข้อความดิบทั้งหมดแทน ไม่ทำให้พัง
+function parseAnotherDetail(text) {
+  const raw = (text || '').trim();
+  if (!raw) return { meterSpec: '', noteNum: '', reasonText: '' };
+  const m = raw.match(/^(.*?)(?:V\.)?Note:\s*(\d+)[^]*?สาเหตุ:\s*([^]*)$/);
+  if (m) {
+    const meterSpec = m[1].trim().replace(/^มิเตอร์\s*:?\s*/, '');
+    return { meterSpec, noteNum: m[2].trim(), reasonText: m[3].trim() };
+  }
+  return { meterSpec: raw.replace(/^มิเตอร์\s*:?\s*/, ''), noteNum: '', reasonText: '' };
+}
+
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -697,23 +725,29 @@ function renderList() {
 
   el.innerHTML = items.map(t => {
     const meta = STATUS_META[t.status || 'pending'];
+    const shortLabel = STATUS_SHORT_LABEL[t.status || 'pending'] || meta.label;
+    const parsed = parseAnotherDetail(t.anotherDetail);
+    const hasPhoto = t.photoThumb || t.photoLink || t.photoFileId;
     return `
       <div class="ticket-card" onclick="openDetail('${escAttr(t.reqNo)}')" style="margin-bottom:12px;">
         <div style="display:flex; gap:12px; align-items:flex-start;">
-          ${(t.photoThumb || t.photoLink || t.photoFileId) ? `<img src="${escAttr(driveDisplayImageUrl(t))}" class="ticket-thumb-lg" loading="lazy" onerror="this.remove()">` : ''}
+          ${hasPhoto
+            ? `<img src="${escAttr(driveDisplayImageUrl(t))}" class="ticket-thumb-lg" loading="lazy" onerror="this.outerHTML='<div class=&quot;tc-photo-placeholder&quot;>📷</div>';">`
+            : `<div class="tc-photo-placeholder">📷</div>`}
           <div style="flex:1; min-width:0;">
             <div class="ticket-top">
               <div>
+                <div class="ticket-sub">PEANO ${esc(t.peanoMeter || '-')}</div>
                 <div class="ticket-name">${esc(t.customerName || '(ไม่มีชื่อ)')}${t.source === 'manual' ? ' <span class="source-badge">🆕 แจ้งเพิ่มเติม</span>' : ''}</div>
-                <div class="ticket-sub">PEANO: ${esc(t.peanoMeter || '-')}</div>
               </div>
-              <span class="status-badge ${meta.cls}">${meta.label}</span>
+              <span class="status-badge ${meta.cls}">${shortLabel}</span>
             </div>
           </div>
         </div>
         <div class="ticket-detail-row">📍 ${esc(t.locationAddress || '-')}</div>
-        <div class="ticket-detail-row">${esc(t.anotherDetail || '')}</div>
-        <div class="ticket-latlng">Lat, Long: ${t.lat && t.lng ? esc(t.lat) + ', ' + esc(t.lng) : '-'}</div>
+        ${parsed.meterSpec ? `<div class="tc-meter-chip">มิเตอร์ ${esc(parsed.meterSpec)}${parsed.noteNum ? ' · Note ' + esc(parsed.noteNum) : ''}</div>` : ''}
+        ${parsed.reasonText ? `<div class="tc-reason">สาเหตุ: ${esc(parsed.reasonText)}</div>` : ''}
+        <div class="ticket-latlng">${t.lat && t.lng ? esc(t.lat) + ', ' + esc(t.lng) : 'ไม่มีพิกัด GPS'}</div>
         <div class="ticket-actions">
           <button class="ticket-action-btn" ${t.lat && t.lng ? '' : 'disabled'} onclick="event.stopPropagation(); viewOnMap('${escAttr(t.reqNo)}')">🗺️ ดูแผนที่</button>
           <button class="ticket-action-btn nav" ${t.lat && t.lng ? '' : 'disabled'} onclick="event.stopPropagation(); navigateTo(${t.lat}, ${t.lng})">🧭 นำทาง</button>
