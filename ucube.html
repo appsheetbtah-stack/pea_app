@@ -157,6 +157,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .dash-pie-val { font-family:var(--mono); font-weight:700; white-space:nowrap; }
 .dash-pie-pct { color:var(--text2); font-weight:400; }
 
+.dash-trend-legend { display:flex; flex-wrap:wrap; gap:10px 14px; margin-top:8px; }
+.trend-legend-item { display:flex; align-items:center; gap:5px; font-size:11.5px; color:var(--text2); }
+.trend-legend-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+
 .dash-month-row { display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px solid var(--border); }
 .dash-month-row:first-child { border-top:none; }
 .dash-month-name { font-size:12.5px; color:var(--text2); flex-shrink:0; width:74px; }
@@ -428,6 +432,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       <div class="dash-section">
         <div class="dash-section-title">แนวโน้มงานรายเดือน (12 เดือน)</div>
         <div id="y-trend-chart"></div>
+        <div class="dash-trend-legend" id="y-trend-chart-legend"></div>
       </div>
     </div>
 
@@ -970,31 +975,37 @@ window.onDashYearSelect = onDashYearSelect;
 
 const TREND_MONTH_ABBR = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
-function renderTrendChart(containerId, perMonth) {
+function renderTrendChart(containerId, series) {
+  // series: [{ label, color, values: number[12], width? }]
   const el = document.getElementById(containerId);
   if (!el) return;
   const W = 320, H = 156, padL = 18, padR = 12, padT = 20, padB = 22;
-  const max = Math.max(1, ...perMonth);
+  const maxVal = Math.max(1, ...series.flatMap(s => s.values));
   const stepX = (W - padL - padR) / 11;
-  const scaleY = (H - padT - padB) / max;
-  const pts = perMonth.map((v, i) => ({ x: padL + stepX * i, y: H - padB - v * scaleY, v }));
+  const scaleY = (H - padT - padB) / maxVal;
+  const toPts = (values) => values.map((v, i) => ({ x: padL + stepX * i, y: H - padB - v * scaleY, v }));
 
-  const linePath = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
-  const areaPath = linePath + ` L${pts[11].x.toFixed(1)},${H - padB} L${pts[0].x.toFixed(1)},${H - padB} Z`;
+  const linesSvg = series.map(s => {
+    const pts = toPts(s.values);
+    const path = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
+    const dots = pts.map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${(s.width || 2) + 1}" fill="${s.color}" stroke="#0f1923" stroke-width="1.2"/>`).join('');
+    return `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="${s.width || 2}" stroke-linejoin="round"/>${dots}`;
+  }).join('');
 
-  const dots = pts.map(p => `
-    <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.2" fill="#f5a623" stroke="#0f1923" stroke-width="1.4"/>
-    ${p.v > 0 ? `<text x="${p.x.toFixed(1)}" y="${(p.y - 7).toFixed(1)}" font-size="9.5" fill="#e8f0f8" text-anchor="middle" font-family="'IBM Plex Mono',monospace">${p.v}</text>` : ''}`).join('');
-
-  const xLabels = pts.map((p, i) => `<text x="${p.x.toFixed(1)}" y="${H - 6}" font-size="9.5" fill="#a9bdd1" text-anchor="middle" font-family="'Sarabun',sans-serif">${TREND_MONTH_ABBR[i]}</text>`).join('');
+  const monthPts = toPts(series[0].values);
+  const xLabels = monthPts.map((p, i) => `<text x="${p.x.toFixed(1)}" y="${H - 6}" font-size="9.5" fill="#a9bdd1" text-anchor="middle" font-family="'Sarabun',sans-serif">${TREND_MONTH_ABBR[i]}</text>`).join('');
 
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
     <line x1="${padL}" y1="${H - padB}" x2="${W - padR}" y2="${H - padB}" stroke="#2a3f55" stroke-width="1"/>
-    <path d="${areaPath}" fill="rgba(245,166,35,0.15)" stroke="none"/>
-    <path d="${linePath}" fill="none" stroke="#f5a623" stroke-width="2"/>
-    ${dots}
+    ${linesSvg}
     ${xLabels}
   </svg>`;
+
+  const legendEl = document.getElementById(containerId + '-legend');
+  if (legendEl) {
+    legendEl.innerHTML = series.map(s => `
+      <span class="trend-legend-item"><span class="trend-legend-dot" style="background:${s.color}"></span>${s.label}</span>`).join('');
+  }
 }
 
 function renderDashboard() {
@@ -1010,10 +1021,21 @@ function renderDashboard() {
   const yearRows = all.filter(t => t.batchYear === selectedDashYear);
   fillStatBlock('y', yearRows);
 
-  // แนวโน้มรายเดือนตลอดปีที่เลือก
-  const perMonth = new Array(12).fill(0);
-  yearRows.forEach(t => { if (t.batchMonth >= 1 && t.batchMonth <= 12) perMonth[t.batchMonth - 1]++; });
-  renderTrendChart('y-trend-chart', perMonth);
+  // แนวโน้มรายเดือนตลอดปีที่เลือก แยกเป็นเส้นรวม + ชำรุด + ปกติ
+  const perMonthTotal = new Array(12).fill(0);
+  const perMonthStatus = { pending: new Array(12).fill(0), normal: new Array(12).fill(0), broken: new Array(12).fill(0), field: new Array(12).fill(0), sap: new Array(12).fill(0) };
+  yearRows.forEach(t => {
+    if (t.batchMonth < 1 || t.batchMonth > 12) return;
+    const idx = t.batchMonth - 1;
+    perMonthTotal[idx]++;
+    const st = t.status || 'pending';
+    if (perMonthStatus[st]) perMonthStatus[st][idx]++;
+  });
+  renderTrendChart('y-trend-chart', [
+    { label: 'รวมทั้งหมด', color: '#f5a623', width: 2.6, values: perMonthTotal },
+    { label: PIE_STATUS_LABEL.broken, color: PIE_STATUS_COLOR.broken, width: 2, values: perMonthStatus.broken },
+    { label: PIE_STATUS_LABEL.normal, color: PIE_STATUS_COLOR.normal, width: 2, values: perMonthStatus.normal }
+  ]);
 }
 window.renderDashboard = renderDashboard;
 
