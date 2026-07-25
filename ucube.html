@@ -387,6 +387,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
           <div class="dash-pie-legend" id="m-pie-legend"></div>
         </div>
       </div>
+
+      <div class="dash-section">
+        <div class="dash-section-title">เปรียบเทียบจำนวนงาน</div>
+        <div id="m-trend-chart"></div>
+      </div>
     </div>
 
     <!-- ── YEAR VIEW ── -->
@@ -975,13 +980,15 @@ window.onDashYearSelect = onDashYearSelect;
 
 const TREND_MONTH_ABBR = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
-function renderTrendChart(containerId, series) {
-  // series: [{ label, color, values: number[12], width? }]
+function renderTrendChart(containerId, series, xAxisLabels) {
+  // series: [{ label, color, values: number[N], width? }]
+  // xAxisLabels: string[N] — ป้ายแกน x ให้ตรงความยาวของ values (ใส่ '' เพื่อข้ามป้ายบางจุดกันรก)
   const el = document.getElementById(containerId);
   if (!el) return;
+  const n = series[0].values.length;
   const W = 320, H = 156, padL = 18, padR = 12, padT = 20, padB = 22;
   const maxVal = Math.max(1, ...series.flatMap(s => s.values));
-  const stepX = (W - padL - padR) / 11;
+  const stepX = (W - padL - padR) / Math.max(1, n - 1);
   const scaleY = (H - padT - padB) / maxVal;
   const toPts = (values) => values.map((v, i) => ({ x: padL + stepX * i, y: H - padB - v * scaleY, v }));
 
@@ -992,8 +999,11 @@ function renderTrendChart(containerId, series) {
     return `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="${s.width || 2}" stroke-linejoin="round"/>${dots}`;
   }).join('');
 
-  const monthPts = toPts(series[0].values);
-  const xLabels = monthPts.map((p, i) => `<text x="${p.x.toFixed(1)}" y="${H - 6}" font-size="9.5" fill="#a9bdd1" text-anchor="middle" font-family="'Sarabun',sans-serif">${TREND_MONTH_ABBR[i]}</text>`).join('');
+  const axisPts = toPts(series[0].values);
+  const xLabels = axisPts.map((p, i) => {
+    const lbl = (xAxisLabels && xAxisLabels[i]) || '';
+    return lbl ? `<text x="${p.x.toFixed(1)}" y="${H - 6}" font-size="9.5" fill="#a9bdd1" text-anchor="middle" font-family="'Sarabun',sans-serif">${lbl}</text>` : '';
+  }).join('');
 
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
     <line x1="${padL}" y1="${H - padB}" x2="${W - padR}" y2="${H - padB}" stroke="#2a3f55" stroke-width="1"/>
@@ -1008,6 +1018,31 @@ function renderTrendChart(containerId, series) {
   }
 }
 
+function renderBarChart(containerId, bars) {
+  // bars: [{ label, color, value }]
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const W = 320, H = 156, padT = 26, padB = 32, gap = 20;
+  const maxVal = Math.max(1, ...bars.map(b => b.value));
+  const barW = (W - gap * (bars.length + 1)) / bars.length;
+  const scaleY = (H - padT - padB) / maxVal;
+
+  const barsSvg = bars.map((b, i) => {
+    const x = gap + i * (barW + gap);
+    const barH = b.value * scaleY;
+    const y = H - padB - barH;
+    return `
+      <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(barH, 0).toFixed(1)}" rx="5" fill="${b.color}"/>
+      <text x="${(x + barW / 2).toFixed(1)}" y="${(y - 7).toFixed(1)}" font-size="14" font-weight="700" fill="#e8f0f8" text-anchor="middle" font-family="'IBM Plex Mono',monospace">${b.value}</text>
+      <text x="${(x + barW / 2).toFixed(1)}" y="${H - 10}" font-size="11" fill="#a9bdd1" text-anchor="middle" font-family="'Sarabun',sans-serif">${b.label}</text>`;
+  }).join('');
+
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
+    <line x1="8" y1="${H - padB}" x2="${W - 8}" y2="${H - padB}" stroke="#2a3f55" stroke-width="1"/>
+    ${barsSvg}
+  </svg>`;
+}
+
 function renderDashboard() {
   const all = window.TICKETS || [];
 
@@ -1015,6 +1050,14 @@ function renderDashboard() {
   populateDashMonthSelect();
   const monthRows = all.filter(t => t.batchKey === selectedDashMonthKey);
   fillStatBlock('m', monthRows);
+
+  // เปรียบเทียบจำนวนงานในรอบเดือนที่เลือก (ไม่ต้องแยกรายวัน)
+  const mCounts = countByStatus(monthRows);
+  renderBarChart('m-trend-chart', [
+    { label: 'รวมทั้งหมด', color: '#f5a623', value: monthRows.length },
+    { label: PIE_STATUS_LABEL.broken, color: PIE_STATUS_COLOR.broken, value: mCounts.broken },
+    { label: PIE_STATUS_LABEL.normal, color: PIE_STATUS_COLOR.normal, value: mCounts.normal }
+  ]);
 
   // ── ทั้งปี (เลือกปีเองผ่าน dropdown เช่นกัน) ──
   populateDashYearSelect();
@@ -1035,7 +1078,7 @@ function renderDashboard() {
     { label: 'รวมทั้งหมด', color: '#f5a623', width: 2.6, values: perMonthTotal },
     { label: PIE_STATUS_LABEL.broken, color: PIE_STATUS_COLOR.broken, width: 2, values: perMonthStatus.broken },
     { label: PIE_STATUS_LABEL.normal, color: PIE_STATUS_COLOR.normal, width: 2, values: perMonthStatus.normal }
-  ]);
+  ], TREND_MONTH_ABBR);
 }
 window.renderDashboard = renderDashboard;
 
