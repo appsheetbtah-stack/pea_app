@@ -92,7 +92,8 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
 }
 .search-input:focus { border-color: var(--accent); }
 .search-input::placeholder { color: var(--text2); }
-.filter-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.filter-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; -ms-overflow-style: none; }
+.filter-row::-webkit-scrollbar { display: none; }
 .filter-btn {
   flex-shrink: 0; border: 1px solid var(--border); background: var(--surface); color: var(--text2);
   font-family: var(--sans); font-size:13px; font-weight: 600; padding: 7px 13px;
