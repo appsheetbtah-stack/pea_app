@@ -1091,22 +1091,22 @@ function renderDashboard() {
   const yearRows = all.filter(t => t.batchYear === selectedDashYear);
   fillStatBlock('y', yearRows);
 
-  // แนวโน้มรายเดือนตลอดปีที่เลือก: รอตรวจสอบ / มิเตอร์ชำรุด / มิเตอร์ปกติ
-  const perMonthPending = new Array(12).fill(0);
+  // แนวโน้มรายเดือนตลอดปีที่เลือก: งานทั้งหมด / มิเตอร์ชำรุด / มิเตอร์ปกติ (เหมือนกราฟแท่งรอบเดือน)
+  const perMonthTotal = new Array(12).fill(0);
   const perMonthTrueBroken = new Array(12).fill(0);
   const perMonthFalseAlarm = new Array(12).fill(0);
   yearRows.forEach(t => {
     if (t.batchMonth < 1 || t.batchMonth > 12) return;
     const idx = t.batchMonth - 1;
+    perMonthTotal[idx]++;
     const st = t.status || 'pending';
-    if (st === 'pending') perMonthPending[idx]++;
-    else if (st === 'normal') perMonthFalseAlarm[idx]++;
-    else perMonthTrueBroken[idx]++; // broken, field, sap = ยืนยันว่าเสียจริง
+    if (st === 'normal') perMonthFalseAlarm[idx]++;
+    else if (st !== 'pending') perMonthTrueBroken[idx]++; // broken, field, sap = ยืนยันว่าเสียจริง
   });
   renderTrendChart('y-trend-chart', [
-    { label: 'รอตรวจสอบ', color: PIE_STATUS_COLOR.pending, width: 1.8, values: perMonthPending },
-    { label: 'มิเตอร์ชำรุด', color: PIE_STATUS_COLOR.broken, width: 2.6, values: perMonthTrueBroken },
-    { label: 'มิเตอร์ปกติ', color: PIE_STATUS_COLOR.normal, width: 1.8, values: perMonthFalseAlarm }
+    { label: 'งานทั้งหมด', color: '#f5a623', width: 2.6, values: perMonthTotal },
+    { label: 'มิเตอร์ชำรุด', color: PIE_STATUS_COLOR.broken, width: 2, values: perMonthTrueBroken },
+    { label: 'มิเตอร์ปกติ (ตรวจแล้ว)', color: PIE_STATUS_COLOR.normal, width: 2, values: perMonthFalseAlarm }
   ], TREND_MONTH_ABBR);
 
   const yCounts = countByStatus(yearRows);
