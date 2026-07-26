@@ -157,6 +157,9 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .dash-pie-val { font-family:var(--mono); font-weight:700; white-space:nowrap; }
 .dash-pie-pct { color:var(--text2); font-weight:400; }
 
+.dash-insight { font-size:12.5px; color:var(--text2); line-height:1.6; margin-top:6px; padding-top:8px; border-top:1px solid var(--border); }
+.dash-insight b { color:var(--text); font-family:var(--mono); }
+
 .dash-trend-legend { display:flex; flex-wrap:wrap; gap:10px 14px; margin-top:8px; }
 .trend-legend-item { display:flex; align-items:center; gap:5px; font-size:11.5px; color:var(--text2); }
 .trend-legend-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
@@ -391,6 +394,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       <div class="dash-section">
         <div class="dash-section-title">เปรียบเทียบจำนวนงาน</div>
         <div id="m-trend-chart"></div>
+        <div class="dash-insight" id="m-insight"></div>
       </div>
     </div>
 
@@ -438,6 +442,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         <div class="dash-section-title">แนวโน้มงานรายเดือน (12 เดือน)</div>
         <div id="y-trend-chart"></div>
         <div class="dash-trend-legend" id="y-trend-chart-legend"></div>
+        <div class="dash-insight" id="y-insight"></div>
       </div>
     </div>
 
@@ -1043,6 +1048,20 @@ function renderBarChart(containerId, bars) {
   </svg>`;
 }
 
+function buildFalseAlarmInsight(pending, trueBroken, falseAlarm) {
+  const inspected = trueBroken + falseAlarm;
+  if (inspected === 0) {
+    return pending > 0 ? `ยังไม่มีข้อมูลที่ตรวจสอบแล้ว (รอตรวจสอบอยู่ ${pending} ใบ)` : 'ยังไม่มีข้อมูลในรอบนี้';
+  }
+  const brokenPct = Math.round((trueBroken / inspected) * 100);
+  const falsePct = 100 - brokenPct;
+  let html = `จากที่ตรวจสอบแล้ว <b>${inspected}</b> ใบ พบ`
+    + `<b style="color:${PIE_STATUS_COLOR.broken}">มิเตอร์ชำรุด ${trueBroken} ใบ (${brokenPct}%)</b> และ`
+    + `<b style="color:${PIE_STATUS_COLOR.normal}">มิเตอร์ปกติ ${falseAlarm} ใบ (${falsePct}%)</b>`;
+  if (pending > 0) html += ` — เหลือรอตรวจสอบอีก ${pending} ใบ`;
+  return html;
+}
+
 function renderDashboard() {
   const all = window.TICKETS || [];
 
@@ -1051,34 +1070,46 @@ function renderDashboard() {
   const monthRows = all.filter(t => t.batchKey === selectedDashMonthKey);
   fillStatBlock('m', monthRows);
 
-  // เปรียบเทียบจำนวนงานในรอบเดือนที่เลือก (ไม่ต้องแยกรายวัน)
+  // เปรียบเทียบ: รอตรวจสอบ / มิเตอร์ชำรุด (รวมที่สับเปลี่ยนแล้ว) / มิเตอร์ปกติ
   const mCounts = countByStatus(monthRows);
+  const mTrueBroken = mCounts.broken + mCounts.field + mCounts.sap;
+  const mFalseAlarm = mCounts.normal;
   renderBarChart('m-trend-chart', [
-    { label: 'รวมทั้งหมด', color: '#f5a623', value: monthRows.length },
-    { label: PIE_STATUS_LABEL.broken, color: PIE_STATUS_COLOR.broken, value: mCounts.broken },
-    { label: PIE_STATUS_LABEL.normal, color: PIE_STATUS_COLOR.normal, value: mCounts.normal }
+    { label: 'รอตรวจสอบ', color: PIE_STATUS_COLOR.pending, value: mCounts.pending },
+    { label: 'มิเตอร์ชำรุด', color: PIE_STATUS_COLOR.broken, value: mTrueBroken },
+    { label: 'มิเตอร์ปกติ', color: PIE_STATUS_COLOR.normal, value: mFalseAlarm }
   ]);
+  const mInsightEl = document.getElementById('m-insight');
+  if (mInsightEl) mInsightEl.innerHTML = buildFalseAlarmInsight(mCounts.pending, mTrueBroken, mFalseAlarm);
 
   // ── ทั้งปี (เลือกปีเองผ่าน dropdown เช่นกัน) ──
   populateDashYearSelect();
   const yearRows = all.filter(t => t.batchYear === selectedDashYear);
   fillStatBlock('y', yearRows);
 
-  // แนวโน้มรายเดือนตลอดปีที่เลือก แยกเป็นเส้นรวม + ชำรุด + ปกติ
-  const perMonthTotal = new Array(12).fill(0);
-  const perMonthStatus = { pending: new Array(12).fill(0), normal: new Array(12).fill(0), broken: new Array(12).fill(0), field: new Array(12).fill(0), sap: new Array(12).fill(0) };
+  // แนวโน้มรายเดือนตลอดปีที่เลือก: รอตรวจสอบ / มิเตอร์ชำรุด / มิเตอร์ปกติ
+  const perMonthPending = new Array(12).fill(0);
+  const perMonthTrueBroken = new Array(12).fill(0);
+  const perMonthFalseAlarm = new Array(12).fill(0);
   yearRows.forEach(t => {
     if (t.batchMonth < 1 || t.batchMonth > 12) return;
     const idx = t.batchMonth - 1;
-    perMonthTotal[idx]++;
     const st = t.status || 'pending';
-    if (perMonthStatus[st]) perMonthStatus[st][idx]++;
+    if (st === 'pending') perMonthPending[idx]++;
+    else if (st === 'normal') perMonthFalseAlarm[idx]++;
+    else perMonthTrueBroken[idx]++; // broken, field, sap = ยืนยันว่าเสียจริง
   });
   renderTrendChart('y-trend-chart', [
-    { label: 'รวมทั้งหมด', color: '#f5a623', width: 2.6, values: perMonthTotal },
-    { label: PIE_STATUS_LABEL.broken, color: PIE_STATUS_COLOR.broken, width: 2, values: perMonthStatus.broken },
-    { label: PIE_STATUS_LABEL.normal, color: PIE_STATUS_COLOR.normal, width: 2, values: perMonthStatus.normal }
+    { label: 'รอตรวจสอบ', color: PIE_STATUS_COLOR.pending, width: 1.8, values: perMonthPending },
+    { label: 'มิเตอร์ชำรุด', color: PIE_STATUS_COLOR.broken, width: 2.6, values: perMonthTrueBroken },
+    { label: 'มิเตอร์ปกติ', color: PIE_STATUS_COLOR.normal, width: 1.8, values: perMonthFalseAlarm }
   ], TREND_MONTH_ABBR);
+
+  const yCounts = countByStatus(yearRows);
+  const yTrueBroken = yCounts.broken + yCounts.field + yCounts.sap;
+  const yFalseAlarm = yCounts.normal;
+  const yInsightEl = document.getElementById('y-insight');
+  if (yInsightEl) yInsightEl.innerHTML = buildFalseAlarmInsight(yCounts.pending, yTrueBroken, yFalseAlarm);
 }
 window.renderDashboard = renderDashboard;
 
