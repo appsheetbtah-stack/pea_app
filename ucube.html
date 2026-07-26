@@ -1024,10 +1024,10 @@ function renderTrendChart(containerId, series, xAxisLabels) {
 }
 
 function renderBarChart(containerId, bars) {
-  // bars: [{ label, color, value }]
+  // bars: [{ label, color, value, pct? }]
   const el = document.getElementById(containerId);
   if (!el) return;
-  const W = 320, H = 156, padT = 26, padB = 32, gap = 20;
+  const W = 320, H = 164, padT = 34, padB = 32, gap = 20;
   const maxVal = Math.max(1, ...bars.map(b => b.value));
   const barW = (W - gap * (bars.length + 1)) / bars.length;
   const scaleY = (H - padT - padB) / maxVal;
@@ -1036,9 +1036,11 @@ function renderBarChart(containerId, bars) {
     const x = gap + i * (barW + gap);
     const barH = b.value * scaleY;
     const y = H - padB - barH;
+    const pctText = (b.pct !== undefined) ? ` (${b.pct}%)` : '';
     return `
       <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(barH, 0).toFixed(1)}" rx="5" fill="${b.color}"/>
-      <text x="${(x + barW / 2).toFixed(1)}" y="${(y - 7).toFixed(1)}" font-size="14" font-weight="700" fill="#e8f0f8" text-anchor="middle" font-family="'IBM Plex Mono',monospace">${b.value}</text>
+      <text x="${(x + barW / 2).toFixed(1)}" y="${(y - 16).toFixed(1)}" font-size="14" font-weight="700" fill="#e8f0f8" text-anchor="middle" font-family="'IBM Plex Mono',monospace">${b.value}</text>
+      <text x="${(x + barW / 2).toFixed(1)}" y="${(y - 4).toFixed(1)}" font-size="10.5" fill="#a9bdd1" text-anchor="middle" font-family="'IBM Plex Mono',monospace">${pctText}</text>
       <text x="${(x + barW / 2).toFixed(1)}" y="${H - 10}" font-size="11" fill="#a9bdd1" text-anchor="middle" font-family="'Sarabun',sans-serif">${b.label}</text>`;
   }).join('');
 
@@ -1070,14 +1072,16 @@ function renderDashboard() {
   const monthRows = all.filter(t => t.batchKey === selectedDashMonthKey);
   fillStatBlock('m', monthRows);
 
-  // เปรียบเทียบ: รอตรวจสอบ / มิเตอร์ชำรุด (รวมที่สับเปลี่ยนแล้ว) / มิเตอร์ปกติ
+  // เปรียบเทียบ: งานทั้งหมด / มิเตอร์ชำรุด (รวมที่สับเปลี่ยนแล้ว) / มิเตอร์ปกติ
   const mCounts = countByStatus(monthRows);
   const mTrueBroken = mCounts.broken + mCounts.field + mCounts.sap;
   const mFalseAlarm = mCounts.normal;
+  const mTotal = monthRows.length;
+  const mPct = (n) => mTotal ? Math.round((n / mTotal) * 100) : 0;
   renderBarChart('m-trend-chart', [
-    { label: 'รอตรวจสอบ', color: PIE_STATUS_COLOR.pending, value: mCounts.pending },
-    { label: 'มิเตอร์ชำรุด', color: PIE_STATUS_COLOR.broken, value: mTrueBroken },
-    { label: 'มิเตอร์ปกติ', color: PIE_STATUS_COLOR.normal, value: mFalseAlarm }
+    { label: 'งานทั้งหมด', color: '#f5a623', value: mTotal, pct: mPct(mTotal) },
+    { label: 'มิเตอร์ชำรุด', color: PIE_STATUS_COLOR.broken, value: mTrueBroken, pct: mPct(mTrueBroken) },
+    { label: 'มิเตอร์ปกติ (ตรวจแล้ว)', color: PIE_STATUS_COLOR.normal, value: mFalseAlarm, pct: mPct(mFalseAlarm) }
   ]);
   const mInsightEl = document.getElementById('m-insight');
   if (mInsightEl) mInsightEl.innerHTML = buildFalseAlarmInsight(mCounts.pending, mTrueBroken, mFalseAlarm);
