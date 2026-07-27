@@ -9,6 +9,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f1923">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -276,11 +277,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     <div class="charts-row">
       <div class="chart-card full">
         <div class="chart-title">สถานะงาน</div>
-        <div id="chart-status"></div>
+        <div style="max-width:280px;margin:0 auto;"><canvas id="chart-status"></canvas></div>
       </div>
       <div class="chart-card full">
         <div class="chart-title">ประเภทงาน</div>
-        <div id="chart-category"></div>
+        <div style="max-width:280px;margin:0 auto;"><canvas id="chart-category"></canvas></div>
       </div>
     </div>
   </div>
@@ -521,26 +522,54 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     document.getElementById('stat-improvement').textContent = improvement.toLocaleString();
     document.getElementById('stat-done').textContent = done.toLocaleString();
 
-    const statusLabels = { survey: '🔵 สำรวจออกแบบ', estimate: '🟡 ประมาณการ', approval: '🔴 รออนุมัติ', done: '🟢 เสร็จสิ้น' };
+    const statusLabels = { survey: 'สำรวจออกแบบ', estimate: 'ประมาณการ', approval: 'รออนุมัติ', done: 'เสร็จสิ้น' };
+    const statusColors = { survey: '#3b9ede', estimate: '#f39c12', approval: '#e74c3c', done: '#2ecc71' };
     const statusCount = { survey: 0, estimate: 0, approval: 0, done: 0 };
     allWorks.forEach(w => { if (statusCount[w.status] !== undefined) statusCount[w.status]++; });
-    const maxStatus = Math.max(1, ...Object.values(statusCount));
-    document.getElementById('chart-status').innerHTML = Object.entries(statusCount).map(([k, v]) =>
-      '<div class="bar-row">' +
-      '<div class="bar-label">' + statusLabels[k] + '</div>' +
-      '<div class="bar-track"><div class="bar-fill" style="width:' + ((v / maxStatus * 100).toFixed(1)) + '%"></div></div>' +
-      '<div class="bar-count">' + v.toLocaleString() + '</div>' +
-      '</div>').join('');
+    renderPieChart('chart-status', Object.keys(statusCount).map(k => statusLabels[k]),
+      Object.values(statusCount), Object.keys(statusCount).map(k => statusColors[k]));
 
-    const catLabels = { expansion: '⚡ ขยายเขต', improvement: '🔧 ปรับปรุงระบบ' };
+    const catLabels = { expansion: 'ขยายเขต', improvement: 'ปรับปรุงระบบ' };
+    const catColors = { expansion: '#3b9ede', improvement: '#f5a623' };
     const catCount = { expansion, improvement };
-    const maxCat = Math.max(1, expansion, improvement);
-    document.getElementById('chart-category').innerHTML = Object.entries(catCount).map(([k, v]) =>
-      '<div class="bar-row">' +
-      '<div class="bar-label">' + catLabels[k] + '</div>' +
-      '<div class="bar-track"><div class="bar-fill blue" style="width:' + ((v / maxCat * 100).toFixed(1)) + '%"></div></div>' +
-      '<div class="bar-count">' + v.toLocaleString() + '</div>' +
-      '</div>').join('');
+    renderPieChart('chart-category', Object.keys(catCount).map(k => catLabels[k]),
+      Object.values(catCount), Object.keys(catCount).map(k => catColors[k]));
+  }
+
+  const pieChartInstances = {};
+  function renderPieChart(canvasId, labels, data, colors) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+    if (pieChartInstances[canvasId]) { pieChartInstances[canvasId].destroy(); }
+    pieChartInstances[canvasId] = new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: data,
+          backgroundColor: colors,
+          borderColor: '#162030',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: '#a9bdd1', font: { family: 'Sarabun', size: 12 }, padding: 12 }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(c) {
+                const total = c.dataset.data.reduce((a, b) => a + b, 0);
+                const pct = total ? ((c.parsed / total) * 100).toFixed(1) : 0;
+                return c.label + ': ' + c.parsed.toLocaleString() + ' (' + pct + '%)';
+              }
+            }
+          }
+        }
+      }
+    });
   }
   window.renderDashboard = renderDashboard;
 
