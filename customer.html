@@ -98,16 +98,23 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .stat-value { font-family:var(--mono); font-size:24px; font-weight:600; color:var(--text); line-height:1; }
 .stat-unit { font-size:13px; color:var(--text2); margin-top:5px; }
 
-.charts-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.charts-row { display:flex; flex-direction:column; gap:10px; }
 .chart-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
 .chart-title { font-size:13px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:12px; }
-.bar-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-.bar-row:last-child { margin-bottom:0; }
-.bar-label { font-size:13px; color:var(--text2); width:80px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.bar-track { flex:1; height:8px; background:var(--surface2); border-radius:4px; overflow:hidden; }
-.bar-fill { height:100%; border-radius:4px; background:var(--accent); transition:width .6s ease; }
-.bar-fill.blue { background:var(--blue); }
-.bar-count { font-family:var(--mono); font-size:13px; color:var(--text2); width:44px; text-align:right; }
+.pie-wrap { display:flex; align-items:center; gap:16px; }
+.pie-circle-wrap { position:relative; width:96px; height:96px; flex-shrink:0; }
+.pie-circle { width:100%; height:100%; border-radius:50%; }
+.pie-circle-hole {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:58%; height:58%; border-radius:50%; background:var(--surface);
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--mono); font-size:11px; color:var(--text2); text-align:center; line-height:1.2;
+}
+.pie-legend { flex:1; min-width:0; display:flex; flex-direction:column; gap:7px; }
+.pie-legend-item { display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--text2); }
+.pie-legend-dot { width:9px; height:9px; border-radius:2px; flex-shrink:0; }
+.pie-legend-label { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pie-legend-value { font-family:var(--mono); font-size:11.5px; color:var(--text); white-space:nowrap; }
 
 /* ── SEARCH ── */
 .search-wrap { padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
@@ -303,12 +310,12 @@ textarea.form-control { resize:vertical; min-height:70px; }
     </div>
     <div class="charts-row">
       <div class="chart-card">
-        <div class="chart-title">จังหวัด / อำเภอ</div>
-        <div id="chart-changwat"></div>
-      </div>
-      <div class="chart-card">
         <div class="chart-title">ประเภทมิเตอร์</div>
         <div id="chart-metertype"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">จังหวัด / อำเภอ</div>
+        <div id="chart-changwat"></div>
       </div>
     </div>
   </div>
@@ -489,27 +496,49 @@ function initStats() {
   document.getElementById('stat-normal').textContent = normal.toLocaleString();
   document.getElementById('stat-smart').textContent = smart.toLocaleString();
 
-  const cwCount = {};
-  ALL_RECORDS.forEach(r => { if(r.CHANGWAT) cwCount[r.CHANGWAT] = (cwCount[r.CHANGWAT]||0)+1; });
-  const cwSorted = Object.entries(cwCount).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const maxCw = cwSorted[0] ? cwSorted[0][1] : 1;
-  document.getElementById('chart-changwat').innerHTML = cwSorted.map(([k,v]) =>
-    '<div class="bar-row">' +
-    '<div class="bar-label" title="'+k+'">'+k+'</div>' +
-    '<div class="bar-track"><div class="bar-fill" style="width:'+((v/maxCw*100).toFixed(1))+'%"></div></div>' +
-    '<div class="bar-count">'+v.toLocaleString()+'</div>' +
-    '</div>').join('');
-
   const mtCount = {};
   ALL_RECORDS.forEach(r => { if(r.METERTYPE) mtCount[r.METERTYPE] = (mtCount[r.METERTYPE]||0)+1; });
   const mtSorted = Object.entries(mtCount).sort((a,b)=>b[1]-a[1]);
-  const maxMt = mtSorted[0] ? mtSorted[0][1] : 1;
-  document.getElementById('chart-metertype').innerHTML = mtSorted.map(([k,v]) =>
-    '<div class="bar-row">' +
-    '<div class="bar-label">'+(k||'(ไม่ระบุ)')+'</div>' +
-    '<div class="bar-track"><div class="bar-fill blue" style="width:'+((v/maxMt*100).toFixed(1))+'%"></div></div>' +
-    '<div class="bar-count">'+v.toLocaleString()+'</div>' +
-    '</div>').join('');
+  renderPieChart('chart-metertype', mtSorted);
+
+  const cwCount = {};
+  ALL_RECORDS.forEach(r => { if(r.CHANGWAT) cwCount[r.CHANGWAT] = (cwCount[r.CHANGWAT]||0)+1; });
+  const cwSorted = Object.entries(cwCount).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  renderPieChart('chart-changwat', cwSorted);
+}
+
+const PIE_COLORS = ['#f5a623','#3b9ede','#2ecc71','#e74c3c','#a06ac4','#e05c2a','#f39c12','#1abc9c'];
+
+function renderPieChart(containerId, entries) {
+  const total = entries.reduce((s,[,v]) => s+v, 0) || 1;
+  let acc = 0;
+  const stops = entries.map(([k,v], i) => {
+    const startDeg = (acc/total*360).toFixed(2);
+    acc += v;
+    const endDeg = (acc/total*360).toFixed(2);
+    const color = PIE_COLORS[i % PIE_COLORS.length];
+    return color+' '+startDeg+'deg '+endDeg+'deg';
+  }).join(', ');
+
+  const legend = entries.map(([k,v], i) => {
+    const color = PIE_COLORS[i % PIE_COLORS.length];
+    const pct = (v/total*100).toFixed(1);
+    const label = k || '(ไม่ระบุ)';
+    return '<div class="pie-legend-item">' +
+      '<span class="pie-legend-dot" style="background:'+color+'"></span>' +
+      '<span class="pie-legend-label" title="'+label+'">'+label+'</span>' +
+      '<span class="pie-legend-value">'+v.toLocaleString()+' ('+pct+'%)</span>' +
+    '</div>';
+  }).join('');
+
+  document.getElementById(containerId).innerHTML =
+    '<div class="pie-wrap">' +
+      '<div class="pie-circle-wrap">' +
+        '<div class="pie-circle" style="background:conic-gradient('+stops+')"></div>' +
+        '<div class="pie-circle-hole">'+total.toLocaleString()+'</div>' +
+      '</div>' +
+      '<div class="pie-legend">'+legend+'</div>' +
+    '</div>';
 }
 
 // ======= TAB SWITCHING =======
