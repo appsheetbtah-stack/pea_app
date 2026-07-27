@@ -9,7 +9,6 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f1923">
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -481,10 +480,18 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     return maxNum + 1;
   }
 
-  function buildWbs(cat, worktype) {
+  // ดึงเลขวิ่ง 4 หลักท้ายสุดจากเลขผัง (เช่น "PD30-011/690170" → 170) เพื่อให้เลข WBS ใช้เลขวิ่งตัวเดียวกัน
+  function getRunningNumberFromDrawingNo(drawingNo) {
+    const tail = (drawingNo || '').slice(-4);
+    const num = parseInt(tail, 10);
+    return isNaN(num) ? null : num;
+  }
+
+  function buildWbs(cat, worktype, runningOverride) {
     const prefix = getWbsPrefix(cat);
     if (!prefix) return '';
-    const running = String(getWbsRunningNumber(cat)).padStart(4, '0');
+    const runningNum = (runningOverride != null) ? runningOverride : getWbsRunningNumber(cat);
+    const running = String(runningNum).padStart(4, '0');
     if (cat === 'improvement') return `${prefix}.00.${running}.1`;
     return `${prefix}.${running}.${worktype}`;
   }
@@ -636,25 +643,37 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     const worktypeSelect = document.getElementById('f-worktype');
     const wbsHint = document.getElementById('f-wbs-hint');
 
+    // ให้เลข WBS ใช้ "เลขวิ่ง" ตัวเดียวกับเลขผังเสมอ (เช่น เลขผังลงท้าย 170 → WBS ต้องเป็น 0170)
+    // ถ้าดึงเลขวิ่งจากเลขผังไม่ได้ (เช่น พิมพ์รูปแบบแปลกๆ) ค่อย fallback ไปนับเองแบบเดิม
+    function syncWbsFromDrawing() {
+      const runningNum = getRunningNumberFromDrawingNo(drawingInput.value);
+      if (currentCat === 'expansion') {
+        wbsInput.value = buildWbs(currentCat, worktypeSelect.value, runningNum);
+      } else if (currentCat === 'improvement') {
+        wbsInput.value = buildWbs(currentCat, undefined, runningNum);
+      }
+    }
+
     if (currentCat === 'expansion') {
       worktypeWrap.style.display = 'block';
       worktypeSelect.value = '01.1';
-      wbsInput.value = buildWbs(currentCat, worktypeSelect.value);
+      syncWbsFromDrawing();
       wbsInput.readOnly = false;
-      wbsHint.textContent = 'สร้างอัตโนมัติ — แก้ไขเองได้ หรือเลือกลักษณะงานด้านบนเพื่อสร้างใหม่';
-      worktypeSelect.onchange = () => {
-        wbsInput.value = buildWbs(currentCat, worktypeSelect.value);
-      };
+      wbsHint.textContent = 'สร้างอัตโนมัติตามเลขผัง (เลขวิ่งเดียวกัน) — แก้ไขเองได้ หรือเลือกลักษณะงานด้านบนเพื่อสร้างใหม่';
+      worktypeSelect.onchange = syncWbsFromDrawing;
+      drawingInput.oninput = syncWbsFromDrawing;
     } else if (currentCat === 'improvement') {
       worktypeWrap.style.display = 'none';
-      wbsInput.value = buildWbs(currentCat);
+      syncWbsFromDrawing();
       wbsInput.readOnly = false;
-      wbsHint.textContent = 'สร้างอัตโนมัติ — แก้ไขได้หากต้องการ';
+      wbsHint.textContent = 'สร้างอัตโนมัติตามเลขผัง (เลขวิ่งเดียวกัน) — แก้ไขได้หากต้องการ';
+      drawingInput.oninput = syncWbsFromDrawing;
     } else {
       worktypeWrap.style.display = 'none';
       wbsInput.value = '';
       wbsInput.readOnly = false;
       wbsHint.textContent = '';
+      drawingInput.oninput = null;
     }
     overlay.classList.add('open');
   };
@@ -671,6 +690,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     const drawingInput = document.getElementById('f-drawing');
     drawingInput.value = w.drawingNo || '';
     drawingInput.readOnly = false;
+    drawingInput.oninput = null; // ปิดการ sync อัตโนมัติของงานใหม่ ไม่ให้มาแก้ WBS ทับตอนแก้ไขงานเดิม
     document.getElementById('f-drawing-hint').textContent = 'แก้ไขเลขผังได้หากจำเป็น';
     document.getElementById('f-job').value = w.jobName || '';
     document.getElementById('f-phone').value = w.phone || '';
@@ -734,159 +754,33 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     }
   };
 
-  // ===== Google Drive Upload (แบบแปลน) =====
-  const GOOGLE_CLIENT_ID = '1006235611544-tv5slgr1vef55i8ol56embfdvrimns4i.apps.googleusercontent.com';
-  const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
-  const DRIVE_TARGET_EMAIL = 'appsheetbtah@gmail.com'; // บัญชีกลางที่ให้ทีมใช้เก็บไฟล์ทั้งหมด กันไฟล์กระจัดกระจายหลายบัญชี
-  let driveTokenClient = null;
-  let driveAccessToken = null;
-  let driveAccountEmail = null;
+  // ===== Google Drive Upload (แบบแปลน) — ผ่าน Apps Script Web App =====
+  // ไม่ต้องขอสิทธิ์ Google จากเครื่องผู้ใช้อีกต่อไป — อัปโหลดผ่านบัญชีกลางฝั่งเซิร์ฟเวอร์แทน
+  // TODO: ใส่ URL ที่ได้จากการ Deploy Apps Script (ลงท้ายด้วย /exec) — ใช้ค่าเดียวกับใน ucube.html
+  const DRIVE_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwL8iRbh6ihpcZ1A9UmIxkwY3RlgF2_PTJfICPEbi7poaOjUwIXrPeIRhFMpmmfaoanLg/exec';
+  // TODO: ใส่รหัสลับตัวเดียวกับที่ตั้งไว้ใน Apps Script (ตัวแปร SHARED_SECRET)
+  const DRIVE_WEBAPP_SECRET = '*pae*0888180563';
 
-  // เก็บ token/อีเมลไว้ใน localStorage (ใช้ key เดียวกับหน้าอื่นๆ ในแอป เพราะอยู่โดเมนเดียวกัน)
-  // ให้ใช้ข้ามหน้า/ข้ามการเปิดแอปใหม่ได้ ไม่ต้องขอสิทธิ์ Google ซ้ำทุกครั้งที่สลับหน้า
-  (function loadSavedDriveAuth() {
-    try {
-      const saved = JSON.parse(localStorage.getItem('ucube_drive_token') || 'null');
-      if (saved && saved.token && saved.expiresAt && Date.now() < saved.expiresAt) {
-        driveAccessToken = saved.token;
-      }
-      driveAccountEmail = localStorage.getItem('ucube_drive_email') || null;
-    } catch (e) {}
-  })();
-
-  function saveDriveToken(token, expiresInSec) {
-    try {
-      localStorage.setItem('ucube_drive_token', JSON.stringify({
-        token, expiresAt: Date.now() + ((expiresInSec || 3500) * 1000) - 60000
-      }));
-      localStorage.setItem('ucube_drive_authorized', '1');
-      if (driveAccountEmail) localStorage.setItem('ucube_drive_email', driveAccountEmail);
-    } catch (e) {}
-  }
-
-  function getDriveTokenClient() {
-    if (driveTokenClient) return driveTokenClient;
-    if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) return null;
-    driveTokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_CLIENT_ID,
-      scope: DRIVE_SCOPE,
-      callback: '' // ตั้งค่าตอนเรียกใช้จริงแต่ละครั้ง
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = () => reject(new Error('อ่านไฟล์ไม่สำเร็จ'));
+      reader.readAsDataURL(file);
     });
-    return driveTokenClient;
-  }
-
-  // ขอ access token จาก Google (เด้งหน้าล็อกอิน/ขออนุญาตครั้งแรกเท่านั้น ครั้งต่อไปเงียบๆ ถ้ายัง valid)
-  function requestDriveAccessToken(promptOverride) {
-    const attempt = new Promise((resolve, reject) => {
-      const client = getDriveTokenClient();
-      if (!client) {
-        reject(new Error('โหลดระบบล็อกอิน Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่'));
-        return;
-      }
-      client.callback = (resp) => {
-        if (resp.error) {
-          try { localStorage.removeItem('ucube_drive_authorized'); } catch (e) {}
-          reject(new Error(resp.error));
-          return;
-        }
-        driveAccessToken = resp.access_token;
-        saveDriveToken(resp.access_token, resp.expires_in);
-        resolve(driveAccessToken);
-      };
-      let everAuthorized = false;
-      try { everAuthorized = !!localStorage.getItem('ucube_drive_authorized'); } catch (e) {}
-      const prompt = promptOverride !== undefined ? promptOverride : ((driveAccessToken || everAuthorized) ? '' : 'consent');
-      client.requestAccessToken({ prompt, hint: DRIVE_TARGET_EMAIL });
-    });
-
-    // กัน popup ขอสิทธิ์ Google ค้างตลอดไปแบบไม่มี error (พบบ่อยเมื่อ popup ถูกบล็อก
-    // หรือขอสิทธิ์หลังจากตัวเลือกไฟล์เปิด-ปิดไปแล้ว ทำให้ไม่ใช่ user gesture ที่ trusted อีกต่อไป)
-    const timeout = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('TIMEOUT_DRIVE_AUTH')), 20000);
-    });
-
-    return Promise.race([attempt, timeout]);
-  }
-
-  async function fetchDriveAccountEmail(token) {
-    try {
-      const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) return null;
-      const data = await res.json();
-      return data.email || null;
-    } catch (e) {
-      return null;
-    }
   }
 
   function renderDriveAccountInfo() {
     const el = document.getElementById('drive-account-info');
     if (!el) return;
-    if (driveAccountEmail) {
-      if (driveAccountEmail.toLowerCase() === DRIVE_TARGET_EMAIL.toLowerCase()) {
-        el.innerHTML = `🔗 เชื่อมต่อ Google Drive บัญชี: <b>${driveAccountEmail}</b> ✓ (บัญชีหลักของทีม)`;
-        el.style.color = '';
-      } else {
-        el.innerHTML = `⚠️ กำลังใช้บัญชี <b>${driveAccountEmail}</b> ซึ่งไม่ใช่บัญชีหลักของทีม (${DRIVE_TARGET_EMAIL}) · <span class="text-link" onclick="switchDriveAccount()">เปลี่ยนไปบัญชีหลัก</span>`;
-        el.style.color = '#f5a623';
-      }
-    }
+    el.textContent = '🔗 อัปโหลดไฟล์ขึ้น Google Drive อัตโนมัติ (ไม่ต้องขอสิทธิ์ Google)';
+    el.style.color = '';
   }
   window.renderDriveAccountInfo = renderDriveAccountInfo;
 
-  window.switchDriveAccount = async function() {
-    driveAccessToken = null;
-    driveAccountEmail = null;
-    const statusEl = document.getElementById('drawing-upload-status');
-    statusEl.className = 'drawing-upload-status uploading';
-    statusEl.textContent = '🔄 กำลังเลือกบัญชี Google...';
-    try {
-      const token = await requestDriveAccessToken('select_account');
-      driveAccountEmail = await fetchDriveAccountEmail(token);
-      try { localStorage.setItem('ucube_drive_email', driveAccountEmail || ''); } catch (e) {}
-      renderDriveAccountInfo();
-      statusEl.className = 'drawing-upload-status';
-      statusEl.textContent = '';
-      showToast('เปลี่ยนบัญชีสำเร็จ ✓');
-    } catch (e) {
-      console.error(e);
-      statusEl.className = 'drawing-upload-status error';
-      statusEl.textContent = '⚠️ เปลี่ยนบัญชีไม่สำเร็จ ลองใหม่อีกครั้ง';
-    }
-  };
-
-  // ขอสิทธิ์ Google Drive "ตอนแตะปุ่มนี้เลย" (ยังอยู่ในจังหวะ user gesture โดยตรง)
-  // ก่อนเปิดตัวเลือกไฟล์ เพราะถ้าขอหลังเลือกไฟล์เสร็จ มือถือส่วนใหญ่จะมองว่าไม่ใช่การแตะสดๆ แล้วบล็อก popup เงียบๆ
-  window.uploadDrawingFile = async function() {
-    const statusEl = document.getElementById('drawing-upload-status');
-    if (driveAccessToken) {
-      document.getElementById('f-drawing-file-input').click();
-      return;
-    }
-    statusEl.className = 'drawing-upload-status uploading';
-    statusEl.textContent = '🔄 กำลังขอสิทธิ์เชื่อมต่อ Google Drive...';
-    try {
-      const token = await requestDriveAccessToken();
-      driveAccountEmail = await fetchDriveAccountEmail(token);
-      try { localStorage.setItem('ucube_drive_email', driveAccountEmail || ''); } catch (e) {}
-      renderDriveAccountInfo();
-      if (driveAccountEmail && driveAccountEmail.toLowerCase() !== DRIVE_TARGET_EMAIL.toLowerCase()) {
-        showToast(`⚠️ นี่ไม่ใช่บัญชีหลักของทีม (${DRIVE_TARGET_EMAIL})`);
-      }
-      statusEl.className = 'drawing-upload-status';
-      statusEl.textContent = '';
-      document.getElementById('f-drawing-file-input').click();
-    } catch (e) {
-      console.error(e);
-      statusEl.className = 'drawing-upload-status error';
-      if (e && e.message === 'TIMEOUT_DRIVE_AUTH') {
-        statusEl.textContent = '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ (หมดเวลารอ) ตรวจสอบว่าอนุญาต popup ให้เว็บนี้แล้วลองแตะปุ่มอีกครั้ง';
-      } else {
-        statusEl.textContent = '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ ลองแตะปุ่ม "อัปโหลดไฟล์" อีกครั้ง';
-      }
-    }
+  // ไม่ต้องขอสิทธิ์ Google อีกต่อไป — แตะปุ่มแล้วเปิดตัวเลือกไฟล์ได้ทันที
+  window.uploadDrawingFile = function() {
+    document.getElementById('f-drawing-file-input').click();
   };
 
   window.handleDrawingFileSelected = async function(event) {
@@ -896,14 +790,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
     const statusEl = document.getElementById('drawing-upload-status');
     statusEl.className = 'drawing-upload-status uploading';
-    statusEl.textContent = '🔄 กำลังขออนุญาตเข้าถึง Google Drive...';
+    statusEl.textContent = `🔄 กำลังอัปโหลด ${file.name}...`;
 
     try {
-      const token = driveAccessToken || await requestDriveAccessToken();
-      statusEl.textContent = '🔄 กำลังเตรียมโฟลเดอร์...';
-      const folderId = await getCategoryFolderId(token);
-      statusEl.textContent = `🔄 กำลังอัปโหลด ${file.name}...`;
-      const result = await uploadFileToDrive(file, token, folderId);
+      const result = await uploadFileToDrive(file);
       document.getElementById('f-drawinglink').value = result.webViewLink;
       renderDrawingLinkPreview();
       statusEl.className = 'drawing-upload-status';
@@ -916,88 +806,38 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     }
   };
 
-  // แคช ID โฟลเดอร์ไว้ในหน่วยความจำ กันไม่ต้องค้น/สร้างซ้ำทุกครั้งที่อัปโหลด (รีเซ็ตเมื่อโหลดหน้าใหม่)
   const DRIVE_ROOT_FOLDER_NAME = 'PEA App - แบบแปลน';
   const DRIVE_CATEGORY_FOLDER_NAME = { expansion: 'ขยายเขต', improvement: 'ปรับปรุงระบบจำหน่าย' };
-  let driveFolderCache = {};
 
-  // ค้นหาโฟลเดอร์ตามชื่อ+โฟลเดอร์แม่ ถ้าไม่เจอให้สร้างใหม่ คืนค่า folder id
-  async function findOrCreateFolder(name, parentId, token) {
-    const parentClause = parentId ? ` and '${parentId}' in parents` : " and 'root' in parents";
-    const q = encodeURIComponent(`name = '${name.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false${parentClause}`);
-    const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!searchRes.ok) throw new Error('ค้นหาโฟลเดอร์ไม่สำเร็จ: ' + searchRes.status);
-    const searchData = await searchRes.json();
-    if (searchData.files && searchData.files.length > 0) return searchData.files[0].id;
-
-    const createRes = await fetch('https://www.googleapis.com/drive/v3/files?fields=id', {
+  // อัปโหลดไฟล์ผ่าน Apps Script Web App (ฝั่งเซิร์ฟเวอร์เป็นคนเขียนลง Drive แทน ไม่ต้องขอสิทธิ์ผู้ใช้)
+  async function uploadFileToDrive(file) {
+    const base64 = await fileToBase64(file);
+    const catName = DRIVE_CATEGORY_FOLDER_NAME[currentCat] || currentCat;
+    const res = await fetch(DRIVE_WEBAPP_URL, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // text/plain กัน CORS preflight ที่ Apps Script ไม่รองรับ
       body: JSON.stringify({
-        name,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: parentId ? [parentId] : undefined
+        secret: DRIVE_WEBAPP_SECRET,
+        fileName: `${currentCat}_${Date.now()}_${file.name}`,
+        mimeType: file.type || 'application/octet-stream',
+        fileBase64: base64,
+        folderPath: [DRIVE_ROOT_FOLDER_NAME, catName]
       })
     });
-    if (!createRes.ok) throw new Error('สร้างโฟลเดอร์ไม่สำเร็จ: ' + createRes.status);
-    const created = await createRes.json();
-    return created.id;
+    if (!res.ok) throw new Error('อัปโหลดไฟล์ไม่สำเร็จ: ' + res.status);
+    const result = await res.json();
+    if (result.error) throw new Error(result.error);
+    return result;
   }
 
-  // หา/สร้างโฟลเดอร์ปลายทางสำหรับหมวดงานปัจจุบัน: "PEA App - แบบแปลน" > "ขยายเขต" หรือ "ปรับปรุงระบบจำหน่าย"
-  async function getCategoryFolderId(token) {
-    if (driveFolderCache[currentCat]) return driveFolderCache[currentCat];
-    const rootId = driveFolderCache.__root || await findOrCreateFolder(DRIVE_ROOT_FOLDER_NAME, null, token);
-    driveFolderCache.__root = rootId;
-    const catName = DRIVE_CATEGORY_FOLDER_NAME[currentCat] || currentCat;
-    const catId = await findOrCreateFolder(catName, rootId, token);
-    driveFolderCache[currentCat] = catId;
-    return catId;
-  }
-
-  // อัปโหลดไฟล์ไป Google Drive แบบ multipart แล้วตั้งค่าแชร์เป็น "ทุกคนที่มีลิงก์ดูได้" ให้อัตโนมัติ
-  async function uploadFileToDrive(file, token, folderId) {
-    const metadata = { name: `${currentCat}_${Date.now()}_${file.name}`, parents: folderId ? [folderId] : undefined };
-    const boundary = 'peaAppBoundary' + Date.now();
-    const metaPart =
-      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`;
-    const closeDelim = `\r\n--${boundary}--`;
-
-    const fileBuffer = await file.arrayBuffer();
-    const metaBytes = new TextEncoder().encode(metaPart);
-    const filePartHeader = new TextEncoder().encode(`--${boundary}\r\nContent-Type: ${file.type || 'application/octet-stream'}\r\n\r\n`);
-    const closeBytes = new TextEncoder().encode(closeDelim);
-
-    const body = new Blob([metaBytes, filePartHeader, fileBuffer, closeBytes]);
-
-    const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+  // ลบไฟล์เดิมออกจาก Drive แบบเงียบๆ ผ่าน Apps Script (ไม่บล็อกถ้าลบไม่สำเร็จ)
+  function deleteFileFromDrive(fileId) {
+    if (!fileId) return;
+    fetch(DRIVE_WEBAPP_URL, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': `multipart/related; boundary=${boundary}`
-      },
-      body
-    });
-    if (!uploadRes.ok) throw new Error('อัปโหลดไฟล์ไม่สำเร็จ: ' + uploadRes.status);
-    const uploaded = await uploadRes.json();
-
-    // ตั้งค่าแชร์ไฟล์ให้ "ทุกคนที่มีลิงก์ดูได้" อัตโนมัติ ไม่ต้องไปกดตั้งเองใน Drive
-    const permRes = await fetch(`https://www.googleapis.com/drive/v3/files/${uploaded.id}/permissions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ role: 'reader', type: 'anyone' })
-    });
-    if (!permRes.ok) console.warn('ตั้งค่าแชร์ไฟล์ไม่สำเร็จ อาจต้องเข้าไปตั้งเองใน Drive');
-
-    return uploaded;
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'delete', secret: DRIVE_WEBAPP_SECRET, fileId })
+    }).catch(() => {});
   }
 
   window.renderDrawingLinkPreview = function() {
@@ -1034,14 +874,9 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     renderDrawingLinkPreview();
     showToast('ลบไฟล์แล้ว ✓ กด "บันทึก" เพื่อยืนยัน');
 
-    // ลบไฟล์จริงออกจาก Drive แบบเงียบๆ ด้วย (ถ้ามี token และดึงรหัสไฟล์จากลิงก์ได้)
+    // ลบไฟล์จริงออกจาก Drive แบบเงียบๆ ด้วย (ถ้าดึงรหัสไฟล์จากลิงก์ได้)
     const m = oldLink.match(/\/d\/([a-zA-Z0-9_-]+)/);
-    if (m && driveAccessToken) {
-      fetch(`https://www.googleapis.com/drive/v3/files/${m[1]}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${driveAccessToken}` }
-      }).catch(() => {});
-    }
+    if (m) deleteFileFromDrive(m[1]);
   };
 
   window.deleteItem = async function(id) {
