@@ -9,7 +9,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f1923">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -536,11 +536,38 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       Object.values(catCount), Object.keys(catCount).map(k => catColors[k]));
   }
 
+  // ปลั๊กอินวาดตัวเลขจำนวน + เปอร์เซ็นต์ลงบนชิ้นพาย
+  const pieLabelPlugin = {
+    id: 'pieLabels',
+    afterDatasetsDraw(chart) {
+      const { ctx } = chart;
+      chart.data.datasets.forEach((dataset, i) => {
+        const meta = chart.getDatasetMeta(i);
+        const total = dataset.data.reduce((a, b) => a + b, 0);
+        meta.data.forEach((arc, index) => {
+          const value = dataset.data[index];
+          if (!value) return;
+          const pct = total ? ((value / total) * 100).toFixed(1) : 0;
+          const pos = arc.tooltipPosition();
+          ctx.save();
+          ctx.fillStyle = '#0f1923';
+          ctx.font = 'bold 13px Sarabun, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(value.toLocaleString() + ' (' + pct + '%)', pos.x, pos.y);
+          ctx.restore();
+        });
+      });
+    }
+  };
+  if (window.Chart) Chart.register(pieLabelPlugin);
+
   const pieChartInstances = {};
   function renderPieChart(canvasId, labels, data, colors) {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
     if (pieChartInstances[canvasId]) { pieChartInstances[canvasId].destroy(); }
+    const total = data.reduce((a, b) => a + b, 0);
     pieChartInstances[canvasId] = new Chart(ctx, {
       type: 'pie',
       data: {
@@ -556,12 +583,29 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         plugins: {
           legend: {
             position: 'bottom',
-            labels: { color: '#a9bdd1', font: { family: 'Sarabun', size: 12 }, padding: 12 }
+            labels: {
+              color: '#ffffff',
+              font: { family: 'Sarabun', size: 12, weight: '600' },
+              padding: 12,
+              generateLabels: function(chart) {
+                const ds = chart.data.datasets[0];
+                return chart.data.labels.map((label, i) => {
+                  const value = ds.data[i];
+                  const pct = total ? ((value / total) * 100).toFixed(1) : 0;
+                  return {
+                    text: label + ': ' + value.toLocaleString() + ' (' + pct + '%)',
+                    fillStyle: ds.backgroundColor[i],
+                    strokeStyle: ds.borderColor,
+                    lineWidth: ds.borderWidth,
+                    index: i
+                  };
+                });
+              }
+            }
           },
           tooltip: {
             callbacks: {
               label: function(c) {
-                const total = c.dataset.data.reduce((a, b) => a + b, 0);
                 const pct = total ? ((c.parsed / total) * 100).toFixed(1) : 0;
                 return c.label + ': ' + c.parsed.toLocaleString() + ' (' + pct + '%)';
               }
