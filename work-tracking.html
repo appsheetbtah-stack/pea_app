@@ -549,12 +549,13 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
           if (!value) return;
           const pct = total ? ((value / total) * 100).toFixed(1) : 0;
           const pos = arc.tooltipPosition();
+          const label = value.toLocaleString() + ' (' + pct + '%)';
           ctx.save();
-          ctx.fillStyle = '#0f1923';
           ctx.font = 'bold 13px Sarabun, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(value.toLocaleString() + ' (' + pct + '%)', pos.x, pos.y);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(label, pos.x, pos.y);
           ctx.restore();
         });
       });
@@ -597,6 +598,8 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
                     fillStyle: ds.backgroundColor[i],
                     strokeStyle: ds.borderColor,
                     lineWidth: ds.borderWidth,
+                    fontColor: '#ffffff',
+                    color: '#ffffff',
                     index: i
                   };
                 });
