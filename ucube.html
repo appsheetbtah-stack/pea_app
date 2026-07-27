@@ -276,6 +276,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .btn-primary { background:var(--accent); color:#000; flex:1; }
 .btn-ghost { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
 .btn-blue { background:var(--blue); color:#fff; }
+.btn-accent { background:var(--accent); color:#1a1206; }
 .upload-status { font-size:13px; color:var(--text2); }
 .upload-status.uploading { color:var(--blue); }
 .upload-status.error { color:var(--red); }
@@ -561,9 +562,12 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         <img id="d-photo-preview" class="photo-preview" style="display:none;">
         <div class="photo-row">
           <button class="btn btn-blue" style="flex:1;" onclick="onPhotoButtonClick()">📷 ถ่ายรูป</button>
+          <button class="btn btn-blue" style="flex:1;" onclick="onGalleryButtonClick()">🖼️ เลือกรูป</button>
           <button class="btn btn-danger" id="btn-delete-photo" style="flex:1;display:none;" onclick="deletePhoto()">🗑️ ลบรูป</button>
         </div>
+        <button class="btn btn-accent" id="btn-request-permission" style="display:none;width:100%;margin-top:8px;" onclick="onRequestPermissionClick()">🔑 ขอสิทธิ์เชื่อมต่อ Google Drive</button>
         <input type="file" id="d-photo-input" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoSelected(event)">
+        <input type="file" id="d-gallery-input" accept="image/*" style="display:none;" onchange="handlePhotoSelected(event)">
         <div class="upload-status" id="photo-upload-status"></div>
         <div class="field-hint" id="drive-account-info"></div>
       </div>
@@ -1793,11 +1797,12 @@ async function switchDriveAccount() {
 }
 window.switchDriveAccount = switchDriveAccount;
 
-async function onPhotoButtonClick() {
+async function ensureDriveAccess() {
   const statusEl = document.getElementById('photo-upload-status');
+  const permBtn = document.getElementById('btn-request-permission');
   if (driveAccessToken) {
-    document.getElementById('d-photo-input').click();
-    return;
+    permBtn.style.display = 'none';
+    return true;
   }
   statusEl.className = 'upload-status uploading';
   statusEl.textContent = '🔄 กำลังขอสิทธิ์เชื่อมต่อ Google Drive...';
@@ -1811,18 +1816,35 @@ async function onPhotoButtonClick() {
     }
     statusEl.className = 'upload-status';
     statusEl.textContent = '';
-    document.getElementById('d-photo-input').click();
+    permBtn.style.display = 'none';
+    return true;
   } catch (e) {
     console.error(e);
     statusEl.className = 'upload-status error';
     if (e && e.message === 'TIMEOUT_DRIVE_AUTH') {
-      statusEl.textContent = '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ (หมดเวลารอ) ตรวจสอบว่าอนุญาต popup ให้เว็บนี้แล้วลองแตะปุ่มอีกครั้ง';
+      statusEl.textContent = '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ (หมดเวลารอ) ตรวจสอบว่าอนุญาต popup ให้เว็บนี้แล้วลองกดปุ่ม "ขอสิทธิ์" ด้านล่าง';
     } else {
-      statusEl.textContent = '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ ลองแตะปุ่ม "ถ่ายรูป" อีกครั้ง';
+      statusEl.textContent = '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ ลองกดปุ่ม "ขอสิทธิ์" ด้านล่างอีกครั้ง';
     }
+    permBtn.style.display = 'block';
+    return false;
   }
 }
+
+async function onPhotoButtonClick() {
+  if (await ensureDriveAccess()) document.getElementById('d-photo-input').click();
+}
 window.onPhotoButtonClick = onPhotoButtonClick;
+
+async function onGalleryButtonClick() {
+  if (await ensureDriveAccess()) document.getElementById('d-gallery-input').click();
+}
+window.onGalleryButtonClick = onGalleryButtonClick;
+
+async function onRequestPermissionClick() {
+  await ensureDriveAccess();
+}
+window.onRequestPermissionClick = onRequestPermissionClick;
 
 async function handlePhotoSelected(event) {
   const file = event.target.files[0];
@@ -1879,6 +1901,7 @@ async function handlePhotoSelected(event) {
     } else {
       statusEl.textContent = '⚠️ อัปโหลดรูปไม่สำเร็จ ลองใหม่อีกครั้ง';
     }
+    if (!driveAccessToken) document.getElementById('btn-request-permission').style.display = 'block';
   }
 }
 window.handlePhotoSelected = handlePhotoSelected;
