@@ -13,6 +13,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -383,18 +384,12 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
       <div class="dash-section">
         <div class="dash-section-title">สถานะงาน</div>
-        <div class="dash-pie-wrap">
-          <div class="dash-pie-box">
-            <div class="dash-pie" id="m-pie"></div>
-            <div class="dash-pie-hole"><span id="m-pie-total">0</span><small>รายการ</small></div>
-          </div>
-          <div class="dash-pie-legend" id="m-pie-legend"></div>
-        </div>
+        <div style="max-width:280px;margin:0 auto;"><canvas id="m-pie-canvas"></canvas></div>
       </div>
 
       <div class="dash-section">
         <div class="dash-section-title">เปรียบเทียบจำนวนงาน</div>
-        <div id="m-trend-chart"></div>
+        <div style="max-width:420px;margin:0 auto;width:100%;" id="m-trend-chart"></div>
         <div class="dash-insight" id="m-insight"></div>
       </div>
     </div>
@@ -430,18 +425,12 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
       <div class="dash-section">
         <div class="dash-section-title">สถานะงาน</div>
-        <div class="dash-pie-wrap">
-          <div class="dash-pie-box">
-            <div class="dash-pie" id="y-pie"></div>
-            <div class="dash-pie-hole"><span id="y-pie-total">0</span><small>รายการ</small></div>
-          </div>
-          <div class="dash-pie-legend" id="y-pie-legend"></div>
-        </div>
+        <div style="max-width:280px;margin:0 auto;"><canvas id="y-pie-canvas"></canvas></div>
       </div>
 
       <div class="dash-section">
         <div class="dash-section-title">แนวโน้มงานรายเดือน (12 เดือน)</div>
-        <div id="y-trend-chart"></div>
+        <div style="max-width:480px;margin:0 auto;width:100%;" id="y-trend-chart"></div>
         <div class="dash-trend-legend" id="y-trend-chart-legend"></div>
         <div class="dash-insight" id="y-insight"></div>
       </div>
@@ -868,6 +857,11 @@ function setDashPeriod(p) {
   document.getElementById('dp-btn-year').classList.toggle('active', p === 'year');
   document.getElementById('dash-view-month').style.display = (p === 'month') ? 'flex' : 'none';
   document.getElementById('dash-view-year').style.display = (p === 'year') ? 'flex' : 'none';
+  // Chart.js วัดขนาด canvas ผิดถ้าสร้างตอนซ่อนอยู่ (display:none) พอสลับแท็บมาโชว์
+  // ต้องรอให้เบราว์เซอร์ layout ใหม่ก่อน (2 เฟรม) แล้วค่อยสร้างกราฟใหม่ทั้งหมดด้วยขนาดที่ถูกต้อง
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => { renderDashboard(); });
+  });
 }
 window.setDashPeriod = setDashPeriod;
 
@@ -913,21 +907,96 @@ function fillStatBlock(prefix, rows) {
   setText(prefix + '-broken', counts.broken);
   setText(prefix + '-done', done);
 
-  // ── pie chart ──
-  const pieEl = document.getElementById(prefix + '-pie');
-  if (pieEl) pieEl.style.background = buildPieGradient(counts, total);
-  setText(prefix + '-pie-total', total);
+  // ── pie chart (Chart.js) ──
+  const labels = PIE_STATUS_ORDER.map(st => PIE_STATUS_LABEL[st]);
+  const data = PIE_STATUS_ORDER.map(st => counts[st] || 0);
+  const colors = PIE_STATUS_ORDER.map(st => PIE_STATUS_COLOR[st]);
+  renderDashPieChart(prefix + '-pie-canvas', labels, data, colors);
+}
 
-  const legendEl = document.getElementById(prefix + '-pie-legend');
-  if (legendEl) {
-    const pct = (n) => total ? Math.round((n / total) * 100) : 0;
-    legendEl.innerHTML = PIE_STATUS_ORDER.map(st => `
-      <div class="dash-pie-legend-row">
-        <span class="dash-pie-dot" style="background:${PIE_STATUS_COLOR[st]}"></span>
-        <span class="dash-pie-name">${PIE_STATUS_LABEL[st]}</span>
-        <span class="dash-pie-val">${counts[st]} <span class="dash-pie-pct">(${pct(counts[st])}%)</span></span>
-      </div>`).join('');
+// ปลั๊กอินวาดตัวเลขจำนวน + เปอร์เซ็นต์ลงบนชิ้นพาย (สีขาว)
+const dashPieLabelPlugin = {
+  id: 'dashPieLabels',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    chart.data.datasets.forEach((dataset, i) => {
+      const meta = chart.getDatasetMeta(i);
+      const total = dataset.data.reduce((a, b) => a + b, 0);
+      meta.data.forEach((arc, index) => {
+        const value = dataset.data[index];
+        if (!value) return;
+        const pct = total ? ((value / total) * 100).toFixed(1) : 0;
+        const pos = arc.tooltipPosition();
+        ctx.save();
+        ctx.font = 'bold 13px Sarabun, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(value.toLocaleString() + ' (' + pct + '%)', pos.x, pos.y);
+        ctx.restore();
+      });
+    });
   }
+};
+if (window.Chart) Chart.register(dashPieLabelPlugin);
+
+const dashPieChartInstances = {};
+function renderDashPieChart(canvasId, labels, data, colors) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx || !window.Chart) return;
+  if (dashPieChartInstances[canvasId]) { dashPieChartInstances[canvasId].destroy(); }
+  const total = data.reduce((a, b) => a + b, 0);
+  dashPieChartInstances[canvasId] = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: colors,
+        borderColor: '#162030',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 1.3,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            color: '#ffffff',
+            font: { family: 'Sarabun', size: 12, weight: '600' },
+            padding: 12,
+            generateLabels: function(chart) {
+              const ds = chart.data.datasets[0];
+              return chart.data.labels.map((label, i) => {
+                const value = ds.data[i];
+                const pct = total ? ((value / total) * 100).toFixed(1) : 0;
+                return {
+                  text: label + ': ' + value.toLocaleString() + ' (' + pct + '%)',
+                  fillStyle: ds.backgroundColor[i],
+                  strokeStyle: ds.borderColor,
+                  lineWidth: ds.borderWidth,
+                  fontColor: '#ffffff',
+                  color: '#ffffff',
+                  index: i
+                };
+              });
+            }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(c) {
+              const pct = total ? ((c.parsed / total) * 100).toFixed(1) : 0;
+              return c.label + ': ' + c.parsed.toLocaleString() + ' (' + pct + '%)';
+            }
+          }
+        }
+      }
+    }
+  });
 }
 
 let selectedDashMonthKey = null;
@@ -1044,7 +1113,7 @@ function renderBarChart(containerId, bars) {
     return `
       <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(barH, 0).toFixed(1)}" rx="5" fill="${b.color}"/>
       <text x="${(x + barW / 2).toFixed(1)}" y="${(y - 16).toFixed(1)}" font-size="14" font-weight="700" fill="#e8f0f8" text-anchor="middle" font-family="'IBM Plex Mono',monospace">${b.value}</text>
-      <text x="${(x + barW / 2).toFixed(1)}" y="${(y - 4).toFixed(1)}" font-size="10.5" fill="#a9bdd1" text-anchor="middle" font-family="'IBM Plex Mono',monospace">${pctText}</text>
+      <text x="${(x + barW / 2).toFixed(1)}" y="${(y - 4).toFixed(1)}" font-size="10.5" fill="#ffffff" text-anchor="middle" font-family="'IBM Plex Mono',monospace">${pctText}</text>
       <text x="${(x + barW / 2).toFixed(1)}" y="${H - 10}" font-size="11" fill="#a9bdd1" text-anchor="middle" font-family="'Sarabun',sans-serif">${b.label}</text>`;
   }).join('');
 
