@@ -488,6 +488,13 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     return isNaN(num) ? null : num;
   }
 
+  // ดึงเลขผังทั้งหมดหลัง "/" มาใช้เรียงลำดับ (เช่น "PD30-011/690177" → 690177)
+  // ใช้เรียงรายการให้เลขมาก (งานล่าสุด) อยู่บนสุด เลขน้อยอยู่ล่างสุด
+  function getDrawingSortNumber(drawingNo) {
+    const match = (drawingNo || '').match(/(\d+)\s*$/);
+    return match ? parseInt(match[1], 10) : -Infinity;
+  }
+
   function buildWbs(cat, worktype, runningOverride) {
     const prefix = getWbsPrefix(cat);
     if (!prefix) return '';
@@ -641,7 +648,9 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       return;
     }
 
-    listEl.innerHTML = filtered.map(w => {
+    const sorted = [...filtered].sort((a, b) => getDrawingSortNumber(b.drawingNo) - getDrawingSortNumber(a.drawingNo));
+
+    listEl.innerHTML = sorted.map(w => {
       const st = statusInfo(w.status);
       return `
         <div class="work-card">
