@@ -606,6 +606,18 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         <input class="field-input" id="add-peano" placeholder="ไม่บังคับ">
       </div>
       <div>
+        <label class="field-label">ขนาดมิเตอร์ (ถ้ามี)</label>
+        <input class="field-input" id="add-metersize" placeholder="ไม่บังคับ">
+      </div>
+      <div>
+        <label class="field-label">MRU (ถ้ามี)</label>
+        <input class="field-input" id="add-mru" placeholder="ไม่บังคับ">
+      </div>
+      <div>
+        <label class="field-label">User No. (ถ้ามี)</label>
+        <input class="field-input" id="add-userno" placeholder="ไม่บังคับ">
+      </div>
+      <div>
         <label class="field-label">พิกัด</label>
         <div class="meter-input-row">
           <input class="field-input" id="add-lat" type="number" placeholder="Lat" inputmode="decimal">
@@ -2249,6 +2261,9 @@ function openAddTicketModal() {
   document.getElementById('add-customer').value = '';
   document.getElementById('add-address').value = '';
   document.getElementById('add-peano').value = '';
+  document.getElementById('add-metersize').value = '';
+  document.getElementById('add-mru').value = '';
+  document.getElementById('add-userno').value = '';
   document.getElementById('add-lat').value = '';
   document.getElementById('add-lng').value = '';
   document.getElementById('add-location-hint').textContent = '';
@@ -2297,6 +2312,9 @@ async function saveAddTicket() {
     return;
   }
   const peanoMeter = document.getElementById('add-peano').value.trim();
+  const meterSizeCode = document.getElementById('add-metersize').value.trim();
+  const mru = document.getElementById('add-mru').value.trim();
+  const userno = document.getElementById('add-userno').value.trim();
   const lat = parseFloat(document.getElementById('add-lat').value) || 0;
   const lng = parseFloat(document.getElementById('add-lng').value) || 0;
   const status = document.getElementById('add-status-select').value || 'pending';
@@ -2307,8 +2325,8 @@ async function saveAddTicket() {
   const reqNo = generateAdhocReqNo();
 
   const ticket = {
-    reqNo, jobDate: formatNowDateTime(), mru: '', userno: '', peanoMeter,
-    meterSizeCode: '', customerName, locationAddress, anotherDetail: addTicketReasons.join(', '),
+    reqNo, jobDate: formatNowDateTime(), mru, userno, peanoMeter,
+    meterSizeCode, customerName, locationAddress, anotherDetail: addTicketReasons.join(', '),
     lat, lng, batchMonth, batchYear, batchKey, batchLabel,
     status, reasons: [...addTicketReasons], checkDate: '', unitRead: '', newMeterNo: '', newUnitRead: '',
     photoLink: '', photoThumb: '', source: 'manual', createdAt: Date.now(), updatedAt: Date.now()
