@@ -518,6 +518,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       <div>
         <label class="field-label">หน่วยที่อ่านได้หน้างาน</label>
         <input class="field-input" id="d-unit" type="number" placeholder="0" inputmode="decimal">
+        <div class="field-hint" id="d-unit-refhint"></div>
       </div>
 
       <div>
@@ -608,6 +609,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       <div>
         <label class="field-label">ขนาดมิเตอร์ (ถ้ามี)</label>
         <input class="field-input" id="add-metersize" placeholder="ไม่บังคับ">
+      </div>
+      <div>
+        <label class="field-label">หน่วยอ้างอิง (ถ้ามี)</label>
+        <input class="field-input" id="add-refunit" type="number" placeholder="ไม่บังคับ" inputmode="decimal">
+        <div class="field-hint">ค่าหน่วยล่าสุดที่มีในระบบ ไว้เทียบกับหน่วยที่ช่างอ่านได้หน้างาน ว่าขึ้น/ลงมากผิดปกติหรือไม่</div>
       </div>
       <div>
         <label class="field-label">MRU (ถ้ามี)</label>
@@ -1455,6 +1461,7 @@ function openDetail(reqNo) {
     <div class="info-row"><span class="info-label">Userno</span><span class="info-value">${esc(t.userno)}</span></div>
     <div class="info-row"><span class="info-label">PEANO</span><span class="info-value">${esc(t.peanoMeter)}</span></div>
     <div class="info-row"><span class="info-label">ขนาดมิเตอร์</span><span class="info-value">${esc(t.meterSizeCode)}</span></div>
+    <div class="info-row"><span class="info-label">หน่วยอ้างอิง</span><span class="info-value">${esc(t.referenceUnit)}</span></div>
     <div class="info-row"><span class="info-label">ที่อยู่</span><span class="info-value">${esc(t.locationAddress)}</span></div>
     <div class="info-row"><span class="info-label">รายละเอียด</span><span class="info-value">${esc(t.anotherDetail)}</span></div>
     <div class="info-row"><span class="info-label">วันที่ออกใบงาน</span><span class="info-value">${esc(t.jobDate)}</span></div>
@@ -1462,6 +1469,7 @@ function openDetail(reqNo) {
 
   document.getElementById('d-checkdate').value = t.checkDate || formatNowDateTime();
   document.getElementById('d-unit').value = t.unitRead || '';
+  document.getElementById('d-unit-refhint').textContent = t.referenceUnit ? `หน่วยอ้างอิงในระบบ: ${t.referenceUnit}` : '';
   document.getElementById('d-newmeter').value = t.newMeterNo || '';
   document.getElementById('d-newunit').value = t.newUnitRead || '';
 
@@ -2262,6 +2270,7 @@ function openAddTicketModal() {
   document.getElementById('add-address').value = '';
   document.getElementById('add-peano').value = '';
   document.getElementById('add-metersize').value = '';
+  document.getElementById('add-refunit').value = '';
   document.getElementById('add-mru').value = '';
   document.getElementById('add-userno').value = '';
   document.getElementById('add-lat').value = '';
@@ -2313,6 +2322,7 @@ async function saveAddTicket() {
   }
   const peanoMeter = document.getElementById('add-peano').value.trim();
   const meterSizeCode = document.getElementById('add-metersize').value.trim();
+  const referenceUnit = document.getElementById('add-refunit').value.trim();
   const mru = document.getElementById('add-mru').value.trim();
   const userno = document.getElementById('add-userno').value.trim();
   const lat = parseFloat(document.getElementById('add-lat').value) || 0;
@@ -2326,7 +2336,7 @@ async function saveAddTicket() {
 
   const ticket = {
     reqNo, jobDate: formatNowDateTime(), mru, userno, peanoMeter,
-    meterSizeCode, customerName, locationAddress, anotherDetail: addTicketReasons.join(', '),
+    meterSizeCode, referenceUnit, customerName, locationAddress, anotherDetail: addTicketReasons.join(', '),
     lat, lng, batchMonth, batchYear, batchKey, batchLabel,
     status, reasons: [...addTicketReasons], checkDate: '', unitRead: '', newMeterNo: '', newUnitRead: '',
     photoLink: '', photoThumb: '', source: 'manual', createdAt: Date.now(), updatedAt: Date.now()
