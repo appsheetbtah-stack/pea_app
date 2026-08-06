@@ -240,9 +240,12 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .modal-footer { position:sticky; bottom:0; background:var(--surface); border-top:1px solid var(--border); padding:12px 16px; display:flex; gap:10px; }
 
 .info-block { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
-.info-row { display:flex; gap:10px; font-size:14px; }
+.info-row { display:flex; gap:10px; font-size:14px; align-items:center; }
 .info-label { color:var(--text2); flex-shrink:0; width:96px; }
 .info-value { font-weight:600; word-break:break-word; }
+.info-edit-input { flex:1; min-width:0; background:transparent; border:none; border-bottom:1px dashed var(--text2); color:#fff; font-weight:600; font-size:14px; font-family:inherit; padding:3px 0; }
+.info-edit-input:focus { outline:none; border-bottom:1px solid var(--accent, #f5a623); }
+.info-edit-input::placeholder { color:var(--text2); font-weight:400; }
 
 .field-label { font-size:13px; color:var(--text2); margin-bottom:6px; display:block; font-weight:600; }
 .field-input, .field-select {
@@ -1394,13 +1397,13 @@ function openDetail(reqNo) {
   document.getElementById('detail-title').textContent = t.customerName || reqNo;
   document.getElementById('detail-info').innerHTML = `
     <div class="info-row"><span class="info-label">REQ_NO</span><span class="info-value">${esc(t.reqNo)}</span></div>
-    <div class="info-row"><span class="info-label">MRU</span><span class="info-value">${esc(t.mru)}</span></div>
-    <div class="info-row"><span class="info-label">Userno</span><span class="info-value">${esc(t.userno)}</span></div>
-    <div class="info-row"><span class="info-label">PEANO</span><span class="info-value">${esc(t.peanoMeter)}</span></div>
-    <div class="info-row"><span class="info-label">ขนาดมิเตอร์</span><span class="info-value">${esc(t.meterSizeCode)}</span></div>
-    <div class="info-row"><span class="info-label">หน่วยอ้างอิง</span><span class="info-value">${esc(t.referenceUnit)}</span></div>
-    <div class="info-row"><span class="info-label">ที่อยู่</span><span class="info-value">${esc(t.locationAddress)}</span></div>
-    <div class="info-row"><span class="info-label">รายละเอียด</span><span class="info-value">${esc(t.anotherDetail)}</span></div>
+    <div class="info-row"><span class="info-label">MRU</span><input class="info-edit-input" id="d-info-mru" placeholder="ไม่บังคับ" value="${escAttr(t.mru)}"></div>
+    <div class="info-row"><span class="info-label">Userno</span><input class="info-edit-input" id="d-info-userno" placeholder="ไม่บังคับ" value="${escAttr(t.userno)}"></div>
+    <div class="info-row"><span class="info-label">PEANO</span><input class="info-edit-input" id="d-info-peano" placeholder="ไม่บังคับ" value="${escAttr(t.peanoMeter)}"></div>
+    <div class="info-row"><span class="info-label">ขนาดมิเตอร์</span><input class="info-edit-input" id="d-info-metersize" placeholder="ไม่บังคับ" value="${escAttr(t.meterSizeCode)}"></div>
+    <div class="info-row"><span class="info-label">หน่วยอ้างอิง</span><input class="info-edit-input" id="d-info-refunit" type="number" inputmode="decimal" placeholder="ไม่บังคับ" value="${escAttr(t.referenceUnit)}" oninput="document.getElementById('d-unit-refhint').textContent = this.value ? 'หน่วยอ้างอิงในระบบ: ' + this.value : '';"></div>
+    <div class="info-row"><span class="info-label">ที่อยู่</span><input class="info-edit-input" id="d-info-address" placeholder="ไม่บังคับ" value="${escAttr(t.locationAddress)}"></div>
+    <div class="info-row"><span class="info-label">รายละเอียด</span><input class="info-edit-input" id="d-info-detail" placeholder="ไม่บังคับ" value="${escAttr(t.anotherDetail)}"></div>
     <div class="info-row"><span class="info-label">วันที่ออกใบงาน</span><span class="info-value">${esc(t.jobDate)}</span></div>
   `;
 
@@ -1571,6 +1574,13 @@ async function saveDetail() {
   const updated = {
     ...t,
     checkDate,
+    mru: document.getElementById('d-info-mru').value.trim(),
+    userno: document.getElementById('d-info-userno').value.trim(),
+    peanoMeter: document.getElementById('d-info-peano').value.trim(),
+    meterSizeCode: document.getElementById('d-info-metersize').value.trim(),
+    referenceUnit: document.getElementById('d-info-refunit').value.trim(),
+    locationAddress: document.getElementById('d-info-address').value.trim(),
+    anotherDetail: document.getElementById('d-info-detail').value.trim(),
     reasons: getSelectedReasons(),
     unitRead: document.getElementById('d-unit').value,
     newMeterNo: document.getElementById('d-newmeter').value,
