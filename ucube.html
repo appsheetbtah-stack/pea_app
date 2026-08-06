@@ -384,7 +384,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
       <div class="dash-section">
         <div class="dash-section-title">สถานะงาน</div>
-        <div style="max-width:280px;margin:0 auto;"><canvas id="m-pie-canvas"></canvas></div>
+        <div id="m-pie-chart"></div>
       </div>
 
       <div class="dash-section">
@@ -425,7 +425,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
       <div class="dash-section">
         <div class="dash-section-title">สถานะงาน</div>
-        <div style="max-width:280px;margin:0 auto;"><canvas id="y-pie-canvas"></canvas></div>
+        <div id="y-pie-chart"></div>
       </div>
 
       <div class="dash-section">
@@ -899,20 +899,42 @@ const PIE_STATUS_LABEL = {
   field: '🔧 สับเปลี่ยนแล้ว (หน้างาน)', sap: '🏁 สับเปลี่ยนแล้ว (SAP)'
 };
 
-function buildPieGradient(counts, total) {
-  if (!total) return 'var(--surface2)';
+// วาดกราฟวงกลม (donut) แบบเดียวกับหน้า "ข้อมูลผู้ใช้ไฟฟ้า" (customer.html)
+// วงแหวนใช้ conic-gradient ล้วนๆ (ไม่พึ่ง Chart.js) + เลขรวมตรงกลาง + legend รายการอยู่ด้านข้าง
+function renderDashPieChart(containerId, labels, data, colors) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const total = data.reduce((a, b) => a + b, 0);
+
   let acc = 0;
-  const parts = [];
-  PIE_STATUS_ORDER.forEach(st => {
-    const val = counts[st] || 0;
-    if (val <= 0) return;
-    const start = (acc / total) * 100;
+  const stops = [];
+  data.forEach((val, i) => {
+    if (!val) return;
+    const start = (acc / (total || 1)) * 100;
     acc += val;
-    const end = (acc / total) * 100;
-    parts.push(`${PIE_STATUS_COLOR[st]} ${start}% ${end}%`);
+    const end = (acc / (total || 1)) * 100;
+    stops.push(`${colors[i]} ${start}% ${end}%`);
   });
-  if (!parts.length) return 'var(--surface2)';
-  return `conic-gradient(${parts.join(', ')})`;
+  const gradient = stops.length ? `conic-gradient(${stops.join(', ')})` : 'var(--surface2)';
+
+  const legend = labels.map((label, i) => {
+    const val = data[i] || 0;
+    const pct = total ? ((val / total) * 100).toFixed(1) : '0.0';
+    return `<div class="dash-pie-legend-row">` +
+      `<span class="dash-pie-dot" style="background:${colors[i]}"></span>` +
+      `<span class="dash-pie-name">${esc(label)}</span>` +
+      `<span class="dash-pie-val">${val.toLocaleString()} <span class="dash-pie-pct">(${pct}%)</span></span>` +
+    `</div>`;
+  }).join('');
+
+  container.innerHTML =
+    `<div class="dash-pie-wrap">` +
+      `<div class="dash-pie-box">` +
+        `<div class="dash-pie" style="background:${gradient}"></div>` +
+        `<div class="dash-pie-hole"><span>${total.toLocaleString()}</span><small>รายการ</small></div>` +
+      `</div>` +
+      `<div class="dash-pie-legend">${legend}</div>` +
+    `</div>`;
 }
 
 function fillStatBlock(prefix, rows) {
@@ -925,96 +947,11 @@ function fillStatBlock(prefix, rows) {
   setText(prefix + '-broken', counts.broken);
   setText(prefix + '-done', done);
 
-  // ── pie chart (Chart.js) ──
+  // ── pie chart (donut แบบเดียวกับหน้า "ข้อมูลผู้ใช้ไฟฟ้า") ──
   const labels = PIE_STATUS_ORDER.map(st => PIE_STATUS_LABEL[st]);
   const data = PIE_STATUS_ORDER.map(st => counts[st] || 0);
   const colors = PIE_STATUS_ORDER.map(st => PIE_STATUS_COLOR[st]);
-  renderDashPieChart(prefix + '-pie-canvas', labels, data, colors);
-}
-
-// ปลั๊กอินวาดตัวเลขจำนวน + เปอร์เซ็นต์ลงบนชิ้นพาย (สีขาว)
-const dashPieLabelPlugin = {
-  id: 'dashPieLabels',
-  afterDatasetsDraw(chart) {
-    const { ctx } = chart;
-    chart.data.datasets.forEach((dataset, i) => {
-      const meta = chart.getDatasetMeta(i);
-      const total = dataset.data.reduce((a, b) => a + b, 0);
-      meta.data.forEach((arc, index) => {
-        const value = dataset.data[index];
-        if (!value) return;
-        const pct = total ? ((value / total) * 100).toFixed(1) : 0;
-        const pos = arc.tooltipPosition();
-        ctx.save();
-        ctx.font = 'bold 13px Sarabun, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(value.toLocaleString() + ' (' + pct + '%)', pos.x, pos.y);
-        ctx.restore();
-      });
-    });
-  }
-};
-if (window.Chart) Chart.register(dashPieLabelPlugin);
-
-const dashPieChartInstances = {};
-function renderDashPieChart(canvasId, labels, data, colors) {
-  const ctx = document.getElementById(canvasId);
-  if (!ctx || !window.Chart) return;
-  if (dashPieChartInstances[canvasId]) { dashPieChartInstances[canvasId].destroy(); }
-  const total = data.reduce((a, b) => a + b, 0);
-  dashPieChartInstances[canvasId] = new Chart(ctx, {
-    type: 'pie',
-    data: {
-      labels: labels,
-      datasets: [{
-        data: data,
-        backgroundColor: colors,
-        borderColor: '#162030',
-        borderWidth: 2
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      aspectRatio: 1.3,
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: {
-            color: '#ffffff',
-            font: { family: 'Sarabun', size: 12, weight: '600' },
-            padding: 12,
-            generateLabels: function(chart) {
-              const ds = chart.data.datasets[0];
-              return chart.data.labels.map((label, i) => {
-                const value = ds.data[i];
-                const pct = total ? ((value / total) * 100).toFixed(1) : 0;
-                return {
-                  text: label + ': ' + value.toLocaleString() + ' (' + pct + '%)',
-                  fillStyle: ds.backgroundColor[i],
-                  strokeStyle: ds.borderColor,
-                  lineWidth: ds.borderWidth,
-                  fontColor: '#ffffff',
-                  color: '#ffffff',
-                  index: i
-                };
-              });
-            }
-          }
-        },
-        tooltip: {
-          callbacks: {
-            label: function(c) {
-              const pct = total ? ((c.parsed / total) * 100).toFixed(1) : 0;
-              return c.label + ': ' + c.parsed.toLocaleString() + ' (' + pct + '%)';
-            }
-          }
-        }
-      }
-    }
-  });
+  renderDashPieChart(prefix + '-pie-chart', labels, data, colors);
 }
 
 let selectedDashMonthKey = null;
