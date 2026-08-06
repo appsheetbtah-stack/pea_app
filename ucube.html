@@ -1725,6 +1725,16 @@ function saveDriveToken(token, expiresInSec) {
   } catch (e) {}
 }
 
+// เช็คว่า token ที่มีอยู่ใน memory หมดอายุไปหรือยัง (เทียบกับเวลาหมดอายุที่บันทึกไว้ตอนขอ token)
+// ป้องกันเคสทำงานภาคสนามต่อเนื่องนานกว่าอายุ token (~1 ชม.) แล้วเจอ 401 ตอนอัปโหลดรูปโดยไม่รู้ตัว
+function isDriveTokenExpired() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('ucube_drive_token') || 'null');
+    if (!saved || !saved.expiresAt) return true;
+    return Date.now() >= saved.expiresAt;
+  } catch (e) { return true; }
+}
+
 function getDriveTokenClient() {
   if (driveTokenClient) return driveTokenClient;
   if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) return null;
@@ -1770,7 +1780,7 @@ async function findOrCreateFolder(name, parentId, token) {
   const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${qStr}&fields=files(id,name)`, {
     headers: { 'Authorization': `Bearer ${token}` }
   });
-  if (!searchRes.ok) throw new Error('ค้นหาโฟลเดอร์ไม่สำเร็จ: ' + searchRes.status);
+  if (!searchRes.ok) { const err = new Error('ค้นหาโฟลเดอร์ไม่สำเร็จ: ' + searchRes.status); err.status = searchRes.status; throw err; }
   const searchData = await searchRes.json();
   if (searchData.files && searchData.files.length > 0) return searchData.files[0].id;
 
@@ -1779,7 +1789,7 @@ async function findOrCreateFolder(name, parentId, token) {
     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: parentId ? [parentId] : undefined })
   });
-  if (!createRes.ok) throw new Error('สร้างโฟลเดอร์ไม่สำเร็จ: ' + createRes.status);
+  if (!createRes.ok) { const err = new Error('สร้างโฟลเดอร์ไม่สำเร็จ: ' + createRes.status); err.status = createRes.status; throw err; }
   return (await createRes.json()).id;
 }
 
@@ -1805,7 +1815,7 @@ async function uploadPhotoToDrive(file, token, folderId) {
     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
     body
   });
-  if (!uploadRes.ok) throw new Error('อัปโหลดไม่สำเร็จ: ' + uploadRes.status);
+  if (!uploadRes.ok) { const err = new Error('อัปโหลดไม่สำเร็จ: ' + uploadRes.status); err.status = uploadRes.status; throw err; }
   const uploaded = await uploadRes.json();
 
   await fetch(`https://www.googleapis.com/drive/v3/files/${uploaded.id}/permissions`, {
@@ -1889,9 +1899,14 @@ window.switchDriveAccount = switchDriveAccount;
 async function ensureDriveAccess() {
   const statusEl = document.getElementById('photo-upload-status');
   const permBtn = document.getElementById('btn-request-permission');
-  if (driveAccessToken) {
+  if (driveAccessToken && !isDriveTokenExpired()) {
     permBtn.style.display = 'none';
     return true;
+  }
+  if (driveAccessToken && isDriveTokenExpired()) {
+    // token หมดอายุระหว่างเปิดแอปค้างไว้ ล้างของเก่าทิ้งแล้วขอใหม่แบบเงียบๆ (ไม่ต้องให้ผู้ใช้กด consent ซ้ำถ้าเคยอนุญาตแล้ว)
+    driveAccessToken = null;
+    try { localStorage.removeItem('ucube_drive_token'); } catch (e) {}
   }
   statusEl.className = 'upload-status uploading';
   statusEl.textContent = '🔄 กำลังขอสิทธิ์เชื่อมต่อ Google Drive...';
@@ -1935,6 +1950,30 @@ async function onRequestPermissionClick() {
 }
 window.onRequestPermissionClick = onRequestPermissionClick;
 
+async function performPhotoUpload(file, token) {
+  const folderId = await getUcubePhotoFolderId(token);
+  const result = await uploadPhotoToDrive(file, token, folderId);
+
+  // อัปเดตข้อมูลรูปเข้า Firestore ทันที ไม่ต้องรอกดบันทึกฟอร์ม กันรูปหายถ้าปิดฟอร์มก่อน
+  const t = window.TICKETS.find(x => x.reqNo === editingReqNo);
+  const oldPhotoFileId = t.photoFileId; // ไฟล์เดิม (ถ้ามี) เผื่อลบทิ้งหลังอัปโหลดรูปใหม่แทนที่สำเร็จ
+  const { doc, setDoc } = window._fsLib;
+  const updated = {
+    ...t, photoLink: result.webViewLink, photoFileId: result.id,
+    photoThumb: `https://drive.google.com/thumbnail?id=${result.id}&sz=w1000`,
+    updatedAt: Date.now()
+  };
+  await setDoc(doc(window._db, 'ucube_tickets', editingReqNo), updated);
+
+  // ลบไฟล์รูปเดิมทิ้งจาก Drive แบบเงียบๆ กันรูปเก่าที่ถูกแทนที่ค้างเปลืองพื้นที่ (ไม่บล็อกถ้าลบไม่สำเร็จ)
+  if (oldPhotoFileId && oldPhotoFileId !== result.id) {
+    fetch(`https://www.googleapis.com/drive/v3/files/${oldPhotoFileId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    }).catch(() => {});
+  }
+}
+
 async function handlePhotoSelected(event) {
   const file = event.target.files[0];
   event.target.value = '';
@@ -1953,33 +1992,27 @@ async function handlePhotoSelected(event) {
   }
 
   try {
-    const token = driveAccessToken || await requestDriveAccessToken();
-    const folderId = await getUcubePhotoFolderId(token);
-    const result = await uploadPhotoToDrive(file, token, folderId);
-
-    // อัปเดตข้อมูลรูปเข้า Firestore ทันที ไม่ต้องรอกดบันทึกฟอร์ม กันรูปหายถ้าปิดฟอร์มก่อน
-    const t = window.TICKETS.find(x => x.reqNo === editingReqNo);
-    const oldPhotoFileId = t.photoFileId; // ไฟล์เดิม (ถ้ามี) เผื่อลบทิ้งหลังอัปโหลดรูปใหม่แทนที่สำเร็จ
-    const { doc, setDoc } = window._fsLib;
-    const updated = {
-      ...t, photoLink: result.webViewLink, photoFileId: result.id,
-      photoThumb: `https://drive.google.com/thumbnail?id=${result.id}&sz=w1000`,
-      updatedAt: Date.now()
-    };
-    await setDoc(doc(window._db, 'ucube_tickets', editingReqNo), updated);
+    let token = driveAccessToken || await requestDriveAccessToken();
+    try {
+      await performPhotoUpload(file, token);
+    } catch (err) {
+      // โทเคน Google Drive หมดอายุระหว่างใช้งาน (พบบ่อยเมื่อทำงานภาคสนามต่อเนื่องนานกว่า ~1 ชม.)
+      // ขอโทเคนใหม่แบบเงียบๆ แล้วลองอัปโหลดซ้ำอีกครั้งก่อนจะฟ้อง error ให้ผู้ใช้เห็น
+      if (err && err.status === 401) {
+        statusEl.textContent = '🔄 การเชื่อมต่อ Google Drive หมดอายุ กำลังเชื่อมต่อใหม่และลองอัปโหลดอีกครั้ง...';
+        driveAccessToken = null;
+        try { localStorage.removeItem('ucube_drive_token'); } catch (e) {}
+        token = await requestDriveAccessToken('');
+        await performPhotoUpload(file, token);
+      } else {
+        throw err;
+      }
+    }
 
     statusEl.className = 'upload-status';
     statusEl.textContent = '📎 อัปโหลดรูปสำเร็จ';
     document.getElementById('btn-delete-photo').style.display = 'block';
     showToast('อัปโหลดรูปสำเร็จ ✓');
-
-    // ลบไฟล์รูปเดิมทิ้งจาก Drive แบบเงียบๆ กันรูปเก่าที่ถูกแทนที่ค้างเปลืองพื้นที่ (ไม่บล็อกถ้าลบไม่สำเร็จ)
-    if (oldPhotoFileId && oldPhotoFileId !== result.id) {
-      fetch(`https://www.googleapis.com/drive/v3/files/${oldPhotoFileId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      }).catch(() => {});
-    }
   } catch (e) {
     console.error(e);
     statusEl.className = 'upload-status error';
@@ -1987,8 +2020,12 @@ async function handlePhotoSelected(event) {
       statusEl.textContent = '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ (หน้าต่างขอสิทธิ์อาจถูกบล็อก) ลองเปิดแอปผ่าน Chrome/Safari ปกติ ไม่ใช่ไอคอนหน้าจอโฮมหรือแอปแชท แล้วลองใหม่';
     } else if (e && e.message === 'popup_closed_by_user' || e && e.message === 'popup_blocked_by_browser') {
       statusEl.textContent = '⚠️ หน้าต่างขอสิทธิ์ Google ถูกปิดหรือถูกบล็อก ลองใหม่อีกครั้ง';
+    } else if (e && e.status === 401) {
+      statusEl.textContent = '⚠️ การเชื่อมต่อ Google Drive หมดอายุ กรุณากดปุ่ม "ขอสิทธิ์เชื่อมต่อ Google Drive" ด้านล่างแล้วลองอัปโหลดใหม่';
+      driveAccessToken = null;
+      try { localStorage.removeItem('ucube_drive_token'); } catch (e2) {}
     } else {
-      statusEl.textContent = '⚠️ อัปโหลดรูปไม่สำเร็จ ลองใหม่อีกครั้ง';
+      statusEl.textContent = `⚠️ อัปโหลดรูปไม่สำเร็จ ลองใหม่อีกครั้ง${e && e.message ? ' (' + e.message + ')' : ''}`;
     }
     if (!driveAccessToken) document.getElementById('btn-request-permission').style.display = 'block';
   }
