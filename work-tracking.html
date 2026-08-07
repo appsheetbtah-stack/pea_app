@@ -108,15 +108,38 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 }
 .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
 
-/* ── STATUS FILTER ── */
-.filter-row { display:flex; gap:8px; padding:14px 16px 4px; overflow-x:auto; }
-.filter-row::-webkit-scrollbar { display:none; }
-.filter-chip {
-  flex-shrink:0; border:1px solid var(--border); background:var(--surface2); color:var(--text2);
-  font-family:var(--sans); font-size:13px; font-weight:600; padding:7px 14px;
-  border-radius:20px; cursor:pointer; white-space:nowrap; transition:all .15s;
+/* ── SEARCH + STATUS FILTER ── */
+.filter-row { display:flex; gap:8px; padding:14px 16px 4px; }
+.search-input-wrap { flex:1; min-width:0; position:relative; }
+.search-input-wrap .search-icon {
+  position:absolute; left:12px; top:50%; transform:translateY(-50%);
+  font-size:14px; pointer-events:none; opacity:.6;
 }
-.filter-chip.active { border-color:var(--accent); background:rgba(245,166,35,.15); color:var(--accent); }
+.search-input {
+  width:100%; background:var(--surface2); border:1px solid var(--border);
+  border-radius:10px; padding:10px 12px 10px 32px; color:var(--text);
+  font-family:var(--sans); font-size:13.5px; outline:none; transition:border-color .15s;
+}
+.search-input:focus { border-color:var(--accent); }
+.search-input::placeholder { color:var(--text2); }
+.status-select-wrap { flex-shrink:0; width:44%; position:relative; }
+.status-select-wrap .status-dot {
+  position:absolute; left:12px; top:50%; transform:translateY(-50%);
+  width:9px; height:9px; border-radius:50%; background:var(--text2); pointer-events:none;
+}
+.status-select {
+  width:100%; appearance:none; -webkit-appearance:none;
+  background:var(--surface2); border:1px solid var(--border);
+  border-radius:10px; padding:10px 28px 10px 28px; color:var(--text);
+  font-family:var(--sans); font-size:13px; font-weight:600; outline:none;
+  cursor:pointer; transition:border-color .15s; white-space:nowrap;
+  text-overflow:ellipsis;
+}
+.status-select:focus { border-color:var(--accent); }
+.status-select-wrap::after {
+  content:"▾"; position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  font-size:11px; color:var(--text2); pointer-events:none;
+}
 
 /* ── LIST ── */
 .list-container { padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
@@ -295,10 +318,20 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   </div>
 
   <div class="filter-row" id="filter-row">
-    <button class="filter-chip" data-status="survey">🔵 สำรวจออกแบบ</button>
-    <button class="filter-chip" data-status="estimate">🟡 ประมาณการ</button>
-    <button class="filter-chip" data-status="approval">🔴 รออนุมัติ</button>
-    <button class="filter-chip" data-status="done">🟢 ก่อสร้างแล้วเสร็จ</button>
+    <div class="search-input-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search-input" class="search-input" placeholder="ค้นหางาน...">
+    </div>
+    <div class="status-select-wrap">
+      <span class="status-dot" id="status-select-dot"></span>
+      <select id="status-select" class="status-select">
+        <option value="">ทั้งหมด</option>
+        <option value="survey">🔵 สำรวจออกแบบ</option>
+        <option value="estimate">🟡 ประมาณการ</option>
+        <option value="approval">🔴 รออนุมัติ</option>
+        <option value="done">🟢 ก่อสร้างแล้วเสร็จ</option>
+      </select>
+    </div>
   </div>
 
   <div class="list-container" id="list-container">
@@ -425,6 +458,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   let allWorks = [];
   let currentCat = 'expansion';
   let currentStatus = 'all';
+  let currentSearch = '';
   let editingId = null;
 
   function statusInfo(s) {
@@ -629,7 +663,16 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
   function render() {
     const catItems = allWorks.filter(w => w.category === currentCat);
-    const filtered = currentStatus === 'all' ? catItems : catItems.filter(w => w.status === currentStatus);
+    let filtered = currentStatus === 'all' ? catItems : catItems.filter(w => w.status === currentStatus);
+
+    const q = currentSearch.trim().toLowerCase();
+    if (q) {
+      filtered = filtered.filter(w =>
+        (w.jobName || '').toLowerCase().includes(q) ||
+        (w.drawingNo || '').toLowerCase().includes(q) ||
+        (w.wbs || '').toLowerCase().includes(q)
+      );
+    }
 
     const counts = {
       survey: catItems.filter(w => w.status === 'survey').length,
@@ -643,7 +686,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       listEl.innerHTML = `
         <div class="state-empty">
           <div class="icon">📋</div>
-          <div>ไม่พบรายการ${currentStatus !== 'all' ? 'ในสถานะนี้' : ''}</div>
+          <div>ไม่พบรายการ${q ? 'ที่ค้นหา' : (currentStatus !== 'all' ? 'ในสถานะนี้' : '')}</div>
         </div>`;
       return;
     }
@@ -697,12 +740,19 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     });
   });
 
-  filterRow.addEventListener('click', (e) => {
-    const chip = e.target.closest('.filter-chip');
-    if (!chip) return;
-    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
-    currentStatus = chip.dataset.status;
+  const searchInput = document.getElementById('search-input');
+  const statusSelect = document.getElementById('status-select');
+  const statusSelectDot = document.getElementById('status-select-dot');
+  const STATUS_DOT_COLOR = { survey: 'var(--blue)', estimate: 'var(--yellow)', approval: 'var(--red)', done: 'var(--green)' };
+
+  searchInput.addEventListener('input', (e) => {
+    currentSearch = e.target.value;
+    render();
+  });
+
+  statusSelect.addEventListener('change', (e) => {
+    currentStatus = e.target.value || 'all';
+    statusSelectDot.style.background = STATUS_DOT_COLOR[currentStatus] || 'var(--text2)';
     render();
   });
 
