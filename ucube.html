@@ -221,6 +221,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   position:absolute; top:0; left:1px;
 }
 .pin-body span { transform:rotate(-45deg); font-size:14px; line-height:1; }
+.popup-detail { display:inline-block; margin-top:4px; color:#333; font-size:12.5px; }
 .popup-actions { display:flex; gap:6px; margin-top:8px; }
 .popup-btn {
   flex:1; padding:6px 8px; border-radius:6px; border:none; cursor:pointer;
@@ -1376,6 +1377,7 @@ function renderMapMarkers() {
     const marker = L.marker([t.lat, t.lng], { icon }).bindPopup(`
       <b>${esc(t.customerName || '-')}</b><br>
       PEANO: ${esc(t.peanoMeter || '-')}<br>
+      ${t.anotherDetail ? `<span class="popup-detail">📝 ${esc(t.anotherDetail)}</span><br>` : ''}
       ${meta.label}
       <div class="popup-actions">
         <button class="popup-btn detail" onclick="openDetail('${escAttr(t.reqNo)}')">รายละเอียด</button>
