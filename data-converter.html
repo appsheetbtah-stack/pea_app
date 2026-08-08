@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>แปลงข้อมูล Excel → JS - PEA</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f1923">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg:#0f1923; --surface:#162030; --surface2:#1e2d3d; --border:#2a3f55;
+  --accent:#f5a623; --blue:#3b9ede; --green:#2ecc71; --red:#e74c3c;
+  --yellow:#f39c12; --purple:#9b59b6; --cyan:#00b4d8;
+  --text:#e8f0f8; --text2:#a9bdd1;
+  --mono:'IBM Plex Mono',monospace; --sans:'Sarabun',sans-serif;
+  --topbar:52px;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:15px; padding-bottom:40px; }
+
+.topbar {
+  position:sticky; top:0; z-index:600; height:var(--topbar);
+  background:var(--surface); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:10px; padding:0 16px;
+}
+.topbar .back { color:var(--text2); text-decoration:none; font-size:14px; white-space:nowrap; }
+.topbar .title { font-size:16px; font-weight:700; }
+
+.wrap { max-width:640px; margin:0 auto; padding:16px; display:flex; flex-direction:column; gap:16px; }
+
+.card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; }
+.card-title { font-size:14.5px; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+.card-desc { font-size:12.5px; color:var(--text2); margin-bottom:12px; line-height:1.5; }
+
+.dropzone {
+  border:2px dashed var(--border); border-radius:10px; padding:28px 16px; text-align:center;
+  cursor:pointer; transition:border-color .15s, background .15s;
+}
+.dropzone.drag { border-color:var(--accent); background:rgba(245,166,35,.08); }
+.dropzone .icon { font-size:28px; margin-bottom:6px; }
+.dropzone .main { font-size:14px; font-weight:600; }
+.dropzone .sub { font-size:12px; color:var(--text2); margin-top:4px; }
+input[type=file] { display:none; }
+
+.file-list { display:flex; flex-direction:column; gap:6px; margin-top:12px; }
+.file-item {
+  display:flex; align-items:center; gap:8px; background:var(--surface2);
+  border:1px solid var(--border); border-radius:8px; padding:8px 10px; font-size:13px;
+}
+.file-item .fname { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.file-item .fsize { color:var(--text2); font-family:var(--mono); font-size:11px; flex-shrink:0; }
+.file-item .frm { flex-shrink:0; background:none; border:none; color:var(--red); cursor:pointer; font-size:16px; padding:0 2px; }
+
+.btn {
+  width:100%; padding:12px 16px; border-radius:10px; border:none; cursor:pointer;
+  font-family:var(--sans); font-size:14.5px; font-weight:700; transition:opacity .15s;
+  margin-top:12px;
+}
+.btn:disabled { opacity:.4; cursor:not-allowed; }
+.btn.primary { background:var(--accent); color:#000; }
+.btn.secondary { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+.btn.small { width:auto; padding:8px 14px; font-size:13px; margin-top:0; }
+.btn-row { display:flex; gap:8px; margin-top:12px; }
+.btn-row .btn { margin-top:0; }
+
+.log { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px 12px;
+  font-family:var(--mono); font-size:11.5px; color:var(--text2); max-height:180px; overflow-y:auto;
+  white-space:pre-wrap; line-height:1.6; }
+.log .ok { color:var(--green); }
+.log .warn { color:var(--yellow); }
+.log .err { color:var(--red); }
+
+.stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+.stat-box { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; }
+.stat-box .n { font-family:var(--mono); font-size:20px; font-weight:700; }
+.stat-box .l { font-size:11.5px; color:var(--text2); margin-top:2px; }
+
+.diff-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border); font-size:13.5px; }
+.diff-row:last-child { border-bottom:none; }
+.diff-row .lbl { color:var(--text2); }
+.diff-val { font-family:var(--mono); font-weight:700; }
+.diff-val.up { color:var(--green); }
+.diff-val.down { color:var(--red); }
+.diff-val.flat { color:var(--text2); }
+
+.pill { display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:700; }
+.pill.ok { background:rgba(46,204,113,.15); color:var(--green); }
+.pill.warn { background:rgba(243,156,18,.15); color:var(--yellow); }
+
+details { margin-top:8px; }
+details summary { cursor:pointer; font-size:12.5px; color:var(--blue); }
+.diff-list { font-family:var(--mono); font-size:11.5px; color:var(--text2); margin-top:6px; max-height:160px; overflow-y:auto; }
+.diff-list div { padding:2px 0; }
+
+.hidden { display:none !important; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="back" href="index.html">← กลับ</a>
+  <span class="title">🔄 แปลงข้อมูล Excel → JS</span>
+</div>
+
+<div class="wrap">
+
+  <div class="card">
+    <div class="card-title">📂 1. เลือกไฟล์ Excel</div>
+    <div class="card-desc">
+      เลือกไฟล์ .xlsx ได้หลายไฟล์พร้อมกัน ระบบจะดึงเฉพาะข้อมูลที่จำเป็นจากชีท
+      <b>DS_LowVoltageMeter</b> (ผู้ใช้ไฟฟ้า), <b>DS_Recloser</b>, <b>DS_Switch</b>, <b>DS_Transformer</b> (อุปกรณ์)
+      — ชีทอื่นๆ จะถูกข้ามไปอัตโนมัติ
+    </div>
+    <div class="dropzone" id="dropzone">
+      <div class="icon">📊</div>
+      <div class="main">แตะเพื่อเลือกไฟล์ หรือลากไฟล์มาวางตรงนี้</div>
+      <div class="sub">รองรับไฟล์ .xlsx หลายไฟล์พร้อมกัน</div>
+      <input type="file" id="file-input" accept=".xlsx" multiple>
+    </div>
+    <div class="file-list" id="file-list"></div>
+    <button class="btn primary" id="btn-convert" disabled>แปลงข้อมูล</button>
+  </div>
+
+  <div class="card hidden" id="card-log">
+    <div class="card-title">📋 บันทึกการทำงาน</div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <div class="card hidden" id="card-result">
+    <div class="card-title">✅ 2. ผลลัพธ์</div>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="n" id="res-customers">0</div><div class="l">ผู้ใช้ไฟฟ้า (ราย)</div></div>
+      <div class="stat-box"><div class="n" id="res-equipment">0</div><div class="l">อุปกรณ์ (เครื่อง)</div></div>
+      <div class="stat-box"><div class="n" id="res-recloser">0</div><div class="l">Recloser</div></div>
+      <div class="stat-box"><div class="n" id="res-switch">0</div><div class="l">Switch</div></div>
+      <div class="stat-box"><div class="n" id="res-transformer">0</div><div class="l">Transformer</div></div>
+      <div class="stat-box"><div class="n" id="res-dropped">0</div><div class="l">แถวที่ตัดทิ้ง (ข้อมูลไม่ครบ)</div></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn primary" id="btn-dl-data">⬇️ ดาวน์โหลด data.js</button>
+      <button class="btn primary" id="btn-dl-equipment">⬇️ ดาวน์โหลด equipment-data.js</button>
+    </div>
+    <div class="card-desc" style="margin-top:10px;margin-bottom:0;">
+      นำไฟล์ทั้งสองไปอัปโหลดทับของเดิมที่ github.com (path เดิม: <code>data.js</code> และ <code>equipment-data.js</code>)
+    </div>
+  </div>
+
+  <div class="card hidden" id="card-compare">
+    <div class="card-title">📊 3. เทียบกับข้อมูลปัจจุบันบน GitHub</div>
+    <div class="card-desc">ดึง data.js / equipment-data.js เวอร์ชันปัจจุบันจาก GitHub มาเทียบกับข้อมูลที่เพิ่งแปลง เพื่อดูว่าไตรมาสนี้เปลี่ยนไปจากเดิมอย่างไร</div>
+    <button class="btn secondary" id="btn-compare">🔍 ดึงข้อมูลปัจจุบันมาเปรียบเทียบ</button>
+    <div id="compare-result" class="hidden" style="margin-top:12px;">
+      <div class="diff-row"><span class="lbl">ผู้ใช้ไฟฟ้า (เดิม → ใหม่)</span><span class="diff-val" id="cmp-cust-total"></span></div>
+      <div class="diff-row"><span class="lbl">➕ รายใหม่ที่เพิ่มเข้ามา</span><span class="diff-val up" id="cmp-cust-added"></span></div>
+      <div class="diff-row"><span class="lbl">➖ รายที่หายไปจากเดิม</span><span class="diff-val down" id="cmp-cust-removed"></span></div>
+      <details id="cmp-cust-added-details"></details>
+      <details id="cmp-cust-removed-details"></details>
+
+      <div style="height:8px;"></div>
+      <div class="diff-row"><span class="lbl">อุปกรณ์รวม (เดิม → ใหม่)</span><span class="diff-val" id="cmp-eq-total"></span></div>
+      <div class="diff-row"><span class="lbl">Recloser</span><span class="diff-val" id="cmp-eq-recloser"></span></div>
+      <div class="diff-row"><span class="lbl">Switch</span><span class="diff-val" id="cmp-eq-switch"></span></div>
+      <div class="diff-row"><span class="lbl">Transformer</span><span class="diff-val" id="cmp-eq-transformer"></span></div>
+      <div class="diff-row"><span class="lbl">➕ อุปกรณ์ใหม่</span><span class="diff-val up" id="cmp-eq-added"></span></div>
+      <div class="diff-row"><span class="lbl">➖ อุปกรณ์ที่หายไป</span><span class="diff-val down" id="cmp-eq-removed"></span></div>
+      <details id="cmp-eq-added-details"></details>
+      <details id="cmp-eq-removed-details"></details>
+    </div>
+    <div id="compare-fallback" class="hidden" style="margin-top:12px;">
+      <div class="card-desc" style="margin-bottom:8px;">ดึงจาก GitHub ไม่สำเร็จ (อาจเป็นเพราะเน็ตหรือ repo เป็น private) — อัปโหลดไฟล์ data.js / equipment-data.js เวอร์ชันเดิมเพื่อเทียบแทนได้</div>
+      <input type="file" id="old-data-input" accept=".js" style="margin-bottom:6px;">
+      <input type="file" id="old-equipment-input" accept=".js">
+      <button class="btn secondary" id="btn-compare-manual" style="margin-top:10px;">เปรียบเทียบจากไฟล์ที่อัปโหลด</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════════
+let selectedFiles = [];
+let newCustomers = null;   // Map<PEANO, record>
+let newEquipment = null;   // Map<"tp::id", record>
+let newStats = null;
+
+const GITHUB_DATA_URL = 'https://raw.githubusercontent.com/appsheetbtah-stack/pea_app/main/data.js';
+const GITHUB_EQUIP_URL = 'https://raw.githubusercontent.com/appsheetbtah-stack/pea_app/main/equipment-data.js';
+
+// ══════════════════════════════════════════════════════════════════
+// FILE PICKER / DROPZONE
+// ══════════════════════════════════════════════════════════════════
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+const fileListEl = document.getElementById('file-list');
+const btnConvert = document.getElementById('btn-convert');
+
+dropzone.addEventListener('click', () => fileInput.click());
+['dragover', 'dragenter'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
+['dragleave', 'drop'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
+dropzone.addEventListener('drop', e => {
+  const files = [...e.dataTransfer.files].filter(f => f.name.toLowerCase().endsWith('.xlsx'));
+  addFiles(files);
+});
+fileInput.addEventListener('change', e => { addFiles([...e.target.files]); fileInput.value = ''; });
+
+function addFiles(files) {
+  files.forEach(f => {
+    if (!selectedFiles.some(x => x.name === f.name && x.size === f.size)) selectedFiles.push(f);
+  });
+  renderFileList();
+}
+function removeFile(i) { selectedFiles.splice(i, 1); renderFileList(); }
+function renderFileList() {
+  fileListEl.innerHTML = selectedFiles.map((f, i) => `
+    <div class="file-item">
+      <span class="fname">📄 ${escHtml(f.name)}</span>
+      <span class="fsize">${(f.size / 1024).toFixed(0)} KB</span>
+      <button class="frm" onclick="removeFile(${i})">✕</button>
+    </div>`).join('');
+  btnConvert.disabled = selectedFiles.length === 0;
+}
+function escHtml(s) { return (s ?? '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ══════════════════════════════════════════════════════════════════
+// LOG HELPERS
+// ══════════════════════════════════════════════════════════════════
+const logEl = document.getElementById('log');
+const cardLog = document.getElementById('card-log');
+function log(msg, cls) {
+  cardLog.classList.remove('hidden');
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = msg;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CONVERSION LOGIC (ตรงกับที่ใช้แปลงไฟล์ไตรมาสก่อนหน้า)
+// ══════════════════════════════════════════════════════════════════
+const LAT_RANGE = [4, 21];
+const LON_RANGE = [95, 106];
+function isLat(v) { return typeof v === 'number' && !isNaN(v) && v >= LAT_RANGE[0] && v <= LAT_RANGE[1]; }
+function isLon(v) { return typeof v === 'number' && !isNaN(v) && v >= LON_RANGE[0] && v <= LON_RANGE[1]; }
+function s(v) { if (v === null || v === undefined) return ''; return String(v).trim(); }
+
+// สแกนทั้งแถวหาค่าพิกัดที่หลุดไปอยู่ผิดคอลัมน์ (กรณีไฟล์ต้นทางแถวเพี้ยน)
+function recoverLatLon(rowObj) {
+  let lat = null, lon = null;
+  for (const v of Object.values(rowObj)) {
+    if (isLat(v) && lat === null) lat = v;
+    else if (isLon(v) && lon === null) lon = v;
+  }
+  return [lat, lon];
+}
+// ลองหลายชื่อคอลัมน์ (กันเคสเว้นวรรคท้าย/สะกดเพี้ยนเล็กน้อย)
+function pick(rowObj, candidates) {
+  for (const c of candidates) {
+    if (rowObj[c] !== undefined && rowObj[c] !== null && rowObj[c] !== '') return rowObj[c];
+  }
+  const keys = Object.keys(rowObj);
+  for (const c of candidates) {
+    const ct = c.trim();
+    const found = keys.find(k => k.trim() === ct);
+    if (found && rowObj[found] !== undefined && rowObj[found] !== null && rowObj[found] !== '') return rowObj[found];
+  }
+  return null;
+}
+function looksNumeric(str) {
+  if (!str) return false;
+  return !isNaN(parseFloat(str)) && isFinite(str);
+}
+
+const CUSTOMER_FIELDS = ['CA','PEANO','PREFIX','CUSTOMERNAME','CUSTOMERSIRNAME','ADDRESSNO','MOO','TUMBOL','AMPHOE','CHANGWAT','MOBILE_NO','METERTYPE'];
+
+function extractCustomers(rows, map, stats) {
+  for (const row of rows) {
+    const peano = s(pick(row, ['PEANO']));
+    if (!peano) { stats.customerDropped++; continue; }
+
+    let lat = pick(row, ['LATITUDE']);
+    let lon = pick(row, ['LONGITUDE']);
+    if (!isLat(lat) || !isLon(lon)) {
+      const [rl, rn] = recoverLatLon(row);
+      if (rl !== null) lat = rl;
+      if (rn !== null) lon = rn;
+    }
+    if (!isLat(lat) || !isLon(lon)) { stats.customerDropped++; continue; }
+
+    const rec = {};
+    CUSTOMER_FIELDS.forEach(k => rec[k] = s(pick(row, [k])));
+    rec.LATITUDE = lat;
+    rec.LONGITUDE = lon;
+    map.set(peano, rec);
+  }
+}
+
+function extractEquipment(rows, tp, map, stats) {
+  for (const row of rows) {
+    let st, idCandidates;
+    if (tp === 'recloser') {
+      st = s(pick(row, ['ชนิดของฉนวน']));
+      idCandidates = ['รหัสอุปกรณ์'];
+    } else if (tp === 'switch') {
+      st = s(pick(row, ['ประเภทย่อยของสวิทช์ ', 'ประเภทย่อยของสวิทช์']));
+      idCandidates = ['รหัสอุปกรณ์'];
+    } else {
+      st = s(pick(row, ['ระบบเฟส']));
+      idCandidates = ['PEANO หม้อแปลง'];
+    }
+
+    let devId = s(pick(row, idCandidates));
+    if (!devId) devId = s(pick(row, ['รหัส TAG']));
+    if (!devId) { stats.equipmentDropped++; continue; }
+
+    // ค่า "ประเภท/ชนิด" ต้องเป็นข้อความเสมอ ถ้าดันเป็นตัวเลขล้วนๆ แปลว่าพิกัดหลุดมาปนช่องผิด ไม่ใช่ข้อมูลจริง
+    if (looksNumeric(st)) st = '';
+
+    let lat = pick(row, ['LATITUDE']);
+    let lon = pick(row, ['LONGITUDE']);
+    if (!isLat(lat) || !isLon(lon)) {
+      const [rl, rn] = recoverLatLon(row);
+      if (rl !== null) lat = rl;
+      if (rn !== null) lon = rn;
+    }
+    if (!isLat(lat) || !isLon(lon)) { stats.equipmentDropped++; continue; }
+
+    const ph = s(pick(row, ['เฟสที่ติดตั้ง']));
+    const loc = s(pick(row, ['สถานที่']));
+    const fd = s(pick(row, ['รหัสสายป้อนที่ 1']));
+    let kva = '', own = '', ut = '', it = '';
+    if (tp === 'transformer') {
+      kva = s(pick(row, ['ค่าพิกัด kVA หม้อแปลง']));
+      own = s(pick(row, ['เจ้าของหม้อแปลง']));
+      ut = s(pick(row, ['ประเภทผู้ใช้ไฟ']));
+      it = s(pick(row, ['ประเภทการติดตั้ง']));
+    }
+
+    map.set(tp + '::' + devId, { tp, st, id: devId, ph, loc, fd, kva, own, ut, it, la: lat, ln: lon });
+  }
+}
+
+const EQUIP_SHEETS = { 'DS_Recloser': 'recloser', 'DS_Switch': 'switch', 'DS_Transformer': 'transformer' };
+
+async function convertFiles() {
+  btnConvert.disabled = true;
+  btnConvert.textContent = 'กำลังแปลง...';
+  logEl.innerHTML = '';
+  document.getElementById('card-result').classList.add('hidden');
+  document.getElementById('card-compare').classList.add('hidden');
+
+  const customersMap = new Map();
+  const equipmentMap = new Map();
+  const stats = { customerDropped: 0, equipmentDropped: 0 };
+
+  for (const file of selectedFiles) {
+    log(`📂 กำลังอ่าน ${file.name}...`);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array', cellDates: false });
+      let foundAny = false;
+
+      if (wb.SheetNames.includes('DS_LowVoltageMeter')) {
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets['DS_LowVoltageMeter'], { defval: null, raw: true });
+        extractCustomers(rows, customersMap, stats);
+        log(`   ✓ DS_LowVoltageMeter: ${rows.length} แถว`, 'ok');
+        foundAny = true;
+      }
+      for (const [sheetName, tp] of Object.entries(EQUIP_SHEETS)) {
+        if (wb.SheetNames.includes(sheetName)) {
+          const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: null, raw: true });
+          extractEquipment(rows, tp, equipmentMap, stats);
+          log(`   ✓ ${sheetName}: ${rows.length} แถว`, 'ok');
+          foundAny = true;
+        }
+      }
+      if (!foundAny) log(`   ⚠️ ไม่พบชีทที่รู้จักในไฟล์นี้ (${wb.SheetNames.join(', ')})`, 'warn');
+    } catch (e) {
+      log(`   ✗ อ่านไฟล์ไม่สำเร็จ: ${e.message}`, 'err');
+    }
+  }
+
+  newCustomers = customersMap;
+  newEquipment = equipmentMap;
+  newStats = stats;
+
+  log(`\n✅ เสร็จสิ้น: ผู้ใช้ไฟฟ้า ${customersMap.size} ราย, อุปกรณ์ ${equipmentMap.size} เครื่อง`, 'ok');
+  if (stats.customerDropped || stats.equipmentDropped) {
+    log(`⚠️ ตัดทิ้ง ${stats.customerDropped + stats.equipmentDropped} แถว (ไม่มีรหัส/พิกัดใช้งานไม่ได้)`, 'warn');
+  }
+
+  showResults();
+  btnConvert.disabled = false;
+  btnConvert.textContent = 'แปลงข้อมูล';
+}
+
+document.getElementById('btn-convert').addEventListener('click', convertFiles);
+
+function showResults() {
+  const tpCount = { recloser: 0, switch: 0, transformer: 0 };
+  for (const rec of newEquipment.values()) tpCount[rec.tp] = (tpCount[rec.tp] || 0) + 1;
+
+  document.getElementById('res-customers').textContent = newCustomers.size.toLocaleString();
+  document.getElementById('res-equipment').textContent = newEquipment.size.toLocaleString();
+  document.getElementById('res-recloser').textContent = tpCount.recloser;
+  document.getElementById('res-switch').textContent = tpCount.switch;
+  document.getElementById('res-transformer').textContent = tpCount.transformer;
+  document.getElementById('res-dropped').textContent = (newStats.customerDropped + newStats.equipmentDropped);
+
+  document.getElementById('card-result').classList.remove('hidden');
+  document.getElementById('card-compare').classList.remove('hidden');
+  document.getElementById('card-result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DOWNLOAD
+// ══════════════════════════════════════════════════════════════════
+function downloadText(filename, text) {
+  const blob = new Blob([text], { type: 'text/javascript' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+function todayStr() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+function buildDataJs() {
+  const arr = [...newCustomers.values()];
+  return `// PEA Customer Records Data\n// Auto-extracted from index.html\nconst ALL_RECORDS = ${JSON.stringify(arr)};`;
+}
+function buildEquipmentJs() {
+  const arr = [...newEquipment.values()];
+  const tpCount = { recloser: 0, switch: 0, transformer: 0 };
+  arr.forEach(r => tpCount[r.tp] = (tpCount[r.tp] || 0) + 1);
+  return `// อุปกรณ์ในระบบจำหน่าย - กฟส.ทอห.\n// อัปเดตล่าสุด: ${todayStr()}\n// Recloser: ${tpCount.recloser} | Switch: ${tpCount.switch} | Transformer: ${tpCount.transformer} | รวม: ${arr.length}\n// วิธีอัปเดต: ส่งไฟล์ Excel ใหม่ → สร้างไฟล์นี้ใหม่ → upload แทนที่\n\nconst EQUIPMENT = ${JSON.stringify(arr)};`;
+}
+document.getElementById('btn-dl-data').addEventListener('click', () => downloadText('data.js', buildDataJs()));
+document.getElementById('btn-dl-equipment').addEventListener('click', () => downloadText('equipment-data.js', buildEquipmentJs()));
+
+// ══════════════════════════════════════════════════════════════════
+// COMPARE WITH CURRENT GITHUB VERSION
+// ══════════════════════════════════════════════════════════════════
+function parseOldDataJs(text) {
+  const m = text.match(/const ALL_RECORDS\s*=\s*(\[[\s\S]*\]);/);
+  if (!m) throw new Error('ไม่พบ ALL_RECORDS ในไฟล์');
+  return JSON.parse(m[1]);
+}
+function parseOldEquipmentJs(text) {
+  const m = text.match(/const EQUIPMENT\s*=\s*(\[[\s\S]*\]);/);
+  if (!m) throw new Error('ไม่พบ EQUIPMENT ในไฟล์');
+  return JSON.parse(m[1]);
+}
+
+function renderCompare(oldCustomersArr, oldEquipmentArr) {
+  const oldCustMap = new Map(oldCustomersArr.map(r => [s(r.PEANO), r]));
+  const newCustMap = newCustomers;
+  const custAdded = [...newCustMap.keys()].filter(k => !oldCustMap.has(k));
+  const custRemoved = [...oldCustMap.keys()].filter(k => !newCustMap.has(k));
+
+  const oldEqMap = new Map(oldEquipmentArr.map(r => [r.tp + '::' + r.id, r]));
+  const newEqMap = newEquipment;
+  const eqAdded = [...newEqMap.keys()].filter(k => !oldEqMap.has(k));
+  const eqRemoved = [...oldEqMap.keys()].filter(k => !newEqMap.has(k));
+
+  const oldTp = { recloser: 0, switch: 0, transformer: 0 };
+  oldEquipmentArr.forEach(r => oldTp[r.tp] = (oldTp[r.tp] || 0) + 1);
+  const newTp = { recloser: 0, switch: 0, transformer: 0 };
+  for (const r of newEqMap.values()) newTp[r.tp] = (newTp[r.tp] || 0) + 1;
+
+  function deltaSpan(oldN, newN) {
+    const cls = newN > oldN ? 'up' : (newN < oldN ? 'down' : 'flat');
+    const sign = newN > oldN ? '+' : '';
+    return `<span class="${cls}">${oldN.toLocaleString()} → ${newN.toLocaleString()} (${sign}${(newN - oldN).toLocaleString()})</span>`;
+  }
+
+  document.getElementById('cmp-cust-total').innerHTML = deltaSpan(oldCustMap.size, newCustMap.size);
+  document.getElementById('cmp-cust-added').textContent = custAdded.length.toLocaleString();
+  document.getElementById('cmp-cust-removed').textContent = custRemoved.length.toLocaleString();
+  document.getElementById('cmp-cust-added-details').innerHTML = listDetails('รายชื่อ PEANO ที่เพิ่มเข้ามา', custAdded);
+  document.getElementById('cmp-cust-removed-details').innerHTML = listDetails('รายชื่อ PEANO ที่หายไป', custRemoved);
+
+  document.getElementById('cmp-eq-total').innerHTML = deltaSpan(oldEqMap.size, newEqMap.size);
+  document.getElementById('cmp-eq-recloser').innerHTML = deltaSpan(oldTp.recloser, newTp.recloser);
+  document.getElementById('cmp-eq-switch').innerHTML = deltaSpan(oldTp.switch, newTp.switch);
+  document.getElementById('cmp-eq-transformer').innerHTML = deltaSpan(oldTp.transformer, newTp.transformer);
+  document.getElementById('cmp-eq-added').textContent = eqAdded.length.toLocaleString();
+  document.getElementById('cmp-eq-removed').textContent = eqRemoved.length.toLocaleString();
+  document.getElementById('cmp-eq-added-details').innerHTML = listDetails('รหัสอุปกรณ์ที่เพิ่มเข้ามา', eqAdded);
+  document.getElementById('cmp-eq-removed-details').innerHTML = listDetails('รหัสอุปกรณ์ที่หายไป', eqRemoved);
+
+  document.getElementById('compare-result').classList.remove('hidden');
+  document.getElementById('compare-fallback').classList.add('hidden');
+}
+
+function listDetails(title, keys) {
+  if (!keys.length) return '';
+  const shown = keys.slice(0, 50);
+  const more = keys.length > 50 ? `<div>... และอีก ${keys.length - 50} รายการ</div>` : '';
+  return `<summary>${escHtml(title)} (${keys.length})</summary><div class="diff-list">${shown.map(k => `<div>${escHtml(k)}</div>`).join('')}${more}</div>`;
+}
+
+document.getElementById('btn-compare').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-compare');
+  btn.disabled = true; btn.textContent = 'กำลังดึงข้อมูล...';
+  try {
+    const [dataRes, eqRes] = await Promise.all([fetch(GITHUB_DATA_URL), fetch(GITHUB_EQUIP_URL)]);
+    if (!dataRes.ok || !eqRes.ok) throw new Error('fetch failed');
+    const [dataText, eqText] = await Promise.all([dataRes.text(), eqRes.text()]);
+    renderCompare(parseOldDataJs(dataText), parseOldEquipmentJs(eqText));
+  } catch (e) {
+    document.getElementById('compare-fallback').classList.remove('hidden');
+  }
+  btn.disabled = false; btn.textContent = '🔍 ดึงข้อมูลปัจจุบันมาเปรียบเทียบ';
+});
+
+document.getElementById('btn-compare-manual').addEventListener('click', async () => {
+  const dataFile = document.getElementById('old-data-input').files[0];
+  const eqFile = document.getElementById('old-equipment-input').files[0];
+  if (!dataFile || !eqFile) { alert('กรุณาเลือกไฟล์ data.js และ equipment-data.js เดิมให้ครบทั้งสองไฟล์'); return; }
+  try {
+    const [dataText, eqText] = await Promise.all([dataFile.text(), eqFile.text()]);
+    renderCompare(parseOldDataJs(dataText), parseOldEquipmentJs(eqText));
+  } catch (e) {
+    alert('อ่านไฟล์เปรียบเทียบไม่สำเร็จ: ' + e.message);
+  }
+});
+</script>
+</body>
+</html>
