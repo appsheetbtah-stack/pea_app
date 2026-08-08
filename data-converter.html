@@ -29,7 +29,13 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   background:var(--surface); border-bottom:1px solid var(--border);
   display:flex; align-items:center; gap:10px; padding:0 16px;
 }
-.topbar .back { color:var(--text2); text-decoration:none; font-size:14px; white-space:nowrap; }
+.topbar .back {
+  color:var(--text2); text-decoration:none; font-size:13px;
+  display:flex; align-items:center; gap:4px;
+  padding:6px 10px; border:1px solid var(--border); border-radius:6px;
+  flex-shrink:0; transition:color .15s;
+}
+.topbar .back:hover { color:var(--accent); border-color:var(--accent); }
 .topbar .title { font-size:16px; font-weight:700; }
 
 .wrap { max-width:640px; margin:0 auto; padding:16px; display:flex; flex-direction:column; gap:16px; }
