@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบตัดงบทำการประจำปี 2569</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;background:#0b1220;font-family:'Sarabun','Noto Sans Thai',sans-serif;color:#e2e8f0;font-size:15px;padding-bottom:76px}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#1e293b}::-webkit-scrollbar-thumb{background:#475569;border-radius:3px}
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.page{display:none;animation:fadeUp .25s ease}
+.page.active{display:block}
+
+/* ===== HEADER ===== */
+.header{padding:16px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:rgba(11,18,32,0.96);backdrop-filter:blur(10px);z-index:100;border-bottom:1px solid #1e293b;box-shadow:0 1px 8px rgba(0,0,0,0.3)}
+.header-left{display:flex;align-items:center;gap:12px}
+.back-btn{width:36px;height:36px;border-radius:10px;border:1.5px solid #263149;background:#151f34;cursor:pointer;display:none;align-items:center;justify-content:center;font-size:18px;color:#94a3b8;transition:all .2s}
+.back-btn:hover{border-color:#0ea5e9;color:#38bdf8}
+.header-label{font-size:9px;color:#38bdf8;font-family:monospace;letter-spacing:2px;font-weight:700;margin-bottom:2px}
+.header-title{font-size:17px;font-weight:800;color:#f1f5f9;line-height:1.2}
+.header-title span{color:#38bdf8}
+.header-sub{font-size:12px;color:#94a3b8;margin-top:1px;display:none}
+
+/* ===== MAIN LIST PAGE ===== */
+.main{max-width:900px;margin:0 auto;padding:20px 16px}
+
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+.card{background:#131c30;border-radius:14px;padding:18px 20px;border:1px solid #22304a;box-shadow:0 1px 6px rgba(0,0,0,0.25)}
+.card-label{font-size:10px;color:#94a3b8;margin-bottom:8px;letter-spacing:.5px;font-weight:600;text-transform:uppercase}
+.card-value{font-size:20px;font-weight:800}
+.card-unit{font-size:10px;color:#64748b;margin-top:3px}
+.card-total{border-top:3px solid #64748b}.card-total .card-value{color:#e2e8f0}
+.card-used{border-top:3px solid #fb923c}.card-used .card-value{color:#fb923c}
+.card-rem{border-top:3px solid #38bdf8}.card-rem .card-value{color:#38bdf8}
+
+.progress-box{background:#131c30;border-radius:14px;padding:16px 20px;margin-bottom:18px;border:1px solid #22304a;box-shadow:0 1px 6px rgba(0,0,0,0.25)}
+.progress-row{display:flex;justify-content:space-between;margin-bottom:10px;font-size:12px;color:#94a3b8;font-weight:600}
+.progress-bar{height:8px;background:#1e293b;border-radius:6px;overflow:hidden}
+.progress-fill{height:100%;border-radius:6px;transition:width .5s ease;background:linear-gradient(90deg,#38bdf8,#0284c7)}
+
+.search-box{width:100%;background:#131c30;border:1.5px solid #22304a;border-radius:10px;padding:11px 16px;color:#f1f5f9;font-size:14px;outline:none;margin-bottom:14px;font-family:inherit;transition:border .2s;box-shadow:0 1px 4px rgba(0,0,0,0.2)}
+.search-box::placeholder{color:#64748b}
+.search-box:focus{border-color:#0ea5e9;box-shadow:0 0 0 3px rgba(14,165,233,0.15)}
+
+.table-wrap{background:#131c30;border-radius:14px;border:1px solid #22304a;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,0.25)}
+.table-head{display:grid;grid-template-columns:120px 1fr 130px 130px 130px;background:#0e1728;padding:11px 20px;border-bottom:1.5px solid #22304a}
+.th{font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.th.r{text-align:right}
+
+.table-row{display:grid;grid-template-columns:120px 1fr 130px 130px 130px;padding:14px 20px;border-bottom:1px solid #1e293b;align-items:center;cursor:pointer;transition:background .15s;position:relative}
+.table-row:last-child{border-bottom:none}
+.table-row:hover{background:#182338}
+.table-row:hover .td-arrow{opacity:1}
+.td-code{font-size:11px;color:#38bdf8;font-family:monospace;font-weight:700}
+.td-name{font-size:13px;color:#e2e8f0;padding-right:10px;line-height:1.4}
+.mini-bar-wrap{margin-top:4px;height:3px;background:#1e293b;border-radius:2px;overflow:hidden}
+.mini-bar-fill{height:100%;border-radius:2px;transition:width .4s}
+.td-num{text-align:right;font-size:13px;color:#94a3b8}
+.td-used{text-align:right;font-size:13px;color:#475569}
+.td-used.active{color:#fb923c;font-weight:600}
+.td-rem{text-align:right;font-size:13px;font-weight:700;color:#38bdf8}
+.td-rem.warn{color:#f59e0b}.td-rem.danger{color:#ef4444}
+.td-arrow{position:absolute;right:16px;top:50%;transform:translateY(-50%);color:#475569;font-size:16px;opacity:0;transition:opacity .15s}
+.no-result{padding:40px;text-align:center;color:#94a3b8;font-size:14px}
+.tfoot{text-align:center;margin-top:12px;font-size:11px;color:#64748b}
+
+/* ===== DETAIL PAGE ===== */
+.detail-main{max-width:700px;margin:0 auto;padding:20px 16px}
+
+.detail-hero{background:#131c30;border-radius:16px;padding:22px 24px;border:1px solid #22304a;box-shadow:0 2px 10px rgba(0,0,0,0.25);margin-bottom:18px}
+.detail-code{font-size:10px;color:#38bdf8;font-family:monospace;letter-spacing:2px;font-weight:700;margin-bottom:6px}
+.detail-name{font-size:18px;font-weight:800;color:#f1f5f9;margin-bottom:18px;line-height:1.4}
+.detail-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.stat-box{background:#0e1728;border-radius:10px;padding:14px;border:1px solid #22304a;text-align:center}
+.stat-label{font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.stat-val{font-size:18px;font-weight:800}
+.stat-val.gray{color:#cbd5e1}.stat-val.orange{color:#fb923c}.stat-val.blue{color:#38bdf8}
+.detail-prog-wrap{margin-top:16px}
+.detail-prog-label{display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-bottom:6px}
+.detail-prog-bar{height:8px;background:#1e293b;border-radius:6px;overflow:hidden}
+.detail-prog-fill{height:100%;border-radius:6px;transition:width .5s ease}
+
+/* cut form */
+.cut-section{background:#131c30;border-radius:16px;padding:22px 24px;border:1px solid #22304a;box-shadow:0 2px 10px rgba(0,0,0,0.25);margin-bottom:18px}
+.section-title{font-size:13px;font-weight:700;color:#f1f5f9;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.section-title::before{content:'';display:inline-block;width:4px;height:16px;background:#0284c7;border-radius:2px}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.field label{font-size:12px;color:#94a3b8;font-weight:600}
+.field input{background:#0e1728;border:1.5px solid #22304a;border-radius:10px;padding:11px 14px;color:#f1f5f9;font-size:14px;outline:none;font-family:inherit;transition:all .2s;width:100%}
+.field input:focus{border-color:#0ea5e9;background:#131c30;box-shadow:0 0 0 3px rgba(14,165,233,0.15)}
+.error-msg{color:#fca5a5;font-size:12px;background:#2c0f0f;padding:10px 14px;border-radius:8px;margin-bottom:12px;display:none;border:1px solid #5c1f1f}
+.success-msg{color:#86efac;font-size:12px;background:#052e16;padding:10px 14px;border-radius:8px;margin-bottom:12px;display:none;border:1px solid #166534}
+.btn-primary{width:100%;padding:13px 0;background:linear-gradient(135deg,#0ea5e9,#0284c7);border:none;border-radius:10px;color:#fff;cursor:pointer;font-size:15px;font-weight:700;font-family:inherit;box-shadow:0 4px 12px rgba(2,132,199,0.25);transition:opacity .2s}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+
+/* history in detail */
+.hist-section{background:#131c30;border-radius:16px;padding:22px 24px;border:1px solid #22304a;box-shadow:0 2px 10px rgba(0,0,0,0.25)}
+.hist-empty{text-align:center;color:#94a3b8;padding:24px;font-size:13px}
+.hist-item{border:1px solid #22304a;border-radius:10px;padding:14px 16px;margin-bottom:10px;background:#0e1728;transition:box-shadow .15s}
+.hist-item:last-child{margin-bottom:0}
+.hist-item-top{display:flex;justify-content:space-between;align-items:flex-start}
+.hist-date{font-size:11px;color:#94a3b8;margin-bottom:3px}
+.hist-note{font-size:12px;color:#94a3b8}
+.hist-amount{font-size:16px;font-weight:800;color:#fb923c;white-space:nowrap}
+.hist-actions{display:flex;gap:6px;margin-top:10px}
+.btn-edit-hist{padding:5px 12px;background:#0c2740;border:1.5px solid #1e4a6e;border-radius:7px;color:#38bdf8;cursor:pointer;font-size:11px;font-family:inherit;font-weight:600;transition:all .15s}
+.btn-edit-hist:hover{background:#0284c7;color:#fff;border-color:#0284c7}
+.btn-del-hist{padding:5px 12px;background:#2c0f0f;border:1.5px solid #5c1f1f;border-radius:7px;color:#f87171;cursor:pointer;font-size:11px;font-family:inherit;font-weight:600;transition:all .15s}
+.btn-del-hist:hover{background:#dc2626;color:#fff;border-color:#dc2626}
+
+/* edit inline */
+.edit-form{margin-top:10px;padding:12px;background:#101a2e;border-radius:8px;border:1px solid #22304a;display:none}
+.edit-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.edit-field{display:flex;flex-direction:column;gap:4px}
+.edit-field label{font-size:10px;color:#94a3b8;font-weight:600}
+.edit-field input{background:#131c30;border:1.5px solid #22304a;border-radius:7px;padding:8px 10px;color:#f1f5f9;font-size:13px;outline:none;font-family:inherit;transition:border .2s}
+.edit-field input:focus{border-color:#0ea5e9}
+.edit-actions{display:flex;gap:6px}
+.btn-save{flex:1;padding:8px 0;background:#0284c7;border:none;border-radius:7px;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit}
+.btn-save:hover{opacity:.9}
+.btn-discard{flex:1;padding:8px 0;background:#131c30;border:1.5px solid #334155;border-radius:7px;color:#94a3b8;cursor:pointer;font-size:12px;font-family:inherit}
+
+/* overlay confirm delete */
+.overlay{position:fixed;inset:0;background:rgba(2,6,16,0.6);display:flex;align-items:center;justify-content:center;z-index:999;backdrop-filter:blur(4px);animation:fadeIn .2s}
+.confirm-box{background:#151f34;border-radius:16px;padding:28px 28px 24px;width:min(360px,90vw);box-shadow:0 20px 50px rgba(0,0,0,0.4);border:1px solid #22304a}
+.confirm-title{font-size:16px;font-weight:700;color:#f1f5f9;margin-bottom:8px}
+.confirm-msg{font-size:13px;color:#94a3b8;margin-bottom:20px;line-height:1.5}
+.confirm-actions{display:flex;gap:8px}
+.btn-conf-cancel{flex:1;padding:11px 0;background:#131c30;border:1.5px solid #334155;border-radius:9px;color:#94a3b8;cursor:pointer;font-size:14px;font-family:inherit;font-weight:600}
+.btn-conf-del{flex:1;padding:11px 0;background:#dc2626;border:none;border-radius:9px;color:#fff;cursor:pointer;font-size:14px;font-weight:700;font-family:inherit}
+.btn-conf-del:hover{opacity:.9}
+
+@media(max-width:600px){
+  .cards{grid-template-columns:1fr 1fr;gap:10px}
+  .card-total{grid-column:1/-1}
+  .table-head{display:none}
+  .table-row{grid-template-columns:1fr;gap:3px}
+  .td-num,.td-used,.td-rem{text-align:left}
+  .detail-stats{grid-template-columns:1fr 1fr}
+  .stat-box:last-child{grid-column:1/-1}
+}
+
+/* ===== PRINT SLIP MODAL ===== */
+.print-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.55);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(6px);animation:fadeIn .2s}
+.print-modal{background:#fff;border-radius:18px;width:min(720px,96vw);max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.2);display:flex;flex-direction:column}
+.print-modal-head{padding:18px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border-radius:18px 18px 0 0}
+.print-modal-title{font-size:15px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:8px}
+.print-modal-title svg{color:#0284c7}
+.print-modal-actions{display:flex;gap:8px}
+.btn-close-modal{width:34px;height:34px;border-radius:9px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-size:18px;color:#64748b;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.btn-close-modal:hover{border-color:#dc2626;color:#dc2626}
+.btn-do-print{padding:8px 20px;background:linear-gradient(135deg,#0ea5e9,#0284c7);border:none;border-radius:9px;color:#fff;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(2,132,199,0.25);transition:opacity .2s}
+.btn-do-print:hover{opacity:.9}
+.print-modal-body{padding:24px;overflow-y:auto}
+
+/* ===== SLIP DESIGN ===== */
+.slip-wrap{background:#fff;font-family:'Sarabun','Noto Sans Thai',sans-serif}
+.slip-header-band{background:linear-gradient(135deg,#0f172a 0%,#0284c7 100%);border-radius:10px;padding:12px 20px;color:#fff;margin-bottom:10px;position:relative;overflow:hidden}
+.slip-header-band::before{content:'';position:absolute;right:-20px;top:-20px;width:100px;height:100px;background:rgba(255,255,255,0.06);border-radius:50%}
+.slip-header-band::after{content:'';position:absolute;right:40px;bottom:-50px;width:180px;height:180px;background:rgba(255,255,255,0.04);border-radius:50%}
+.slip-org{font-size:9px;letter-spacing:2.5px;opacity:.7;margin-bottom:2px;font-weight:600}
+.slip-title{font-size:18px;font-weight:800;margin-bottom:2px;letter-spacing:.5px}
+.slip-subtitle{font-size:12px;opacity:.7}
+.slip-badge{position:absolute;top:12px;right:18px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;letter-spacing:1px;color:#fff}
+
+.slip-doc-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1.5px dashed #e2e8f0}
+.slip-doc-no{font-size:12px;color:#64748b}
+.slip-doc-no strong{color:#0f172a;font-size:14px}
+.slip-doc-date{font-size:12px;color:#64748b;text-align:right}
+.slip-doc-date strong{color:#0f172a;font-size:14px}
+
+.slip-date-row{display:flex;justify-content:center;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:1.5px dashed #e2e8f0}
+.slip-date-label{font-size:11px;color:#64748b;font-weight:600}
+.slip-date-val{font-size:13px;font-weight:700;color:#0f172a}
+
+.slip-account-box{background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:10px}
+.slip-account-label{font-size:9px;color:#0284c7;letter-spacing:1.5px;font-weight:700;margin-bottom:3px}
+.slip-account-code{font-size:11px;color:#0284c7;font-family:monospace;font-weight:700;margin-bottom:2px}
+.slip-account-name{font-size:15px;font-weight:800;color:#0f172a;line-height:1.4}
+
+.slip-amount-box{background:linear-gradient(135deg,#fff7ed,#fff);border:2px solid #fdba74;border-radius:10px;padding:12px 16px;margin-bottom:10px;display:flex;flex-direction:column;gap:6px}
+.slip-amount-label{font-size:12px;color:#ea580c;font-weight:700;letter-spacing:.5px}
+.slip-amount-value{font-size:28px;font-weight:800;color:#ea580c;letter-spacing:.5px}
+.slip-amount-baht{font-size:13px;color:#ea580c;margin-top:3px;opacity:.7;text-align:center;width:100%}
+
+.slip-summary-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+.slip-sum-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center}
+.slip-sum-label{font-size:9px;color:#94a3b8;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px}
+.slip-sum-val{font-size:15px;font-weight:800}
+.slip-sum-val.gray{color:#334155}.slip-sum-val.orange{color:#ea580c}.slip-sum-val.blue{color:#0284c7}.slip-sum-val.green{color:#16a34a}
+
+.slip-note-box{background:#fafafa;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;margin-bottom:10px}
+.slip-note-label{font-size:9px;color:#94a3b8;font-weight:700;letter-spacing:.5px;margin-bottom:3px}
+.slip-note-val{color:#334155;font-size:12px}
+.slip-prog-wrap{margin-bottom:10px}
+
+.slip-approver-box{padding-top:10px;margin-top:48px}
+.slip-approver-row{display:flex;align-items:flex-start;gap:8px}
+.slip-approver-label{font-size:12px;color:#64748b;font-weight:700;white-space:nowrap;padding-top:1px}
+.slip-approver-right{display:flex;flex-direction:column;align-items:center;flex:1}
+.slip-approver-line{font-size:14px;color:#334155;letter-spacing:1px;width:100%;text-align:center}
+.slip-approver-name{font-size:13px;color:#0f172a;font-weight:700;margin-top:4px}
+.slip-approver-pos{font-size:12px;color:#64748b;margin-top:2px}
+
+.slip-footer{margin-top:18px;padding-top:14px;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center}
+.slip-footer-left{font-size:10px;color:#cbd5e1}
+.slip-footer-right{font-size:10px;color:#cbd5e1;text-align:right}
+.slip-qr-placeholder{width:48px;height:48px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:8px;color:#94a3b8;border:1px solid #e2e8f0;text-align:center;line-height:1.3}
+
+/* ===== PRINT BUTTON IN HISTORY ===== */
+.btn-print-hist{padding:5px 12px;background:#2c1a0a;border:1.5px solid #7c4a1e;border-radius:7px;color:#fb923c;cursor:pointer;font-size:11px;font-family:inherit;font-weight:600;transition:all .15s}
+.btn-print-hist:hover{background:#ea580c;color:#fff;border-color:#ea580c}
+.btn-print-all{padding:8px 18px;background:linear-gradient(135deg,#0ea5e9,#0284c7);border:none;border-radius:9px;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:inline-flex;align-items:center;gap:6px;transition:opacity .2s;box-shadow:0 3px 10px rgba(2,132,199,0.2);margin-top:14px}
+.btn-print-all:hover{opacity:.9}
+
+/* ===== MONTHLY CARD ===== */
+.monthly-card{background:linear-gradient(135deg,#052e16,#0a3320);border:1.5px solid #166534;border-radius:14px;padding:14px 16px;margin-top:14px}
+.monthly-top{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.monthly-icon{font-size:16px}
+.monthly-label{font-size:13px;font-weight:800;color:#4ade80;flex:1}
+.monthly-months{font-size:11px;color:#4ade80;background:#166534;padding:3px 8px;border-radius:6px;font-weight:700}
+.monthly-row{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:6px}
+.monthly-divider{width:1px;height:36px;background:#166534}
+.monthly-item{text-align:center}
+.monthly-sub{font-size:9px;color:#4ade80;font-weight:600;letter-spacing:.3px;margin-bottom:4px;text-transform:uppercase}
+.monthly-val{font-size:15px;font-weight:800;color:#4ade80}
+.monthly-val.gray{color:#94a3b8}
+.monthly-val.over{color:#f87171}
+.monthly-val.under{color:#38bdf8}
+.monthly-val.ok{color:#4ade80}
+
+/* ===== @PRINT (fallback ไม่ได้ใช้แล้ว) ===== */
+@media print{
+  body{display:none}
+}
+
+/* ===== HEADER ACTIONS ===== */
+.header-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.year-badge{background:#0a1220;color:#38bdf8;font-size:11px;font-weight:800;padding:4px 10px;border-radius:8px;letter-spacing:1px;white-space:nowrap;border:1px solid #1e4a6e}
+.hdr-btn{padding:6px 11px;border-radius:9px;border:1.5px solid #263149;background:#151f34;cursor:pointer;font-size:11px;font-weight:600;color:#cbd5e1;font-family:inherit;transition:all .2s;white-space:nowrap}
+.hdr-btn:hover{border-color:#0ea5e9;color:#38bdf8}
+.hdr-btn-new{background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff!important;border:none!important;box-shadow:0 2px 8px rgba(2,132,199,0.25)}
+.hdr-btn-new:hover{opacity:.9}
+.btn-gear{width:38px;height:38px;border-radius:11px;border:1.5px solid #263149;background:#151f34;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:17px;transition:all .2s}
+.btn-gear:hover{border-color:#0ea5e9;background:#1a2942;transform:rotate(25deg)}
+
+/* ===== LOGIN SCREEN ===== */
+#login-screen{position:fixed;inset:0;background:linear-gradient(135deg,#0f172a 0%,#0c4a6e 100%);display:flex;align-items:center;justify-content:center;z-index:99999;font-family:'Sarabun','Noto Sans Thai',sans-serif}
+.login-box{background:#151f34;border-radius:20px;padding:36px 32px;width:min(380px,92vw);box-shadow:0 24px 60px rgba(0,0,0,0.4);border:1px solid #22304a}
+.login-logo{text-align:center;margin-bottom:24px}
+.login-logo-icon{width:56px;height:56px;background:linear-gradient(135deg,#0ea5e9,#0284c7);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 12px}
+.login-logo-title{font-size:18px;font-weight:800;color:#f1f5f9}
+.login-logo-sub{font-size:12px;color:#94a3b8;margin-top:3px}
+.login-field{margin-bottom:14px}
+.login-field label{display:block;font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:6px;letter-spacing:.3px}
+.login-field input{width:100%;background:#0e1728;border:1.5px solid #22304a;border-radius:10px;padding:12px 14px;font-size:15px;color:#f1f5f9;outline:none;font-family:inherit;transition:all .2s}
+.login-field input:focus{border-color:#0ea5e9;background:#131c30;box-shadow:0 0 0 3px rgba(14,165,233,0.15)}
+.login-error{background:#2c0f0f;border:1px solid #5c1f1f;border-radius:8px;padding:10px 14px;font-size:12px;color:#fca5a5;margin-bottom:14px;display:none}
+.btn-login{width:100%;padding:13px 0;background:linear-gradient(135deg,#0ea5e9,#0284c7);border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(2,132,199,0.3);transition:opacity .2s;margin-top:4px}
+.btn-login:hover{opacity:.9}
+.btn-login:disabled{opacity:.5;cursor:not-allowed}
+
+/* ===== NEW YEAR MODAL ===== */
+.ny-overlay{position:fixed;inset:0;background:rgba(2,6,16,0.6);display:flex;align-items:center;justify-content:center;z-index:999;backdrop-filter:blur(4px)}
+.ny-modal{background:#151f34;border-radius:18px;width:min(560px,95vw);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.45);border:1px solid #22304a}
+.ny-head{padding:20px 24px;border-bottom:1px solid #22304a;background:#101a2e;border-radius:18px 18px 0 0;display:flex;justify-content:space-between;align-items:center}
+.ny-head-title{font-size:16px;font-weight:800;color:#f1f5f9}
+.ny-body{padding:20px 24px;overflow-y:auto;flex:1}
+.ny-year-row{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:16px;border-bottom:1.5px dashed #22304a}
+.ny-year-label{font-size:14px;font-weight:700;color:#cbd5e1;white-space:nowrap}
+.ny-year-input{flex:1;background:#0e1728;border:1.5px solid #22304a;border-radius:10px;padding:9px 14px;font-size:16px;font-weight:700;color:#f1f5f9;outline:none;font-family:inherit;text-align:center}
+.ny-year-input:focus{border-color:#0ea5e9}
+.ny-table-head{display:grid;grid-template-columns:100px 1fr 140px;gap:8px;padding:8px 4px;font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.ny-row{display:grid;grid-template-columns:100px 1fr 140px;gap:8px;align-items:center;padding:8px 4px;border-bottom:1px solid #1e293b}
+.ny-row:last-child{border-bottom:none}
+.ny-code{font-size:11px;color:#38bdf8;font-family:monospace;font-weight:700}
+.ny-name{font-size:12px;color:#cbd5e1;line-height:1.3}
+.ny-input{background:#0e1728;border:1.5px solid #22304a;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:700;color:#f1f5f9;outline:none;font-family:inherit;text-align:right;width:100%}
+.ny-input:focus{border-color:#0ea5e9;background:#131c30}
+.ny-foot{padding:16px 24px;border-top:1px solid #22304a;display:flex;gap:10px}
+.btn-ny-confirm{flex:1;padding:12px 0;background:linear-gradient(135deg,#0ea5e9,#0284c7);border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-ny-cancel{padding:12px 20px;background:#131c30;border:1.5px solid #334155;border-radius:10px;color:#94a3b8;font-size:14px;cursor:pointer;font-family:inherit}
+
+/* ===== BOTTOM NAV ===== */
+.bottom-nav{position:fixed;left:0;right:0;bottom:0;height:64px;background:rgba(11,18,32,0.97);backdrop-filter:blur(10px);border-top:1px solid #1e293b;display:flex;z-index:200;box-shadow:0 -2px 12px rgba(0,0,0,0.3)}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;font-family:inherit;color:#64748b;transition:color .2s}
+.nav-btn .nav-icon{font-size:20px;line-height:1}
+.nav-btn .nav-label{font-size:11px;font-weight:600}
+.nav-btn.active{color:#fb923c}
+
+/* ===== SETTINGS MODAL ===== */
+.settings-overlay{position:fixed;inset:0;background:rgba(2,6,16,0.6);display:flex;align-items:center;justify-content:center;z-index:998;backdrop-filter:blur(4px)}
+.settings-modal{background:#151f34;border-radius:18px;width:min(400px,92vw);box-shadow:0 24px 60px rgba(0,0,0,0.45);border:1px solid #22304a;overflow:hidden}
+.settings-head{padding:18px 22px;border-bottom:1px solid #22304a;background:#101a2e;display:flex;justify-content:space-between;align-items:center}
+.settings-head-title{font-size:15px;font-weight:800;color:#f1f5f9;display:flex;align-items:center;gap:8px}
+.settings-close{width:30px;height:30px;border-radius:8px;border:1.5px solid #22304a;background:#131c30;color:#94a3b8;cursor:pointer;font-size:15px}
+.settings-body{padding:16px}
+.settings-item{display:flex;align-items:center;gap:14px;padding:14px 12px;border-radius:12px;cursor:pointer;transition:background .15s;border:none;background:none;width:100%;text-align:right;font-family:inherit;color:inherit}
+.settings-item:hover{background:#1a2942}
+.settings-item-icon{width:40px;height:40px;border-radius:10px;background:#0e1728;border:1px solid #22304a;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.settings-item-text{flex:1;text-align:left}
+.settings-item-title{font-size:13px;font-weight:700;color:#f1f5f9}
+.settings-item-sub{font-size:11px;color:#94a3b8;margin-top:2px}
+
+/* ===== DASHBOARD PAGE ===== */
+.dash-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:16px}
+.dash-donut-wrap{background:#131c30;border-radius:16px;padding:22px;border:1px solid #22304a;box-shadow:0 1px 6px rgba(0,0,0,0.25);margin-bottom:16px}
+.dash-donut-title{font-size:13px;font-weight:700;color:#f1f5f9;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.dash-donut-title::before{content:'';display:inline-block;width:4px;height:16px;background:#fb923c;border-radius:2px}
+.dash-donut-row{display:flex;align-items:center;gap:24px;flex-wrap:wrap;justify-content:center}
+.dash-donut{width:150px;height:150px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative}
+.dash-donut-hole{width:92px;height:92px;border-radius:50%;background:#131c30;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.dash-donut-hole b{font-size:24px;color:#f1f5f9}
+.dash-donut-hole span{font-size:10px;color:#94a3b8;margin-top:2px}
+.dash-legend{display:flex;flex-direction:column;gap:10px;min-width:150px}
+.dash-legend-row{display:flex;align-items:center;gap:8px;font-size:12px}
+.dash-legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.dash-legend-label{flex:1;color:#cbd5e1}
+.dash-legend-val{font-weight:800;color:#f1f5f9}
+.dash-alert-section{background:#131c30;border-radius:16px;padding:20px 22px;border:1px solid #22304a;box-shadow:0 1px 6px rgba(0,0,0,0.25)}
+.dash-alert-title{font-size:13px;font-weight:700;color:#f1f5f9;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.dash-alert-title::before{content:'';display:inline-block;width:4px;height:16px;background:#ef4444;border-radius:2px}
+.dash-alert-item{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#0e1728;border:1px solid #22304a;border-radius:10px;margin-bottom:8px;cursor:pointer;transition:background .15s}
+.dash-alert-item:last-child{margin-bottom:0}
+.dash-alert-item:hover{background:#1a2942}
+.dash-alert-name{font-size:12px;color:#e2e8f0;font-weight:600}
+.dash-alert-code{font-size:10px;color:#64748b;font-family:monospace;margin-top:2px}
+.dash-alert-pct{font-size:14px;font-weight:800}
+.dash-empty{text-align:center;color:#4ade80;padding:20px;font-size:13px}
+</style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="loading-screen" style="position:fixed;inset:0;background:#0b1220;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:14px">
+  <div style="width:44px;height:44px;border:4px solid #1e293b;border-top-color:#38bdf8;border-radius:50%;animation:spin .8s linear infinite"></div>
+  <div style="font-family:'Sarabun',sans-serif;font-size:15px;color:#94a3b8;font-weight:600">กำลังโหลดข้อมูลจาก Firestore...</div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+</div>
+
+<!-- App Root (hidden until Firebase loads) -->
+<div id="app-root" style="display:none">
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <button class="back-btn" id="back-btn" onclick="showList()">&#8592;</button>
+    <div>
+      <div class="header-label">BUDGET MANAGEMENT SYSTEM</div>
+      <div class="header-title" id="header-title">โปรแกรมตัดงบ <span>กฟส.ทอห.</span></div>
+      <div class="header-sub" id="header-sub"></div>
+    </div>
+  </div>
+  <div class="header-actions" id="header-actions">
+    <span class="year-badge" id="year-badge"></span>
+    <button class="btn-gear" onclick="openSettings()" title="ตั้งค่า">⚙️</button>
+  </div>
+</div>
+
+<!-- ===== SETTINGS MODAL ===== -->
+<div class="settings-overlay" id="settings-overlay" style="display:none" onclick="if(event.target===this)closeSettings()">
+  <div class="settings-modal">
+    <div class="settings-head">
+      <div class="settings-head-title">⚙️ ตั้งค่า / จัดการข้อมูล</div>
+      <button class="settings-close" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="settings-body">
+      <button class="settings-item" onclick="closeSettings();openNewYear()">
+        <div class="settings-item-icon">🗓️</div>
+        <div class="settings-item-text">
+          <div class="settings-item-title">ขึ้นปีงบใหม่ / นำเข้า Excel</div>
+          <div class="settings-item-sub">นำเข้างบทำการรายปีจากไฟล์ .xlsx หรือกรอกเอง</div>
+        </div>
+      </button>
+      <button class="settings-item" onclick="exportData()">
+        <div class="settings-item-icon">⬇️</div>
+        <div class="settings-item-text">
+          <div class="settings-item-title">ส่งออกข้อมูล (Export)</div>
+          <div class="settings-item-sub">บันทึกข้อมูลปีนี้เป็นไฟล์ .json</div>
+        </div>
+      </button>
+      <label class="settings-item" style="cursor:pointer">
+        <div class="settings-item-icon">⬆️</div>
+        <div class="settings-item-text">
+          <div class="settings-item-title">นำเข้าข้อมูล (Import)</div>
+          <div class="settings-item-sub">โหลดข้อมูลจากไฟล์ .json ที่เคย Export ไว้</div>
+        </div>
+        <input type="file" accept=".json" style="display:none" onchange="importData(event)">
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- ===== DASHBOARD PAGE ===== -->
+<div class="page active" id="page-dashboard">
+  <div class="main">
+    <div class="dash-cards">
+      <div class="card card-total"><div class="card-label">งบทำการทั้งหมด</div><div class="card-value" id="db-total">0.00</div><div class="card-unit">บาท</div></div>
+      <div class="card card-used"><div class="card-label">ตัดงบไปแล้ว</div><div class="card-value" id="db-used">0.00</div><div class="card-unit">บาท</div></div>
+      <div class="card card-rem"><div class="card-label">คงเหลือ</div><div class="card-value" id="db-rem">0.00</div><div class="card-unit">บาท</div></div>
+      <div class="card" style="border-top:3px solid #ef4444"><div class="card-label">บัญชีใกล้เกินงบ</div><div class="card-value" id="db-near" style="color:#f87171">0</div><div class="card-unit">บัญชี</div></div>
+    </div>
+
+    <div class="dash-donut-wrap">
+      <div class="dash-donut-title">สัดส่วนสถานะบัญชี</div>
+      <div class="dash-donut-row">
+        <div class="dash-donut" id="db-donut"><div class="dash-donut-hole"><b id="db-donut-total">0</b><span>บัญชี</span></div></div>
+        <div class="dash-legend">
+          <div class="dash-legend-row"><span class="dash-legend-dot" style="background:#22c55e"></span><span class="dash-legend-label">ปกติ (&lt;70%)</span><span class="dash-legend-val" id="db-leg-ok">0</span></div>
+          <div class="dash-legend-row"><span class="dash-legend-dot" style="background:#f59e0b"></span><span class="dash-legend-label">ใกล้เกิน (70–90%)</span><span class="dash-legend-val" id="db-leg-warn">0</span></div>
+          <div class="dash-legend-row"><span class="dash-legend-dot" style="background:#ef4444"></span><span class="dash-legend-label">เกิน 90%</span><span class="dash-legend-val" id="db-leg-danger">0</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-alert-section">
+      <div class="dash-alert-title">บัญชีที่ต้องเฝ้าระวัง (ใช้งบเกิน 70%)</div>
+      <div id="db-alert-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== LIST PAGE ===== -->
+<div class="page" id="page-list">
+  <div class="main">
+    <div class="cards">
+      <div class="card card-total"><div class="card-label">งบทำการทั้งหมด</div><div class="card-value" id="c-total">0.00</div><div class="card-unit">บาท</div></div>
+      <div class="card card-used"><div class="card-label">ตัดงบไปแล้ว</div><div class="card-value" id="c-used">0.00</div><div class="card-unit">บาท</div></div>
+      <div class="card card-rem"><div class="card-label">คงเหลือ</div><div class="card-value" id="c-rem">0.00</div><div class="card-unit">บาท</div></div>
+    </div>
+    <div class="progress-box">
+      <div class="progress-row"><span>การใช้งบประมาณรวม</span><span id="pct-lbl" style="color:#38bdf8;font-weight:700">0.0%</span></div>
+      <div class="progress-bar"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+    </div>
+    <input class="search-box" id="search" type="text" placeholder="🔍  ค้นหารหัสบัญชีหรือชื่อบัญชี..." oninput="renderList()">
+    <div class="table-wrap">
+      <div class="table-head">
+        <div class="th">รหัสบัญชี</div>
+        <div class="th">ชื่อบัญชี</div>
+        <div class="th r">งบทำการ</div>
+        <div class="th r">ใช้ไป</div>
+        <div class="th r">คงเหลือ</div>
+      </div>
+      <div id="list-body"></div>
+    </div>
+    <div class="tfoot" id="list-foot"></div>
+  </div>
+</div>
+
+<!-- ===== DETAIL PAGE ===== -->
+<div class="page" id="page-detail">
+  <div class="detail-main">
+
+    <!-- hero card -->
+    <div class="detail-hero">
+      <div class="detail-code" id="d-code"></div>
+      <div class="detail-name" id="d-name"></div>
+      <div class="detail-stats">
+        <div class="stat-box"><div class="stat-label">งบทำการ</div><div class="stat-val gray" id="d-budget"></div></div>
+        <div class="stat-box"><div class="stat-label">รวมจ่ายทั้งหมด</div><div class="stat-val orange" id="d-used"></div></div>
+        <div class="stat-box"><div class="stat-label">คงเหลือ</div><div class="stat-val blue" id="d-rem"></div></div>
+      </div>
+      <!-- hidden element สำหรับ carryOver ใช้ใน JS เท่านั้น -->
+      <div id="d-carryover" style="display:none"></div>
+      <div class="detail-prog-wrap">
+        <div class="detail-prog-label"><span>ใช้ไปแล้ว</span><span id="d-pct">0%</span></div>
+        <div class="detail-prog-bar"><div class="detail-prog-fill" id="d-prog" style="width:0%"></div></div>
+      </div>
+      <!-- งบต่อเดือนคงเหลือ -->
+      <div class="monthly-card" id="d-monthly-card">
+        <div class="monthly-top">
+          <div class="monthly-icon">📅</div>
+          <div class="monthly-label">งบต่อเดือนคงเหลือ</div>
+          <div class="monthly-months" id="d-monthly-months"></div>
+        </div>
+        <div class="monthly-row">
+          <div class="monthly-item">
+            <div class="monthly-sub">งบเฉลี่ย/เดือน (ตั้งต้น)</div>
+            <div class="monthly-val gray" id="d-avg-base"></div>
+          </div>
+          <div class="monthly-divider"></div>
+          <div class="monthly-item">
+            <div class="monthly-sub">ควรใช้ได้อีก/เดือน</div>
+            <div class="monthly-val" id="d-avg-now"></div>
+          </div>
+          <div class="monthly-divider"></div>
+          <div class="monthly-item">
+            <div class="monthly-sub">ต่างจากฐาน</div>
+            <div class="monthly-val" id="d-avg-diff"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- cut form -->
+    <div class="cut-section">
+      <div class="section-title">ตัดงบประมาณ</div>
+      <div class="field"><label>จำนวนเงิน (บาท) *</label><input type="number" id="f-amount" placeholder="0.00" min="0.01" step="0.01"></div>
+      <div class="field"><label>วันที่และเวลา</label><input type="datetime-local" id="f-date"></div>
+      <div class="field"><label>หมายเหตุ</label><input type="text" id="f-note" placeholder="ระบุรายละเอียด..."></div>
+      <div class="error-msg" id="f-error"></div>
+      <div class="success-msg" id="f-success"></div>
+      <button class="btn-primary" id="f-submit" onclick="submitCut()">บันทึกการตัดงบ</button>
+    </div>
+
+    <!-- history -->
+    <div class="hist-section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div class="section-title" style="margin-bottom:0">ประวัติการตัดงบ</div>
+        <button class="btn-print-all" id="btn-print-all" onclick="openPrintAll()" style="display:none">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          พิมพ์ทั้งหมด
+        </button>
+      </div>
+      <div id="d-hist-list"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== PRINT SLIP MODAL ===== -->
+<div class="print-overlay" id="print-overlay" style="display:none" onclick="closePrintModal(event)">
+  <div class="print-modal print-slip-area" id="print-modal">
+    <div class="print-modal-head">
+      <div class="print-modal-title">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        พิมพ์ใบตัดงบประมาณ
+      </div>
+      <div class="print-modal-actions">
+        <button class="btn-do-print" onclick="doPrint()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          พิมพ์
+        </button>
+        <button class="btn-close-modal" onclick="closePrintModal()">✕</button>
+      </div>
+    </div>
+    <div class="print-modal-body" id="print-modal-body"></div>
+  </div>
+</div>
+
+<!-- confirm delete overlay -->
+<div class="overlay" id="del-overlay" style="display:none">
+  <div class="confirm-box">
+    <div class="confirm-title">ยืนยันการลบ</div>
+    <div class="confirm-msg" id="del-msg"></div>
+    <div class="confirm-actions">
+      <button class="btn-conf-cancel" onclick="cancelDelete()">ยกเลิก</button>
+      <button class="btn-conf-del" onclick="confirmDelete()">ลบรายการ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== NEW YEAR MODAL ===== -->
+<div class="ny-overlay" id="ny-overlay" style="display:none">
+  <div class="ny-modal">
+    <div class="ny-head">
+      <div class="ny-head-title">🗓 ขึ้นปีงบประมาณใหม่</div>
+      <button class="btn-close-modal" onclick="closeNewYear()">✕</button>
+    </div>
+    <div class="ny-body">
+      <div class="ny-year-row">
+        <div class="ny-year-label">ปีงบประมาณ (พ.ศ.)</div>
+        <input class="ny-year-input" id="ny-year" type="number" placeholder="เช่น 2570">
+      </div>
+      <div class="ny-table-head">
+        <div>รหัสบัญชี</div>
+        <div>ชื่อบัญชี</div>
+        <div style="text-align:right">งบประมาณใหม่ (บาท)</div>
+      </div>
+      <div id="ny-rows"></div>
+    </div>
+    <div class="ny-foot">
+      <button class="btn-ny-cancel" onclick="closeNewYear()">ยกเลิก</button>
+      <button class="btn-ny-confirm" onclick="confirmNewYear()">✅ ยืนยันขึ้นปีใหม่</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== BOTTOM NAV ===== -->
+<div class="bottom-nav" id="bottom-nav">
+  <button class="nav-btn active" id="nav-dashboard" onclick="showDashboard()">
+    <span class="nav-icon">📊</span><span class="nav-label">แดชบอร์ด</span>
+  </button>
+  <button class="nav-btn" id="nav-list" onclick="showList()">
+    <span class="nav-icon">📋</span><span class="nav-label">รายการบัญชี</span>
+  </button>
+</div>
+
+<!-- ========== FIREBASE SDK ========== -->
+<script type="module">
+// ─────────────────────────────────────────────
+//  🔧 ตั้งค่า Firebase ของคุณตรงนี้
+//  (ก็อปมาจาก Firebase Console → Project Settings → Your Apps)
+// ─────────────────────────────────────────────
+import { initializeApp }            from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteField, onSnapshot }
+                                    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+                                    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey:            "AIzaSyCVu1JuyYlH770WrWqQW7tuyCvB_7U96mk",
+  authDomain:        "budget-management-system-9e9f3.firebaseapp.com",
+  projectId:         "budget-management-system-9e9f3",
+  storageBucket:     "budget-management-system-9e9f3.firebasestorage.app",
+  messagingSenderId: "363403744499",
+  appId:             "1:363403744499:web:0f62c3ee00b71c31031386",
+  measurementId:     "G-XM1GYGGQDF"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+// ── init โดยไม่ต้อง Login ─────────────────────
+(async () => {
+  document.getElementById('loading-screen').style.display = 'flex';
+  const loaded = await loadData();
+  if (!loaded) data = ACCOUNTS.map(a => ({...a, used:0, entries:[]}));
+  startRealtimeSync(currentYear);
+  updateYearBadge();
+  updateSummary();
+  renderList();
+  renderDashboard();
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('app-root').style.display = 'block';
+})();
+
+// ─────────────────────────────────────────────
+//  โครงสร้าง Firestore:
+//  /budgets/{year}  →  { year, accounts: { [code]: { name, budget, used, entries: [...] } } }
+// ─────────────────────────────────────────────
+
+// ── helpers ──────────────────────────────────
+function budgetDocRef(year){ return doc(db, "budgets", String(year)); }
+
+async function saveData(){
+  try {
+    const payload = {
+      year: currentYear,
+      accounts: {}
+    };
+    data.forEach(a => {
+      payload.accounts[a.code] = {
+        name:      a.name,
+        budget:    a.budget,
+        used:      a.used,
+        carryOver: a.carryOver ?? 0,
+        entries:   a.entries
+      };
+    });
+    await setDoc(budgetDocRef(currentYear), payload);
+  } catch(e) {
+    console.error("Firestore saveData error:", e);
+    alert("❌ บันทึกข้อมูลไม่สำเร็จ: " + e.message);
+  }
+}
+
+async function loadData(){
+  try {
+    const snap = await getDoc(budgetDocRef(currentYear));
+    if (!snap.exists()) return false;
+    const payload = snap.data();
+    currentYear = payload.year || 2569;
+    data = ACCOUNTS.map(a => {
+      const saved = payload.accounts?.[a.code];
+      if (saved) return { ...a, budget: saved.budget ?? a.budget, used: saved.used ?? 0, carryOver: saved.carryOver ?? 0, entries: saved.entries ?? [] };
+      return { ...a, used: 0, carryOver: 0, entries: [] };
+    });
+    return true;
+  } catch(e) {
+    console.error("Firestore loadData error:", e);
+    return false;
+  }
+}
+
+// ── real-time listener (sync ทุก tab/browser) ─
+let unsubscribe = null;
+function startRealtimeSync(year){
+  if (unsubscribe) unsubscribe();
+  unsubscribe = onSnapshot(budgetDocRef(year), (snap) => {
+    if (!snap.exists()) return;
+    const payload = snap.data();
+    data = ACCOUNTS.map(a => {
+      const saved = payload.accounts?.[a.code];
+      if (saved) return { ...a, budget: saved.budget ?? a.budget, used: saved.used ?? 0, carryOver: saved.carryOver ?? 0, entries: saved.entries ?? [] };
+      return { ...a, used: 0, carryOver: 0, entries: [] };
+    });
+    // refresh UI ถ้ากำลังดูหน้าไหนอยู่
+    if (currentCode) renderDetail();
+    else { updateSummary(); renderList(); renderDashboard(); }
+  });
+}
+
+// ── expose globals ────────────────────────────
+window.saveData = saveData;
+window.loadData = loadData;
+window.startRealtimeSync = startRealtimeSync;
+
+</script>
+
+<!-- ========== APP SCRIPT ========== -->
+<script>
+const ACCOUNTS = [
+  {code:"52010030",name:"ค่าล่วงเวลาพนักงาน",budget:64000},
+  {code:"52010080",name:"ค่าตอบแทนการอยู่เวรปฏิบัติการระบบไฟฟ้าแบบเฝ้าระวัง",budget:217920},
+  {code:"52010100",name:"ค่าล่วงเวลา-ลูกจ้าง",budget:6000},
+  {code:"52010990",name:"ค่าตอบแทนอื่น-พนักงาน",budget:6000},
+  {code:"52012070",name:"ค่าโทรศัพท์เคลื่อนที่-ผู้บริหาร",budget:4800},
+  {code:"52022020",name:"ค่าเบี้ยเลี้ยง-พนักงาน",budget:5760},
+  {code:"52022030",name:"ค่าที่พัก-พนักงาน",budget:11520},
+  {code:"52022050",name:"ค่าชดเชยการใช้ยานพาหนะส่วนตัว",budget:5760},
+  {code:"52029010",name:"ค่าเช่าบ้าน",budget:38400},
+  {code:"53019990",name:"ค่าตอบแทนอื่น ๆ",budget:600},
+  {code:"53021010",name:"ค่าป้ายประชาสัมพันธ์",budget:1400},
+  {code:"53021020",name:"ค่าประชาสัมพันธ์อื่น",budget:1400},
+  {code:"53030010",name:"ค่าวัสดุสำนักงาน",budget:32000},
+  {code:"53030030",name:"ค่าวัสดุเบ็ดเตล็ดในสำนักงาน",budget:9000},
+  {code:"53031010",name:"ค่าน้ำดื่ม",budget:2000},
+  {code:"53031020",name:"ค่าน้ำประปา",budget:4000},
+  {code:"53032010",name:"ค่าใช้บริการโทรศัพท์",budget:3000},
+  {code:"53032020",name:"ค่าบำรุงรักษาคู่สายโทรศัพท์",budget:1500},
+  {code:"53032080",name:"ค่าใช้จ่ายในการใช้อินเทอร์เน็ต",budget:8000},
+  {code:"53034010",name:"ค่าจ้างเหมาทำความสะอาด",budget:72720},
+  {code:"53034030",name:"ค่าจ้างบำรุงรักษาสวน",budget:1200},
+  {code:"53034040",name:"ค่าบำรุงรักษาบริเวณสำนักงาน",budget:2000},
+  {code:"53039010",name:"ค่าเชื้อเพลิงยานพาหนะ",budget:120000},
+  {code:"53039990",name:"ค่าใช้จ่ายเบ็ดเตล็ด",budget:3500},
+  {code:"53050020",name:"ค่าจ้างเหมาตัดต้นไม้",budget:200000},
+  {code:"53051010",name:"ค่าวัสดุเบิกจากคลังเพื่อซ่อมแซม บำรุงรักษาและบริการ",budget:220000},
+  {code:"53051040",name:"ค่าซ่อมแซมบำรุงรักษา-อาคาร",budget:8000},
+  {code:"53051050",name:"ค่าซ่อมแซมบำรุงรักษา-ยานพาหนะ",budget:35000},
+  {code:"53051060",name:"ค่าซ่อมแซมบำรุงรักษา-ระบบสารสนเทศ",budget:3500},
+  {code:"53051090",name:"ค่าวัสดุเบ็ดเตล็ดด้านช่าง",budget:4000},
+  {code:"53051100",name:"ค่าซ่อมแซมบำรุงรักษา-อุปกรณ์ในสำนักงาน",budget:6000},
+  {code:"53051120",name:"ค่าอุปกรณ์ความปลอดภัย",budget:16000},
+  {code:"53051990",name:"ค่าซ่อมแซมบำรุงรักษาอื่น ๆ",budget:1800},
+];
+
+let data = ACCOUNTS.map(a => ({...a, used:0, carryOver:0, entries:[]}));
+let currentCode = null;
+let deleteTarget = null; // {code, entryId}
+
+const fmt = n => n.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+/* ---- summary ---- */
+function updateSummary(){
+  const total = data.reduce((s,a)=>s+a.budget,0);
+  const used  = data.reduce((s,a)=>s+a.used,0);
+  const rem   = total-used;
+  const pct   = total>0?(used/total)*100:0;
+  document.getElementById('c-total').textContent = fmt(total);
+  document.getElementById('c-used').textContent  = fmt(used);
+  document.getElementById('c-rem').textContent   = fmt(rem);
+  const pl = document.getElementById('pct-lbl');
+  pl.textContent = pct.toFixed(1)+'%';
+  pl.style.color = pct>80?'#f87171':'#38bdf8';
+  const fill = document.getElementById('prog-fill');
+  fill.style.width = Math.min(pct,100)+'%';
+  fill.style.background = pct>80?'linear-gradient(90deg,#fb923c,#dc2626)':'linear-gradient(90deg,#38bdf8,#0284c7)';
+}
+
+/* ---- list ---- */
+function renderList(){
+  const q = document.getElementById('search').value.toLowerCase();
+  const f = data.filter(a=>a.code.includes(q)||a.name.includes(q));
+  const body = document.getElementById('list-body');
+  if(!f.length){body.innerHTML='<div class="no-result">ไม่พบรายการ</div>';document.getElementById('list-foot').textContent='';return;}
+  body.innerHTML = f.map(acc=>{
+    const rem=acc.budget-acc.used;
+    const pct=acc.budget>0?(acc.used/acc.budget)*100:0;
+    const rc=pct>90?'td-rem danger':pct>70?'td-rem warn':'td-rem';
+    const uc=acc.used>0?'td-used active':'td-used';
+    const bar=acc.used>0?`<div class="mini-bar-wrap"><div class="mini-bar-fill" style="width:${Math.min(pct,100)}%;background:${pct>90?'#ef4444':'#38bdf8'}"></div></div>`:'';
+    return `<div class="table-row" onclick="showDetail('${acc.code}')">
+      <div class="td-code">${acc.code}</div>
+      <div class="td-name">${acc.name}${bar}</div>
+      <div class="td-num">${fmt(acc.budget)}</div>
+      <div class="${uc}">${acc.used>0?fmt(acc.used):'—'}</div>
+      <div class="${rc}">${fmt(rem)}</div>
+      <div class="td-arrow">›</div>
+    </div>`;
+  }).join('');
+  document.getElementById('list-foot').textContent=`แสดง ${f.length} จาก ${data.length} รายการ · คลิกที่แถวเพื่อดูรายละเอียด`;
+}
+
+/* ---- page nav ---- */
+function showDashboard(){
+  document.getElementById('page-dashboard').classList.add('active');
+  document.getElementById('page-list').classList.remove('active');
+  document.getElementById('page-detail').classList.remove('active');
+  document.getElementById('back-btn').style.display='none';
+  document.getElementById('header-actions').style.display='flex';
+  document.getElementById('header-title').innerHTML='โปรแกรมตัดงบ <span>กฟส.ทอห.</span>';
+  document.getElementById('header-sub').style.display='none';
+  document.getElementById('bottom-nav').style.display='flex';
+  document.getElementById('nav-dashboard').classList.add('active');
+  document.getElementById('nav-list').classList.remove('active');
+  currentCode=null;
+  updateSummary(); renderDashboard();
+}
+
+function renderDashboard(){
+  const total = data.reduce((s,a)=>s+a.budget,0);
+  const used  = data.reduce((s,a)=>s+a.used,0);
+  const rem   = total-used;
+  document.getElementById('db-total').textContent = fmt(total);
+  document.getElementById('db-used').textContent  = fmt(used);
+  document.getElementById('db-rem').textContent   = fmt(rem);
+
+  let ok=0,warn=0,danger=0;
+  const watch=[];
+  data.forEach(a=>{
+    const pct = a.budget>0?(a.used/a.budget)*100:0;
+    if(pct>90) danger++; else if(pct>70) warn++; else ok++;
+    if(pct>70) watch.push({...a,pct});
+  });
+  const n = data.length||1;
+  document.getElementById('db-near').textContent = warn+danger;
+  document.getElementById('db-donut-total').textContent = data.length;
+  document.getElementById('db-leg-ok').textContent = ok;
+  document.getElementById('db-leg-warn').textContent = warn;
+  document.getElementById('db-leg-danger').textContent = danger;
+
+  const okDeg = ok/n*360, warnDeg = warn/n*360, dangerDeg = danger/n*360;
+  const donut = document.getElementById('db-donut');
+  donut.style.background = `conic-gradient(#22c55e 0deg ${okDeg}deg, #f59e0b ${okDeg}deg ${okDeg+warnDeg}deg, #ef4444 ${okDeg+warnDeg}deg ${okDeg+warnDeg+dangerDeg}deg)`;
+
+  const list = document.getElementById('db-alert-list');
+  if(!watch.length){
+    list.innerHTML = '<div class="dash-empty">✅ ทุกบัญชีอยู่ในเกณฑ์ปกติ</div>';
+  } else {
+    watch.sort((a,b)=>b.pct-a.pct);
+    list.innerHTML = watch.map(a=>`
+      <div class="dash-alert-item" onclick="showDetail('${a.code}')">
+        <div>
+          <div class="dash-alert-name">${a.name}</div>
+          <div class="dash-alert-code">${a.code}</div>
+        </div>
+        <div class="dash-alert-pct" style="color:${a.pct>90?'#f87171':'#f59e0b'}">${a.pct.toFixed(1)}%</div>
+      </div>`).join('');
+  }
+}
+
+function showList(){
+  document.getElementById('page-list').classList.add('active');
+  document.getElementById('page-dashboard').classList.remove('active');
+  document.getElementById('page-detail').classList.remove('active');
+  document.getElementById('back-btn').style.display='none';
+  document.getElementById('header-actions').style.display='flex';
+  document.getElementById('header-title').innerHTML='โปรแกรมตัดงบ <span>กฟส.ทอห.</span>';
+  document.getElementById('header-sub').style.display='none';
+  document.getElementById('bottom-nav').style.display='flex';
+  document.getElementById('nav-dashboard').classList.remove('active');
+  document.getElementById('nav-list').classList.add('active');
+  currentCode=null;
+  updateSummary(); renderList();
+}
+
+function showDetail(code){
+  currentCode=code;
+  const acc=data.find(a=>a.code===code);
+  // header
+  document.getElementById('back-btn').style.display='flex';
+  document.getElementById('header-actions').style.display='none';
+  document.getElementById('header-title').textContent=acc.code;
+  const sub=document.getElementById('header-sub');
+  sub.style.display='block';
+  sub.textContent=acc.name;
+  // pages
+  document.getElementById('page-list').classList.remove('active');
+  document.getElementById('page-dashboard').classList.remove('active');
+  document.getElementById('page-detail').classList.add('active');
+  document.getElementById('bottom-nav').style.display='none';
+  // reset form
+  document.getElementById('f-amount').value='';
+  document.getElementById('f-note').value='';
+  const now=new Date(); now.setSeconds(0,0);
+  const localISO = new Date(now.getTime() - now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  document.getElementById('f-date').value=localISO;
+  document.getElementById('f-error').style.display='none';
+  document.getElementById('f-success').style.display='none';
+  renderDetail();
+  window.scrollTo(0,0);
+}
+
+function openSettings(){ document.getElementById('settings-overlay').style.display='flex'; }
+function closeSettings(){ document.getElementById('settings-overlay').style.display='none'; }
+
+function renderDetail(){
+  const acc=data.find(a=>a.code===currentCode);
+  const carryOver = acc.budget - acc.used; // ยอดก่อนตัดครั้งต่อไป (คงเหลือปัจจุบัน)
+  const rem = carryOver;
+  const pct = acc.budget>0?(acc.used/acc.budget)*100:0;
+  document.getElementById('d-code').textContent='รหัสบัญชี '+acc.code;
+  document.getElementById('d-name').textContent=acc.name;
+  document.getElementById('d-budget').textContent=fmt(acc.budget);
+  document.getElementById('d-carryover').textContent=fmt(acc.budget - (acc.used - (acc.entries.length>0?acc.entries[acc.entries.length-1].amount:0)));
+  document.getElementById('d-used').textContent=fmt(acc.used);
+  document.getElementById('d-rem').textContent=fmt(rem);
+  document.getElementById('d-pct').textContent=pct.toFixed(1)+'%';
+  const dp=document.getElementById('d-prog');
+  dp.style.width=Math.min(pct,100)+'%';
+  dp.style.background=pct>90?'linear-gradient(90deg,#fb923c,#dc2626)':pct>70?'linear-gradient(90deg,#fbbf24,#d97706)':'linear-gradient(90deg,#38bdf8,#0284c7)';
+  // monthly card
+  updateMonthlyCard(acc, rem);
+  // submit btn
+  document.getElementById('f-submit').disabled=(rem<=0);
+  // history
+  renderDetailHist();
+}
+
+function updateMonthlyCard(acc, rem){
+  const now = new Date();
+  const currentMonth = now.getMonth(); // 0=ม.ค., 11=ธ.ค.
+  const monthsLeft = 12 - currentMonth; // เดือนนี้รวมถึงสิ้นปี
+  const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+
+  const avgBase = acc.budget / 12;           // งบเฉลี่ยฐานต่อเดือน
+  const avgNow  = rem / monthsLeft;          // ควรใช้ได้อีกต่อเดือน
+  const diff    = avgNow - avgBase;          // ต่างจากฐาน
+
+  document.getElementById('d-monthly-months').textContent =
+    `${monthNames[currentMonth]}–ธ.ค. (${monthsLeft} เดือน)`;
+  document.getElementById('d-avg-base').textContent = fmt(avgBase);
+  document.getElementById('d-avg-now').textContent  = fmt(avgNow);
+
+  const diffEl = document.getElementById('d-avg-diff');
+  if(Math.abs(diff) < 1){
+    diffEl.textContent = 'เท่าเดิม';
+    diffEl.className = 'monthly-val ok';
+  } else if(diff > 0){
+    diffEl.textContent = '+' + fmt(diff);
+    diffEl.className = 'monthly-val under';  // ใช้น้อยไป → เหลือเพิ่ม → ฟ้า
+  } else {
+    diffEl.textContent = fmt(diff);
+    diffEl.className = 'monthly-val over';   // ใช้มากไป → เหลือน้อย → แดง
+  }
+
+  // สีการ์ดตามสถานะ (โทนมืด)
+  const card = document.getElementById('d-monthly-card');
+  if(diff < -avgBase*0.2){
+    card.style.background='linear-gradient(135deg,#2c0f0f,#3a1414)';
+    card.style.borderColor='#5c1f1f';
+    document.querySelector('#d-monthly-card .monthly-label').style.color='#f87171';
+    document.querySelector('#d-monthly-card .monthly-months').style.background='#5c1f1f';
+    document.querySelector('#d-monthly-card .monthly-months').style.color='#f87171';
+  } else if(diff < 0){
+    card.style.background='linear-gradient(135deg,#2c1a0a,#3a2210)';
+    card.style.borderColor='#7c4a1e';
+    document.querySelector('#d-monthly-card .monthly-label').style.color='#fbbf24';
+    document.querySelector('#d-monthly-card .monthly-months').style.background='#7c4a1e';
+    document.querySelector('#d-monthly-card .monthly-months').style.color='#fbbf24';
+  } else {
+    card.style.background='linear-gradient(135deg,#052e16,#0a3320)';
+    card.style.borderColor='#166534';
+    document.querySelector('#d-monthly-card .monthly-label').style.color='#4ade80';
+    document.querySelector('#d-monthly-card .monthly-months').style.background='#166534';
+    document.querySelector('#d-monthly-card .monthly-months').style.color='#4ade80';
+  }
+}
+
+function renderDetailHist(){
+  const acc=data.find(a=>a.code===currentCode);
+  const list=document.getElementById('d-hist-list');
+  const printAllBtn=document.getElementById('btn-print-all');
+  if(!acc.entries.length){
+    list.innerHTML='<div class="hist-empty">ยังไม่มีประวัติการตัดงบ</div>';
+    printAllBtn.style.display='none';
+    return;
+  }
+  printAllBtn.style.display='inline-flex';
+  list.innerHTML=[...acc.entries].reverse().map(e=>`
+    <div class="hist-item" id="item-${e.id}">
+      <div class="hist-item-top">
+        <div>
+          <div class="hist-date">${fmtDatetime(e.date)}</div>
+          <div class="hist-note">${e.note||'(ไม่มีหมายเหตุ)'}</div>
+        </div>
+        <div class="hist-amount">-${fmt(e.amount)} ฿</div>
+      </div>
+      <div class="hist-actions">
+        <button class="btn-edit-hist" onclick="toggleEdit('${e.id}')">✏️ แก้ไข</button>
+        <button class="btn-print-hist" onclick="openPrintSlip('${e.id}','${acc.code}')">🖨️ พิมพ์</button>
+        <button class="btn-del-hist" onclick="askDelete('${e.id}')">🗑 ลบ</button>
+      </div>
+      <div class="edit-form" id="ef-${e.id}">
+        <div class="edit-row">
+          <div class="edit-field"><label>จำนวนเงิน</label><input type="number" id="ea-${e.id}" value="${e.amount}" step="0.01" min="0.01"></div>
+          <div class="edit-field"><label>วันที่และเวลา</label><input type="datetime-local" id="ed-${e.id}" value="${e.date}"></div>
+        </div>
+        <div class="edit-row">
+          <div class="edit-field" style="grid-column:1/-1"><label>หมายเหตุ</label><input type="text" id="en-${e.id}" value="${e.note||''}"></div>
+        </div>
+        <div class="edit-actions">
+          <button class="btn-save" onclick="saveEdit('${e.id}')">บันทึก</button>
+          <button class="btn-discard" onclick="toggleEdit('${e.id}')">ยกเลิก</button>
+        </div>
+      </div>
+    </div>`).join('');
+  // re-apply visibility หลัง render ใหม่
+}
+
+/* ---- cut submit ---- */
+function submitCut(){
+  const acc=data.find(a=>a.code===currentCode);
+  const carryOver = acc.budget - (acc.used); // ยอดยกมา = งบทำการ - จ่ายไปแล้วทั้งหมดก่อนหน้า
+  const rem = carryOver; // คงเหลือก่อนตัดครั้งนี้
+  const val=parseFloat(document.getElementById('f-amount').value);
+  const err=document.getElementById('f-error');
+  const suc=document.getElementById('f-success');
+  err.style.display='none'; suc.style.display='none';
+  if(!val||isNaN(val)||val<=0){err.textContent='กรุณาระบุจำนวนเงินที่ถูกต้อง';err.style.display='block';return;}
+  if(val>rem){err.textContent=`จำนวนเงินเกินงบคงเหลือ (${fmt(rem)} ฿)`;err.style.display='block';return;}
+  const runNo = String(acc.entries.length + 1).padStart(4,'0');
+  const docNo = `กฟส.ทอห.${acc.code}-${runNo}/${currentYear}`;
+  // บันทึก carryOver ณ เวลาที่ตัดงบ เพื่อใช้แสดงบนใบ
+  const entry={id:Date.now().toString(),amount:val,date:document.getElementById('f-date').value,doc:docNo,note:document.getElementById('f-note').value.trim(),carryOver:carryOver};
+  acc.entries.push(entry);
+  acc.used+=val;
+  document.getElementById('f-amount').value='';
+  document.getElementById('f-note').value='';
+  suc.textContent=`บันทึกสำเร็จ: ตัดงบ ${fmt(val)} ฿`;
+  suc.style.display='block';
+  setTimeout(()=>suc.style.display='none',3000);
+  window.saveData();
+  renderDetail();
+}
+
+/* ---- edit ---- */
+function toggleEdit(id){
+  const ef=document.getElementById('ef-'+id);
+  ef.style.display=ef.style.display==='block'?'none':'block';
+}
+
+function saveEdit(id){
+  const acc=data.find(a=>a.code===currentCode);
+  const e=acc.entries.find(x=>x.id===id);
+  const newAmt=parseFloat(document.getElementById('ea-'+id).value);
+  if(!newAmt||isNaN(newAmt)||newAmt<=0){alert('กรุณาระบุจำนวนเงินที่ถูกต้อง');return;}
+  const maxAllowed=(acc.budget-acc.used)+e.amount;
+  if(newAmt>maxAllowed){alert(`จำนวนเงินเกินงบคงเหลือ (${fmt(maxAllowed)} ฿)`);return;}
+  acc.used=acc.used-e.amount+newAmt;
+  e.amount=newAmt;
+  e.date=document.getElementById('ed-'+id).value;
+  e.note=document.getElementById('en-'+id).value.trim();
+  window.saveData();
+  renderDetail();
+}
+
+/* ---- delete ---- */
+function askDelete(id){
+  const acc=data.find(a=>a.code===currentCode);
+  const e=acc.entries.find(x=>x.id===id);
+  deleteTarget={code:currentCode,entryId:id};
+  document.getElementById('del-msg').textContent=`ลบรายการตัดงบ ${fmt(e.amount)} ฿ วันที่ ${e.date} ใช่หรือไม่?`;
+  document.getElementById('del-overlay').style.display='flex';
+}
+function cancelDelete(){document.getElementById('del-overlay').style.display='none';deleteTarget=null;}
+function confirmDelete(){
+  if(!deleteTarget)return;
+  const acc=data.find(a=>a.code===deleteTarget.code);
+  const e=acc.entries.find(x=>x.id===deleteTarget.entryId);
+  if(e){acc.used=Math.max(0,acc.used-e.amount);acc.entries=acc.entries.filter(x=>x.id!==deleteTarget.entryId);}
+  document.getElementById('del-overlay').style.display='none';
+  deleteTarget=null;
+  window.saveData();
+  renderDetail();
+}
+
+/* ---- PRINT FUNCTIONS ---- */
+function fmtDatetime(dtStr){
+  if(!dtStr) return '';
+  const d = new Date(dtStr);
+  if(isNaN(d)) return dtStr;
+  const date = d.toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'});
+  const time = d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+  return date+' '+time+' น.';
+}
+
+function thaiDateStr(dtStr){
+  const months=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  const d=new Date(dtStr);
+  const time = d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()+543} เวลา ${time} น.`;
+}
+
+function ThaiBaht(amount) {
+  const units = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน', 'ล้าน'];
+  const digits = ['', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
+  function readGroup(n) {
+    let s = '';
+    const arr = String(n).split('').reverse();
+    for (let i = 0; i < arr.length; i++) {
+      const d = parseInt(arr[i]);
+      if (!d) continue;
+      if (i === 1 && d === 2) s = 'ยี่สิบ' + s;
+      else if (i === 1 && d === 1) s = 'สิบ' + s;
+      else if (i === 0 && d === 1 && arr.length > 1) s = 'เอ็ด' + s;
+      else s = digits[d] + units[i] + s;
+    }
+    return s;
+  }
+  if (!amount || amount === 0) return 'ศูนย์บาทถ้วน';
+  const [intPart, decPart] = parseFloat(amount).toFixed(2).split('.');
+  const intNum = parseInt(intPart);
+  const decNum = parseInt(decPart);
+  let result = '';
+  if (intNum >= 1000000) {
+    result += readGroup(Math.floor(intNum / 1000000)) + 'ล้าน';
+    result += readGroup(intNum % 1000000);
+  } else {
+    result += readGroup(intNum);
+  }
+  result += 'บาท';
+  if (decNum === 0) result += 'ถ้วน';
+  else result += readGroup(decNum) + 'สตางค์';
+  return result;
+}
+
+function amtWords(n){
+  // simple Thai baht text for display, round to 2 dec
+  return n.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})+' บาท';
+}
+
+function buildSlipHTML(acc, entry, slipNo){
+  const carryOver = entry.carryOver ?? (acc.budget - acc.used + entry.amount); // ยอดก่อนตัดครั้งนี้
+  const rem = carryOver - entry.amount; // คงเหลือหลังตัดครั้งนี้
+  const totalUsedAtEntry = acc.budget - carryOver + entry.amount; // รวมจ่ายทั้งหมด ณ ตอนนั้น
+  const pct = acc.budget>0?(totalUsedAtEntry/acc.budget)*100:0;
+  const barColor = pct>90?'#ef4444':pct>70?'#d97706':'#0284c7';
+  const nowStr = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  const docNo = entry.doc ? entry.doc : ('AUTO-'+entry.id.slice(-6));
+
+  // monthly calc
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const monthsLeft = 12 - currentMonth;
+  const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  const avgBase = acc.budget / 12;
+  const avgNow  = rem / monthsLeft;
+  const diff    = avgNow - avgBase;
+  const diffStr = Math.abs(diff)<1 ? 'เท่าเดิม' : (diff>0?'+':'')+fmt(diff);
+  const diffColor = Math.abs(diff)<1?'#15803d':diff>0?'#0284c7':'#dc2626';
+  const monthlyBgColor = diff < -avgBase*0.2 ? '#fef2f2' : diff < 0 ? '#fffbeb' : '#f0fdf4';
+  const monthlyBdColor = diff < -avgBase*0.2 ? '#fca5a5' : diff < 0 ? '#fcd34d' : '#86efac';
+  const monthlyTxtColor = diff < -avgBase*0.2 ? '#dc2626' : diff < 0 ? '#d97706' : '#15803d';
+
+  return `<div class="slip-wrap">
+
+    <!-- ชั้น 1: HEADER BAND -->
+    <div class="slip-header-band">
+      <div class="slip-org">การไฟฟ้าส่วนภูมิภาค · สาขาบ้านทุ่งอ้ายโห้</div>
+      <div class="slip-title">ใบตัดงบประมาณ</div>
+      <div style="position:absolute;top:12px;right:18px;display:flex;flex-direction:column;gap:5px;align-items:flex-end">
+        <div class="slip-badge" style="position:static">ปีงบประมาณ ${currentYear}</div>
+        <div class="slip-badge" style="position:static">ใบตัดงบเลขที่ ${entry.doc||docNo}</div>
+      </div>
+    </div>
+
+    <!-- ชั้น 2: วันที่ -->
+    <div class="slip-date-row" style="justify-content:center;margin-bottom:10px">
+      <span class="slip-date-label">วันที่ตัดงบ</span>
+      <span class="slip-date-val">${thaiDateStr(entry.date)}</span>
+    </div>
+
+    <!-- ชั้น 3: บัญชีงบประมาณ -->
+    <div class="slip-account-box">
+      <div class="slip-account-label">รหัสบัญชี / ชื่อบัญชี</div>
+      <div class="slip-account-code">${acc.code}</div>
+      <div class="slip-account-name">${acc.name}</div>
+    </div>
+
+    <!-- ชั้น 4: สรุปงบ 5 ช่อง -->
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:10px">
+      <div class="slip-sum-box">
+        <div class="slip-sum-label">งบทำการ</div>
+        <div class="slip-sum-val gray">${fmt(acc.budget)}</div>
+      </div>
+      <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:9px;color:#16a34a;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px">ยอดยกมา</div>
+        <div style="font-size:15px;font-weight:800;color:#16a34a">${fmt(entry.carryOver??acc.carryOver??0)}</div>
+      </div>
+      <div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:9px;color:#a16207;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px">จ่ายครั้งนี้</div>
+        <div style="font-size:15px;font-weight:800;color:#ca8a04">${fmt(entry.amount)}</div>
+      </div>
+      <div class="slip-sum-box">
+        <div class="slip-sum-label">คงเหลือ</div>
+        <div class="slip-sum-val ${rem<0?'orange':'blue'}">${fmt(rem)}</div>
+      </div>
+      <div class="slip-sum-box">
+        <div class="slip-sum-label">รวมจ่ายทั้งหมด</div>
+        <div class="slip-sum-val orange">${fmt(acc.budget - carryOver + entry.amount)}</div>
+      </div>
+    </div>
+
+    <!-- ชั้น 5: Progress bar -->
+    <div class="slip-prog-wrap">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-bottom:5px">
+        <span>การใช้งบประมาณ</span>
+        <span style="font-weight:700;color:${barColor}">${pct.toFixed(1)}%</span>
+      </div>
+      <div style="height:7px;background:#f1f5f9;border-radius:6px;overflow:hidden">
+        <div style="height:100%;width:${Math.min(pct,100)}%;background:${barColor};border-radius:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact"></div>
+      </div>
+    </div>
+
+    <!-- ชั้น 6: งบต่อเดือนคงเหลือ -->
+    <div style="background:${monthlyBgColor};border:1.5px solid ${monthlyBdColor};border-radius:10px;padding:10px 16px;margin-bottom:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:800;color:${monthlyTxtColor}">📅 งบต่อเดือนคงเหลือ</span>
+        <span style="font-size:10px;color:${monthlyTxtColor};background:rgba(0,0,0,0.06);padding:2px 8px;border-radius:5px;font-weight:700">${monthNames[currentMonth]}–ธ.ค. (${monthsLeft} เดือน)</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1px 1fr 1px 1fr;gap:8px;align-items:center">
+        <div style="text-align:center">
+          <div style="font-size:9px;color:#64748b;font-weight:700;margin-bottom:3px">เฉลี่ย/เดือน (ฐาน)</div>
+          <div style="font-size:14px;font-weight:800;color:#475569">${fmt(avgBase)}</div>
+        </div>
+        <div style="background:${monthlyBdColor};height:32px"></div>
+        <div style="text-align:center">
+          <div style="font-size:9px;color:#64748b;font-weight:700;margin-bottom:3px">ใช้ได้อีก/เดือน</div>
+          <div style="font-size:14px;font-weight:800;color:${monthlyTxtColor}">${fmt(avgNow)}</div>
+        </div>
+        <div style="background:${monthlyBdColor};height:32px"></div>
+        <div style="text-align:center">
+          <div style="font-size:9px;color:#64748b;font-weight:700;margin-bottom:3px">ต่างจากฐาน</div>
+          <div style="font-size:14px;font-weight:800;color:${diffColor}">${diffStr}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ชั้น 7: จ่ายครั้งนี้ -->
+    <div class="slip-amount-box" style="flex-direction:column;gap:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center;width:100%;flex:1">
+        <div class="slip-amount-label" style="align-self:center">จ่ายครั้งนี้</div>
+        <div class="slip-amount-value" style="align-self:center">${fmt(entry.amount)}</div>
+      </div>
+      <div class="slip-amount-baht" style="text-align:center;width:100%">(${ThaiBaht(entry.amount)})</div>
+    </div>
+
+    ${entry.note?`<!-- ชั้น 7.5: หมายเหตุ -->
+    <div class="slip-note-box">
+      <div class="slip-note-label">หมายเหตุ</div>
+      <div class="slip-note-val">${entry.note}</div>
+    </div>`:''}
+
+
+    <!-- ชั้น 8: ผู้ควบคุมงบ กึ่งกลาง -->
+    <div style="margin-top:80px;display:flex;flex-direction:column;align-items:center;text-align:center">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:12px;font-weight:700;color:#64748b;white-space:nowrap">ผู้ควบคุมงบ</span>
+        <span style="font-size:13px;letter-spacing:1px;color:#334155">.......................................................</span>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:#0f172a;margin-top:6px">(นายวรุฒ&nbsp;&nbsp;พ่วงท่าโก)</div>
+      <div style="font-size:12px;color:#64748b;margin-top:2px">ผจก.(8)ผจก.กฟส.ทอห.</div>
+    </div>
+
+  </div>`;
+}
+
+function doPrint(){
+  const body = document.getElementById('print-modal-body').innerHTML;
+  const printCSS = `
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700;800&display=swap');
+    @page{size:A4 portrait;margin:12mm}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Sarabun','Noto Sans Thai',sans-serif;font-size:13px;color:#1e293b;background:#fff}
+    .slip-wrap{page-break-inside:avoid;break-inside:avoid}
+    /* ชั้น 1: HEADER */
+    .slip-header-band{background:linear-gradient(135deg,#0f172a 0%,#0284c7 100%);-webkit-print-color-adjust:exact;print-color-adjust:exact;border-radius:10px;padding:12px 20px;color:#fff;margin-bottom:10px;position:relative;overflow:hidden}
+    .slip-header-band::before{content:'';position:absolute;right:-20px;top:-20px;width:100px;height:100px;background:rgba(255,255,255,0.06);border-radius:50%}
+    .slip-org{font-size:9px;letter-spacing:2px;opacity:.7;margin-bottom:2px;font-weight:600}
+    .slip-title{font-size:18px;font-weight:800}
+    .slip-badge{position:absolute;top:12px;right:18px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;letter-spacing:1px;color:#fff}
+    /* ชั้น 2: วันที่ */
+    .slip-date-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:1.5px dashed #e2e8f0}
+    .slip-date-label{font-size:11px;color:#64748b;font-weight:600}
+    .slip-date-val{font-size:13px;font-weight:700;color:#0f172a}
+    /* ชั้น 3: บัญชี */
+    .slip-account-box{background:#f0f9ff;-webkit-print-color-adjust:exact;print-color-adjust:exact;border:1.5px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:10px}
+    .slip-account-label{font-size:9px;color:#0284c7;letter-spacing:1.5px;font-weight:700;margin-bottom:3px}
+    .slip-account-code{font-size:11px;color:#0284c7;font-family:monospace;font-weight:700;margin-bottom:2px}
+    .slip-account-name{font-size:15px;font-weight:800;color:#0f172a}
+    /* ชั้น 4: จ่ายครั้งนี้ */
+    .slip-amount-box{background:linear-gradient(135deg,#fff7ed,#fff);-webkit-print-color-adjust:exact;print-color-adjust:exact;border:2px solid #fdba74;border-radius:10px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+    .slip-amount-label{font-size:12px;color:#ea580c;font-weight:700}
+    .slip-amount-value{font-size:28px;font-weight:800;color:#ea580c}
+    .slip-amount-baht{font-size:11px;color:#ea580c;margin-top:3px;opacity:.8}
+    /* ชั้น 4.5: หมายเหตุ */
+    .slip-note-box{background:#fafafa;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;margin-bottom:10px}
+    .slip-note-label{font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:3px}
+    .slip-note-val{color:#334155;font-size:12px}
+    /* ชั้น 5: สรุปงบ */
+    .slip-summary-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+    .slip-sum-box{background:#f8fafc;-webkit-print-color-adjust:exact;print-color-adjust:exact;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center}
+    .slip-sum-label{font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:4px}
+    .slip-sum-val{font-size:15px;font-weight:800}
+    .slip-sum-val.gray{color:#334155}.slip-sum-val.orange{color:#ea580c}.slip-sum-val.blue{color:#0284c7}
+    /* ชั้น 6: progress */
+    .slip-prog-wrap{margin-bottom:10px}
+  `;
+  const win = window.open('','_blank','width=794,height=1123');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ใบตัดงบประมาณ</title><style>${printCSS}</style></head><body>${body}</body></html>`);
+  win.document.close();
+  win.onload = ()=>{ win.focus(); win.print(); };
+}
+
+function openPrintSlip(entryId, code){
+  const acc = data.find(a=>a.code===code);
+  const entry = acc.entries.find(e=>e.id===entryId);
+  document.getElementById('print-modal-body').innerHTML = buildSlipHTML(acc, entry, entryId);
+  document.getElementById('print-overlay').style.display='flex';
+}
+
+function openPrintAll(){
+  const acc = data.find(a=>a.code===currentCode);
+  if(!acc.entries.length) return;
+  const slips = [...acc.entries].reverse().map((e,i)=>{
+    const html = buildSlipHTML(acc, e, e.id);
+    return i<acc.entries.length-1
+      ? `<div style="margin-bottom:28px;padding-bottom:28px;border-bottom:2px dashed #e2e8f0">${html}</div>`
+      : html;
+  }).join('');
+  document.getElementById('print-modal-body').innerHTML = slips;
+  document.getElementById('print-overlay').style.display='flex';
+}
+
+function closePrintModal(e){
+  if(e && e.target!==document.getElementById('print-overlay')) return;
+  document.getElementById('print-overlay').style.display='none';
+}
+
+// ===== FIRESTORE =====
+// saveData / loadData / startRealtimeSync  →  defined in the Firebase module above
+// เรียกผ่าน window.saveData() เพราะ declare อยู่ใน module scope ต่างกัน
+
+// ===== EXPORT =====
+function exportData(){
+  const payload = {
+    year: currentYear,
+    exportedAt: new Date().toISOString(),
+    data: data.map(a=>({code:a.code, name:a.name, budget:a.budget, used:a.used, entries:a.entries}))
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `budget_gfstoh_${currentYear}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ===== IMPORT =====
+function importData(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const payload = JSON.parse(e.target.result);
+      if(!payload.data || !Array.isArray(payload.data)) throw new Error();
+      if(!confirm(`นำเข้าข้อมูลปีงบ ${payload.year}?\nข้อมูลปัจจุบันจะถูกแทนที่ทั้งหมด`)) return;
+      currentYear = payload.year || currentYear;
+      data = payload.data.map(a=>({...a, entries:a.entries||[]}));
+      window.saveData();
+      window.startRealtimeSync(currentYear);
+      updateYearBadge();
+      showList();
+      alert('✅ นำเข้าข้อมูลสำเร็จ!');
+    }catch(err){
+      alert('❌ ไฟล์ไม่ถูกต้อง กรุณาเลือกไฟล์ที่ Export จากโปรแกรมนี้');
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ===== NEW YEAR =====
+function openNewYear(){
+  const nextYear = currentYear + 1;
+  document.getElementById('ny-year').value = nextYear;
+  const rows = document.getElementById('ny-rows');
+  rows.innerHTML = data.map(a=>`
+    <div class="ny-row">
+      <div class="ny-code">${a.code}</div>
+      <div class="ny-name">${a.name}</div>
+      <input class="ny-input" id="ny-${a.code}" type="number" min="0" step="0.01" value="${a.budget}" placeholder="0.00">
+    </div>
+  `).join('');
+  document.getElementById('ny-overlay').style.display='flex';
+}
+
+function closeNewYear(){
+  document.getElementById('ny-overlay').style.display='none';
+}
+
+function confirmNewYear(){
+  const yearVal = parseInt(document.getElementById('ny-year').value);
+  if(!yearVal || yearVal < 2500 || yearVal > 2700){
+    alert('กรุณากรอกปีงบประมาณให้ถูกต้อง');
+    return;
+  }
+  if(!confirm(`ยืนยันขึ้นปีงบประมาณ ${yearVal}?\nประวัติการตัดงบทั้งหมดจะถูกล้าง และงบประมาณจะอัปเดตตามที่กรอก`)) return;
+
+  data = data.map(a=>{
+    const input = document.getElementById('ny-'+a.code);
+    const newBudget = parseFloat(input?.value) || 0;
+    return {...a, budget:newBudget, used:0, entries:[]};
+  });
+  currentYear = yearVal;
+  window.saveData();
+  window.startRealtimeSync(yearVal);
+  updateYearBadge();
+  closeNewYear();
+  showList();
+  alert(`✅ ขึ้นปีงบประมาณ ${yearVal} เรียบร้อย!`);
+}
+
+function updateYearBadge(){
+  document.getElementById('year-badge').textContent = `ปีงบ ${currentYear}`;
+}
+
+// ===== INIT =====
+// (จัดการโดย Firebase module ด้านบนแล้ว — async IIFE)
+let currentYear = 2569;
+</script>
+</div><!-- end #app-root -->
+</body>
+</html>
