@@ -95,6 +95,10 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 .field label{font-size:12px;color:#94a3b8;font-weight:600}
 .field input{background:#0e1728;border:1.5px solid #22304a;border-radius:10px;padding:11px 14px;color:#f1f5f9;font-size:14px;outline:none;font-family:inherit;transition:all .2s;width:100%}
 .field input:focus{border-color:#0ea5e9;background:#131c30;box-shadow:0 0 0 3px rgba(14,165,233,0.15)}
+.fuel-select{background:#0e1728;border:1.5px solid #22304a;border-radius:10px;padding:11px 14px;color:#f1f5f9;font-size:14px;outline:none;font-family:inherit;transition:all .2s;width:100%;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;background-size:14px}
+.fuel-select:focus{border-color:#0ea5e9;background-color:#131c30}
+.fuel-select option{background:#0f172a;color:#e2e8f0}
+#fuel-gross, #fuel-final{background:#0a1220;color:#94a3b8;cursor:default}
 .error-msg{color:#fca5a5;font-size:12px;background:#2c0f0f;padding:10px 14px;border-radius:8px;margin-bottom:12px;display:none;border:1px solid #5c1f1f}
 .success-msg{color:#86efac;font-size:12px;background:#052e16;padding:10px 14px;border-radius:8px;margin-bottom:12px;display:none;border:1px solid #166534}
 .btn-primary{width:100%;padding:13px 0;background:linear-gradient(135deg,#0ea5e9,#0284c7);border:none;border-radius:10px;color:#fff;cursor:pointer;font-size:15px;font-weight:700;font-family:inherit;box-shadow:0 4px 12px rgba(2,132,199,0.25);transition:opacity .2s}
@@ -109,6 +113,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 .hist-item-top{display:flex;justify-content:space-between;align-items:flex-start}
 .hist-date{font-size:11px;color:#94a3b8;margin-bottom:3px}
 .hist-note{font-size:12px;color:#94a3b8}
+.hist-fuel-tag{font-size:11px;color:#4ade80;background:#0e2a17;border:1px solid #1a4a2a;display:inline-block;padding:2px 8px;border-radius:6px;margin:2px 0 4px}
 .hist-amount{font-size:16px;font-weight:800;color:#fb923c;white-space:nowrap}
 .hist-actions{display:flex;gap:6px;margin-top:10px}
 .btn-edit-hist{padding:5px 12px;background:#0c2740;border:1.5px solid #1e4a6e;border-radius:7px;color:#38bdf8;cursor:pointer;font-size:11px;font-family:inherit;font-weight:600;transition:all .15s}
@@ -589,14 +594,41 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
     </div>
 
     <!-- cut form -->
-    <div class="cut-section">
+    <div class="cut-section" id="cut-section-normal">
       <div class="section-title">ตัดงบประมาณ</div>
-      <div class="field"><label>จำนวนเงิน (บาท) *</label><input type="number" id="f-amount" placeholder="0.00" min="0.01" step="0.01"></div>
       <div class="field"><label>วันที่และเวลา</label><input type="datetime-local" id="f-date"></div>
+      <div class="field"><label>จำนวนเงิน (บาท) *</label><input type="number" id="f-amount" placeholder="0.00" min="0.01" step="0.01"></div>
       <div class="field"><label>หมายเหตุ</label><input type="text" id="f-note" placeholder="ระบุรายละเอียด..."></div>
       <div class="error-msg" id="f-error"></div>
       <div class="success-msg" id="f-success"></div>
       <button class="btn-primary" id="f-submit" onclick="submitCut()">บันทึกการตัดงบ</button>
+    </div>
+
+    <!-- cut form เฉพาะบัญชีค่าเชื้อเพลิงยานพาหนะ (2 คัน คิด VAT ต่างกัน) -->
+    <div class="cut-section" id="cut-section-fuel" style="display:none">
+      <div class="section-title">ตัดงบประมาณ (ค่าเชื้อเพลิง)</div>
+      <div class="field"><label>วันที่และเวลา</label><input type="datetime-local" id="fuel-date"></div>
+      <div class="field">
+        <label>รถยนต์ทะเบียน</label>
+        <select class="fuel-select" id="fuel-vehicle" onchange="calcFuel()">
+          <option value="asset">82-3116 พล. — ทรัพย์สิน (ตัดงบก่อน VAT)</option>
+          <option value="rental">3ฒห 4573 กทม. — รถเช่า (ตัดงบรวม VAT)</option>
+        </select>
+      </div>
+      <div class="field"><label>ราคาลิตรละ (บาท)</label><input type="number" id="fuel-price" placeholder="0.00" min="0" step="0.01" oninput="calcFuel()"></div>
+      <div class="field"><label>จำนวน (ลิตร)</label><input type="number" id="fuel-liters" placeholder="0.00" min="0" step="0.01" oninput="calcFuel()"></div>
+      <div class="field">
+        <label>รวมเป็นเงิน (รวม VAT ตามใบเสร็จ)</label>
+        <input type="text" id="fuel-gross" readonly value="0.00">
+      </div>
+      <div class="field">
+        <label>ยอดที่ใช้ตัดงบ <span id="fuel-vat-hint" class="imp-hint" style="margin:0;display:inline"></span></label>
+        <input type="text" id="fuel-final" readonly value="0.00" style="font-weight:800;color:#38bdf8">
+      </div>
+      <div class="field"><label>หมายเหตุเพิ่มเติม (ถ้ามี)</label><input type="text" id="fuel-note" placeholder="ระบุรายละเอียด..."></div>
+      <div class="error-msg" id="fuel-error"></div>
+      <div class="success-msg" id="fuel-success"></div>
+      <button class="btn-primary" id="fuel-submit" onclick="submitFuelCut()">บันทึกการตัดงบ</button>
     </div>
 
     <!-- history -->
@@ -849,6 +881,23 @@ window.buildDataFromPayload = buildDataFromPayload;
 
 <!-- ========== APP SCRIPT ========== -->
 <script>
+// ── ค่าเริ่มต้นสำรอง (fallback) สำหรับฟังก์ชันที่พึ่ง Firebase ──
+// ถ้า Firebase SDK โหลดไม่สำเร็จ (เช่น เข้าเน็ตไม่ถึง/พรีวิวแบบออฟไลน์)
+// ฟังก์ชันจริงจาก <script type="module"> จะไม่ถูกกำหนดค่า ทำให้เรียกแล้ว error ทั้งแอปได้
+// จึงใส่ค่าเริ่มต้นแบบ no-op ไว้ก่อน พอ module โหลดสำเร็จจะถูกเขียนทับด้วยของจริงเองอัตโนมัติ
+window.saveData          = window.saveData          || (async () => { console.warn('⚠️ ยังไม่เชื่อมต่อ Firestore — ข้อมูลจะไม่ถูกบันทึกถาวรในโหมดนี้'); });
+window.loadData          = window.loadData          || (async () => false);
+window.startRealtimeSync = window.startRealtimeSync || (() => {});
+window.listBudgetYears   = window.listBudgetYears   || (async () => []);
+window.fetchYearPayload  = window.fetchYearPayload  || (async () => null);
+window.deleteYearDataFS  = window.deleteYearDataFS  || (async () => {});
+window.budgetDocRefFS    = window.budgetDocRefFS    || ((year) => year);
+window.setDocFS          = window.setDocFS          || (async () => { console.warn('⚠️ ยังไม่เชื่อมต่อ Firestore — บันทึกไม่สำเร็จในโหมดนี้'); });
+window.buildDataFromPayload = window.buildDataFromPayload || ((payload) => {
+  const savedAccounts = payload?.accounts || {};
+  return Object.keys(savedAccounts).map(code => ({ code, ...savedAccounts[code] }));
+});
+
 const ACCOUNTS = [
   {code:"52010030",name:"ค่าล่วงเวลาพนักงาน",budget:64000},
   {code:"52010080",name:"ค่าตอบแทนการอยู่เวรปฏิบัติการระบบไฟฟ้าแบบเฝ้าระวัง",budget:217920},
@@ -1026,14 +1075,35 @@ function showDetail(code){
   document.getElementById('page-dashboard').classList.remove('active');
   document.getElementById('page-detail').classList.add('active');
   document.getElementById('bottom-nav').style.display='none';
-  // reset form
-  document.getElementById('f-amount').value='';
-  document.getElementById('f-note').value='';
+
   const now=new Date(); now.setSeconds(0,0);
   const localISO = new Date(now.getTime() - now.getTimezoneOffset()*60000).toISOString().slice(0,16);
-  document.getElementById('f-date').value=localISO;
-  document.getElementById('f-error').style.display='none';
-  document.getElementById('f-success').style.display='none';
+
+  const isFuel = (code === FUEL_ACCOUNT_CODE);
+  document.getElementById('cut-section-normal').style.display = isFuel ? 'none' : 'block';
+  document.getElementById('cut-section-fuel').style.display   = isFuel ? 'block' : 'none';
+
+  if (isFuel) {
+    // reset fuel form
+    document.getElementById('fuel-vehicle').value='asset';
+    document.getElementById('fuel-price').value='';
+    document.getElementById('fuel-liters').value='';
+    document.getElementById('fuel-gross').value='0.00';
+    document.getElementById('fuel-final').value='0.00';
+    document.getElementById('fuel-note').value='';
+    document.getElementById('fuel-date').value=localISO;
+    document.getElementById('fuel-error').style.display='none';
+    document.getElementById('fuel-success').style.display='none';
+    calcFuel();
+  } else {
+    // reset normal form
+    document.getElementById('f-amount').value='';
+    document.getElementById('f-note').value='';
+    document.getElementById('f-date').value=localISO;
+    document.getElementById('f-error').style.display='none';
+    document.getElementById('f-success').style.display='none';
+  }
+
   renderDetail();
   window.scrollTo(0,0);
 }
@@ -1129,6 +1199,7 @@ function renderDetailHist(){
       <div class="hist-item-top">
         <div>
           <div class="hist-date">${fmtDatetime(e.date)}</div>
+          ${e.vehiclePlate ? `<div class="hist-fuel-tag">🚗 ${e.vehiclePlate} · ${e.vehicleOwnership} · ${e.fuelLiters} ลิตร x ${fmt(e.fuelPricePerLiter)} ฿ = ${fmt(e.fuelGross)} ฿${e.fuelVatIncluded?' (รวม VAT)':' (ก่อน VAT)'}</div>` : ''}
           <div class="hist-note">${e.note||'(ไม่มีหมายเหตุ)'}</div>
         </div>
         <div class="hist-amount">-${fmt(e.amount)} ฿</div>
@@ -1153,6 +1224,81 @@ function renderDetailHist(){
       </div>
     </div>`).join('');
   // re-apply visibility หลัง render ใหม่
+}
+
+/* ---- บัญชีค่าเชื้อเพลิงยานพาหนะ (2 คัน คิด VAT ต่างกัน) ---- */
+const FUEL_ACCOUNT_CODE = '53039010';
+const FUEL_VEHICLES = {
+  asset:  { plate:'82-3116 พล.',    ownership:'ทรัพย์สิน', vatIncluded:false, label:'ทรัพย์สิน — ตัดงบก่อน VAT' },
+  rental: { plate:'3ฒห 4573 กทม.',  ownership:'รถเช่า',    vatIncluded:true,  label:'รถเช่า — ตัดงบรวม VAT' }
+};
+
+function calcFuel(){
+  const price  = parseFloat(document.getElementById('fuel-price').value)  || 0;
+  const liters = parseFloat(document.getElementById('fuel-liters').value) || 0;
+  const vKey   = document.getElementById('fuel-vehicle').value;
+  const v      = FUEL_VEHICLES[vKey];
+  const gross  = price * liters; // รวมเป็นเงินตามใบเสร็จ (รวม VAT เสมอ เพราะราคาน้ำมันหน้าปั๊มรวม VAT อยู่แล้ว)
+  const final  = v.vatIncluded ? gross : (gross / 1.07); // ทรัพย์สิน -> ตัดงบก่อน VAT
+
+  document.getElementById('fuel-gross').value = fmt(gross);
+  document.getElementById('fuel-final').value = fmt(final);
+  document.getElementById('fuel-vat-hint').textContent = v.vatIncluded ? '(รวม VAT 7%)' : '(หัก VAT 7% ออกแล้ว)';
+}
+
+function submitFuelCut(){
+  const acc = data.find(a=>a.code===currentCode);
+  const carryOver = acc.budget - acc.used;
+  const rem = carryOver;
+  const err = document.getElementById('fuel-error');
+  const suc = document.getElementById('fuel-success');
+  err.style.display='none'; suc.style.display='none';
+
+  const vKey   = document.getElementById('fuel-vehicle').value;
+  const v      = FUEL_VEHICLES[vKey];
+  const price  = parseFloat(document.getElementById('fuel-price').value)  || 0;
+  const liters = parseFloat(document.getElementById('fuel-liters').value) || 0;
+  const gross  = price * liters;
+  const val    = v.vatIncluded ? gross : (gross / 1.07);
+
+  if(!price || price<=0){ err.textContent='กรุณาระบุราคาลิตรละให้ถูกต้อง'; err.style.display='block'; return; }
+  if(!liters || liters<=0){ err.textContent='กรุณาระบุจำนวนลิตรให้ถูกต้อง'; err.style.display='block'; return; }
+  if(!val || val<=0){ err.textContent='ยอดที่ใช้ตัดงบต้องมากกว่า 0'; err.style.display='block'; return; }
+  if(val>rem){ err.textContent=`จำนวนเงินเกินงบคงเหลือ (${fmt(rem)} ฿)`; err.style.display='block'; return; }
+
+  const runNo = String(acc.entries.length + 1).padStart(4,'0');
+  const docNo = `กฟส.ทอห.${acc.code}-${runNo}/${currentYear}`;
+  const userNote = document.getElementById('fuel-note').value.trim();
+  const autoNote = `น้ำมัน ${liters} ลิตร x ${fmt(price)} บาท = ${fmt(gross)} บาท (รถ ${v.plate} · ${v.label})`;
+  const note = userNote ? `${autoNote} — ${userNote}` : autoNote;
+
+  const entry = {
+    id: Date.now().toString(),
+    amount: val,
+    date: document.getElementById('fuel-date').value,
+    doc: docNo,
+    note,
+    carryOver,
+    // ข้อมูลเฉพาะบัญชีเชื้อเพลิง
+    vehiclePlate: v.plate,
+    vehicleOwnership: v.ownership,
+    fuelPricePerLiter: price,
+    fuelLiters: liters,
+    fuelGross: gross,
+    fuelVatIncluded: v.vatIncluded
+  };
+  acc.entries.push(entry);
+  acc.used += val;
+
+  document.getElementById('fuel-price').value='';
+  document.getElementById('fuel-liters').value='';
+  document.getElementById('fuel-note').value='';
+  calcFuel();
+  suc.textContent = `บันทึกสำเร็จ: ตัดงบ ${fmt(val)} ฿ (${v.plate})`;
+  suc.style.display='block';
+  setTimeout(()=>suc.style.display='none',3000);
+  window.saveData();
+  renderDetail();
 }
 
 /* ---- cut submit ---- */
