@@ -148,6 +148,13 @@ details summary { cursor:pointer; font-size:12.5px; color:var(--blue); }
       <div class="stat-box"><div class="n" id="res-transformer">0</div><div class="l">Transformer</div></div>
       <div class="stat-box"><div class="n" id="res-dropped">0</div><div class="l">แถวที่ตัดทิ้ง (ข้อมูลไม่ครบ)</div></div>
     </div>
+    <div id="dropped-detail-wrap" class="hidden">
+      <details id="dropped-details">
+        <summary>ดูรายละเอียดแถวที่ตัดทิ้ง</summary>
+        <div class="diff-list" id="dropped-list"></div>
+      </details>
+      <button class="btn secondary small" id="btn-dl-dropped" style="margin-top:8px;">⬇️ ดาวน์โหลดรายงานแถวที่ตัดทิ้ง (.csv)</button>
+    </div>
     <div class="btn-row">
       <button class="btn primary" id="btn-dl-data">⬇️ ดาวน์โหลด data.js</button>
       <button class="btn primary" id="btn-dl-equipment">⬇️ ดาวน์โหลด equipment-data.js</button>
@@ -287,10 +294,18 @@ function looksNumeric(str) {
 
 const CUSTOMER_FIELDS = ['CA','PEANO','PREFIX','CUSTOMERNAME','CUSTOMERSIRNAME','ADDRESSNO','MOO','TUMBOL','AMPHOE','CHANGWAT','MOBILE_NO','METERTYPE'];
 
-function extractCustomers(rows, map, stats) {
+function extractCustomers(rows, map, stats, fileName) {
   for (const row of rows) {
     const peano = s(pick(row, ['PEANO']));
-    if (!peano) { stats.customerDropped++; continue; }
+    const ca = s(pick(row, ['CA']));
+    const name = [s(pick(row, ['PREFIX'])), s(pick(row, ['CUSTOMERNAME'])), s(pick(row, ['CUSTOMERSIRNAME']))].filter(Boolean).join(' ');
+    const addrHint = [s(pick(row, ['MOO'])), s(pick(row, ['TUMBOL'])), s(pick(row, ['AMPHOE']))].filter(Boolean).join(' ');
+
+    if (!peano) {
+      stats.customerDropped++;
+      stats.droppedDetails.push({ file: fileName, sheet: 'DS_LowVoltageMeter', type: 'ผู้ใช้ไฟฟ้า', reason: 'ไม่มีเลข PEANO', label: name || ca || '(ไม่มีข้อมูลระบุตัวตนเลย)' });
+      continue;
+    }
 
     let lat = pick(row, ['LATITUDE']);
     let lon = pick(row, ['LONGITUDE']);
@@ -299,7 +314,11 @@ function extractCustomers(rows, map, stats) {
       if (rl !== null) lat = rl;
       if (rn !== null) lon = rn;
     }
-    if (!isLat(lat) || !isLon(lon)) { stats.customerDropped++; continue; }
+    if (!isLat(lat) || !isLon(lon)) {
+      stats.customerDropped++;
+      stats.droppedDetails.push({ file: fileName, sheet: 'DS_LowVoltageMeter', type: 'ผู้ใช้ไฟฟ้า', reason: 'ไม่มีพิกัด/พิกัดใช้งานไม่ได้', label: `PEANO ${peano}${name ? ' — ' + name : ''}${addrHint ? ' (' + addrHint + ')' : ''}` });
+      continue;
+    }
 
     const rec = {};
     CUSTOMER_FIELDS.forEach(k => rec[k] = s(pick(row, [k])));
@@ -309,7 +328,8 @@ function extractCustomers(rows, map, stats) {
   }
 }
 
-function extractEquipment(rows, tp, map, stats) {
+function extractEquipment(rows, tp, map, stats, fileName, sheetName) {
+  const tpLabel = { recloser: 'Recloser', switch: 'Switch', transformer: 'Transformer' }[tp];
   for (const row of rows) {
     let st, idCandidates;
     if (tp === 'recloser') {
@@ -325,7 +345,12 @@ function extractEquipment(rows, tp, map, stats) {
 
     let devId = s(pick(row, idCandidates));
     if (!devId) devId = s(pick(row, ['รหัส TAG']));
-    if (!devId) { stats.equipmentDropped++; continue; }
+    if (!devId) {
+      stats.equipmentDropped++;
+      const loc0 = s(pick(row, ['สถานที่']));
+      stats.droppedDetails.push({ file: fileName, sheet: sheetName, type: tpLabel, reason: 'ไม่มีรหัสอุปกรณ์/รหัส TAG', label: loc0 || '(ไม่มีข้อมูลระบุตัวตนเลย)' });
+      continue;
+    }
 
     // ค่า "ประเภท/ชนิด" ต้องเป็นข้อความเสมอ ถ้าดันเป็นตัวเลขล้วนๆ แปลว่าพิกัดหลุดมาปนช่องผิด ไม่ใช่ข้อมูลจริง
     if (looksNumeric(st)) st = '';
@@ -337,7 +362,11 @@ function extractEquipment(rows, tp, map, stats) {
       if (rl !== null) lat = rl;
       if (rn !== null) lon = rn;
     }
-    if (!isLat(lat) || !isLon(lon)) { stats.equipmentDropped++; continue; }
+    if (!isLat(lat) || !isLon(lon)) {
+      stats.equipmentDropped++;
+      stats.droppedDetails.push({ file: fileName, sheet: sheetName, type: tpLabel, reason: 'ไม่มีพิกัด/พิกัดใช้งานไม่ได้', label: `${tpLabel} รหัส ${devId}` });
+      continue;
+    }
 
     const ph = s(pick(row, ['เฟสที่ติดตั้ง']));
     const loc = s(pick(row, ['สถานที่']));
@@ -365,7 +394,7 @@ async function convertFiles() {
 
   const customersMap = new Map();
   const equipmentMap = new Map();
-  const stats = { customerDropped: 0, equipmentDropped: 0 };
+  const stats = { customerDropped: 0, equipmentDropped: 0, droppedDetails: [] };
 
   for (const file of selectedFiles) {
     log(`📂 กำลังอ่าน ${file.name}...`);
@@ -376,14 +405,14 @@ async function convertFiles() {
 
       if (wb.SheetNames.includes('DS_LowVoltageMeter')) {
         const rows = XLSX.utils.sheet_to_json(wb.Sheets['DS_LowVoltageMeter'], { defval: null, raw: true });
-        extractCustomers(rows, customersMap, stats);
+        extractCustomers(rows, customersMap, stats, file.name);
         log(`   ✓ DS_LowVoltageMeter: ${rows.length} แถว`, 'ok');
         foundAny = true;
       }
       for (const [sheetName, tp] of Object.entries(EQUIP_SHEETS)) {
         if (wb.SheetNames.includes(sheetName)) {
           const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: null, raw: true });
-          extractEquipment(rows, tp, equipmentMap, stats);
+          extractEquipment(rows, tp, equipmentMap, stats, file.name, sheetName);
           log(`   ✓ ${sheetName}: ${rows.length} แถว`, 'ok');
           foundAny = true;
         }
@@ -421,10 +450,33 @@ function showResults() {
   document.getElementById('res-transformer').textContent = tpCount.transformer;
   document.getElementById('res-dropped').textContent = (newStats.customerDropped + newStats.equipmentDropped);
 
+  const droppedWrap = document.getElementById('dropped-detail-wrap');
+  if (newStats.droppedDetails.length) {
+    droppedWrap.classList.remove('hidden');
+    document.getElementById('dropped-list').innerHTML = newStats.droppedDetails.map(d =>
+      `<div>📄 ${escHtml(d.file)} · ${escHtml(d.type)} · <span style="color:var(--yellow);">${escHtml(d.reason)}</span> · ${escHtml(d.label)}</div>`
+    ).join('');
+  } else {
+    droppedWrap.classList.add('hidden');
+  }
+
   document.getElementById('card-result').classList.remove('hidden');
   document.getElementById('card-compare').classList.remove('hidden');
   document.getElementById('card-result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
+
+function downloadDroppedReport() {
+  const rows = [['ไฟล์ต้นทาง', 'ชีท', 'ประเภท', 'สาเหตุที่ตัดทิ้ง', 'ข้อมูลที่พอระบุได้']];
+  newStats.droppedDetails.forEach(d => rows.push([d.file, d.sheet, d.type, d.reason, d.label]));
+  const csv = '\uFEFF' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'แถวที่ตัดทิ้ง.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+document.getElementById('btn-dl-dropped').addEventListener('click', downloadDroppedReport);
 
 // ══════════════════════════════════════════════════════════════════
 // DOWNLOAD
