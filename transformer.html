@@ -1330,7 +1330,7 @@ function buildReportHTML(d) {
     <div style="display:grid;grid-template-columns:repeat(${d.isSingleWire ? 3 : 5},1fr);gap:12px;margin-bottom:20px">
       ${[
         {label:'กระแสพิกัด',val:d.ratedI.toFixed(1),unit:'A',color:'#1565c0'},
-        {label:'กระแสโหลด',val:d.maxI.toFixed(1),unit:'A',color:'#1a1a2e'},
+        {label:'กระแสโหลด',val:d.totalI.toFixed(1),unit:'A',color:'#1a1a2e'},
         {label:'% โหลด',val:d.pct.toFixed(1),unit:'%',color:pctColor},
         ...(!d.isSingleWire ? [
           {label:'กระแสเฉลี่ย',val:d.avgI.toFixed(1),unit:'A',color:'#1a1a2e'},
