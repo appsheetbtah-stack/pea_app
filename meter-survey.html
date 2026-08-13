@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>สำรวจปรับปรุงมิเตอร์ - PEA</title>
+<meta name="theme-color" content="#0f1923">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0f1923; --surface:#162030; --surface2:#1e2d3d; --border:#2a3f55;
+  --accent:#f5a623; --accent2:#e05c2a; --blue:#3b9ede; --green:#2ecc71; --red:#e74c3c;
+  --yellow:#f39c12; --text:#e8f0f8; --text2:#a9bdd1;
+  --mono:'IBM Plex Mono',monospace; --sans:'Sarabun',sans-serif;
+  --topbar:52px; --botnav:56px;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:15px; }
+
+.topbar {
+  position:fixed; top:0; left:0; right:0; height:var(--topbar); z-index:600;
+  background:var(--surface); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:10px; padding:0 12px;
+}
+.back-btn {
+  color:var(--text2); text-decoration:none; font-size:13px;
+  display:flex; align-items:center; gap:4px;
+  padding:6px 10px; border:1px solid var(--border); border-radius:6px;
+  flex-shrink:0; transition:color .15s; cursor:pointer; background:none;
+}
+.back-btn:hover { color:var(--accent); border-color:var(--accent); }
+.topbar-title { font-size:15px; font-weight:700; flex:1; display:flex; align-items:center; gap:8px; }
+
+.tab-pane { position:fixed; top:var(--topbar); left:0; right:0; bottom:var(--botnav); overflow-y:auto; display:none; }
+.tab-pane.active { display:block; }
+.tab-pane.map-pane { display:none; overflow:hidden; flex-direction:column; }
+.tab-pane.map-pane.active { display:flex; }
+
+.bottom-nav {
+  position:fixed; bottom:0; left:0; right:0; height:var(--botnav); z-index:600;
+  background:var(--surface); border-top:1px solid var(--border); display:flex;
+  box-shadow:0 -6px 18px rgba(0,0,0,.35);
+}
+.nav-btn {
+  flex:1; background:none; border:none; color:var(--text2); display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:3px; cursor:pointer; padding:6px 4px;
+}
+.nav-btn.active { color:var(--accent); }
+.nav-icon { font-size:19px; width:38px; height:38px; display:flex; align-items:center; justify-content:center; border-radius:50%; }
+.nav-btn.active .nav-icon { transform:translateY(-3px) scale(1.06); }
+.nav-label { font-size:11px; font-weight:600; }
+.nav-btn.active .nav-label { font-weight:700; }
+
+.list-wrap { padding:12px; display:flex; flex-direction:column; gap:12px; }
+
+.plan-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; display:flex; align-items:center; gap:12px; cursor:pointer; }
+.plan-card:active { border-color:var(--accent); }
+.plan-icon { width:44px; height:44px; border-radius:10px; background:rgba(245,166,35,.15); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+.plan-info { flex:1; min-width:0; }
+.plan-name { font-weight:700; font-size:15px; }
+.plan-sub { font-size:13px; color:var(--text2); margin-top:2px; }
+.plan-arrow { color:var(--text2); font-size:18px; flex-shrink:0; }
+
+.point-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:8px; cursor:pointer; }
+.point-card:active { border-color:var(--accent); }
+.point-top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.point-title { font-weight:700; font-size:15px; }
+.point-thumb { width:56px; height:56px; border-radius:10px; object-fit:cover; border:2px solid var(--accent); flex-shrink:0; }
+.point-thumb-placeholder { width:56px; height:56px; border-radius:10px; background:var(--surface2); border:2px dashed var(--border); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+.point-meta-row { display:flex; flex-wrap:wrap; gap:8px; }
+.point-chip { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:5px 9px; font-family:var(--mono); font-size:12px; color:var(--text); }
+.status-badge { font-size:12px; font-weight:700; padding:4px 10px; border-radius:20px; white-space:nowrap; flex-shrink:0; }
+.status-pending  { background:rgba(169,189,209,.15); color:var(--text2); }
+.status-surveyed { background:rgba(46,204,113,.15); color:var(--green); }
+
+.empty-state { padding:60px 20px; text-align:center; color:var(--text2); }
+.empty-icon { font-size:40px; margin-bottom:10px; }
+
+.detail-header { padding:12px 12px 0; display:flex; align-items:center; gap:10px; }
+.detail-title { font-weight:700; font-size:16px; flex:1; }
+
+/* ── MAP PANE ── */
+.map-pane-inner { position:relative; flex:1; display:flex; flex-direction:column; min-height:0; }
+#map { flex:1; min-height:0; }
+.map-select-bar { position:absolute; top:10px; left:10px; right:10px; z-index:501; }
+.map-select-bar select { width:100%; background:rgba(22,32,48,0.95); box-shadow:0 1px 6px rgba(0,0,0,.3); }
+.map-legend {
+  position:absolute; top:56px; left:10px; right:10px; z-index:500;
+  background:rgba(22,32,48,0.92); border:1px solid var(--border); border-radius:10px;
+  padding:8px 12px; font-size:12px; display:flex; gap:12px; flex-wrap:wrap;
+}
+.map-legend span { display:flex; align-items:center; gap:5px; }
+.legend-dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+.point-pin { background:transparent; border:none; }
+.pin-body {
+  width:28px; height:28px; border-radius:50% 50% 50% 0; transform:rotate(45deg);
+  display:flex; align-items:center; justify-content:center;
+  border:2px solid #0f1923; box-shadow:0 1px 4px rgba(0,0,0,.4);
+  position:absolute; top:0; left:1px;
+}
+.pin-body span { transform:rotate(-45deg); font-size:14px; line-height:1; }
+.popup-detail { display:inline-block; margin-top:4px; color:#333; font-size:12.5px; }
+
+/* ── MODAL ── */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:900; display:none; align-items:flex-end; justify-content:center; }
+.modal-overlay.active { display:flex; }
+.modal { background:var(--bg); width:100%; max-width:600px; max-height:92vh; overflow-y:auto; border-radius:16px 16px 0 0; border:1px solid var(--border); border-bottom:none; }
+.modal-header { position:sticky; top:0; background:var(--surface); border-bottom:1px solid var(--border); padding:14px 16px; display:flex; align-items:center; justify-content:space-between; z-index:2; }
+.modal-title { font-weight:700; font-size:15px; }
+.modal-close { background:none; border:none; color:var(--text2); font-size:20px; cursor:pointer; }
+.modal-body { padding:16px; display:flex; flex-direction:column; gap:16px; }
+.modal-footer { position:sticky; bottom:0; background:var(--surface); border-top:1px solid var(--border); padding:12px 16px; display:flex; gap:10px; }
+
+.field-label { font-size:13px; color:var(--text2); margin-bottom:6px; display:block; font-weight:600; }
+.field-input, .field-select {
+  width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+  padding:10px 12px; color:var(--text); font-family:var(--sans); font-size:14px; outline:none;
+}
+.field-input:focus, .field-select:focus { border-color:var(--accent); }
+.field-hint { font-size:12px; color:var(--text2); margin-top:5px; }
+.field-row { display:flex; gap:10px; }
+.field-row > div { flex:1; }
+
+.section-block { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:12px; }
+.section-title { font-weight:700; font-size:14px; display:flex; align-items:center; gap:6px; }
+
+.photo-row { display:flex; align-items:center; gap:10px; }
+.photo-preview { width:100%; max-height:340px; border-radius:10px; object-fit:contain; background:var(--surface2); border:1px solid var(--border); margin-bottom:10px; display:none; }
+.btn { padding:10px 18px; border-radius:8px; border:none; cursor:pointer; font-family:var(--sans); font-size:14px; font-weight:600; white-space:nowrap; }
+.btn-primary { background:var(--accent); color:#000; flex:1; }
+.btn-ghost { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+.btn-blue { background:var(--blue); color:#fff; }
+.btn-danger { background:#e74c3c; color:#fff; }
+.upload-status { font-size:13px; color:var(--text2); }
+.upload-status.uploading { color:var(--blue); }
+.upload-status.error { color:var(--red); }
+
+.toast {
+  position:fixed; bottom:calc(var(--botnav) + 16px); left:50%; transform:translateX(-50%) translateY(20px);
+  background:var(--surface2); border:1px solid var(--border); color:var(--text);
+  padding:10px 18px; border-radius:10px; font-size:13px; z-index:1000; opacity:0; pointer-events:none; transition:all .25s;
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+.fab {
+  position:fixed; right:18px; bottom:calc(var(--botnav) + 18px); width:56px; height:56px; border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),var(--accent2)); border:none; color:#0f1923;
+  font-size:26px; font-weight:700; cursor:pointer; box-shadow:0 4px 16px rgba(245,166,35,.4);
+  display:flex; align-items:center; justify-content:center; z-index:590;
+}
+.fab:active { transform:scale(.93); }
+.link-btn { color:var(--blue); text-decoration:underline; cursor:pointer; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="back-btn" href="survey-hub.html" id="btn-top-back">← กลับ</a>
+  <div class="topbar-title">📐 สำรวจปรับปรุงมิเตอร์</div>
+</div>
+
+<!-- ══ TAB: รายการแผนงาน ══ -->
+<div class="tab-pane active" id="tab-plans">
+  <div class="list-wrap" id="plans-list"></div>
+</div>
+
+<!-- ══ TAB: แผนที่ ══ -->
+<div class="tab-pane map-pane" id="tab-map">
+  <div class="map-pane-inner">
+    <div class="map-select-bar">
+      <select class="field-select" id="map-plan-select" onchange="onMapPlanChange()"></select>
+    </div>
+    <div class="map-legend">
+      <span><span class="legend-dot" style="background:#a9bdd1"></span> รอสำรวจ</span>
+      <span><span class="legend-dot" style="background:#2ecc71"></span> สำรวจแล้ว</span>
+    </div>
+    <div id="map"></div>
+  </div>
+</div>
+
+<!-- ══ SCREEN: รายละเอียดแผนงาน (จุดสำรวจ) ══ -->
+<div class="tab-pane" id="tab-plan-detail" style="top:0; bottom:0;">
+  <div class="detail-header">
+    <button class="back-btn" onclick="closePlanDetail()">← กลับ</button>
+    <div class="detail-title" id="plan-detail-title">แผนงาน</div>
+  </div>
+  <div class="list-wrap" id="points-list"></div>
+</div>
+
+<div class="bottom-nav" id="bottom-nav">
+  <button class="nav-btn active" onclick="switchTab('plans')">
+    <div class="nav-icon">🗂️</div><div class="nav-label">แผนงาน</div>
+  </button>
+  <button class="nav-btn" onclick="switchTab('map')">
+    <div class="nav-icon">🗺️</div><div class="nav-label">แผนที่</div>
+  </button>
+</div>
+
+<button class="fab" id="fab-btn" onclick="onFabClick()">+</button>
+
+<!-- ══ MODAL: สร้างแผนงานใหม่ ══ -->
+<div class="modal-overlay" id="plan-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">สร้างแผนงานใหม่</div>
+      <button class="modal-close" onclick="closeModal('plan-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div>
+        <label class="field-label">ชื่อแผนงาน *</label>
+        <input class="field-input" id="pf-plan-name" placeholder="เช่น หมู่ 5 บ้านทุ่ง ต.คุยม่วง">
+      </div>
+      <div>
+        <label class="field-label">พื้นที่ / สายป้อน (ไม่บังคับ)</label>
+        <input class="field-input" id="pf-plan-area" placeholder="เช่น สายป้อน คป.7">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('plan-modal')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="createPlan()">สร้างแผนงาน</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: ฟอร์มจุดสำรวจ ══ -->
+<div class="modal-overlay" id="point-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="point-modal-title">เพิ่มจุดสำรวจ</div>
+      <button class="modal-close" onclick="closeModal('point-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="section-block">
+        <div class="section-title">📍 ข้อมูลเสา</div>
+        <div class="field-row">
+          <div>
+            <label class="field-label">ขนาดเสา (ม.)</label>
+            <select class="field-select" id="pt-pole-size">
+              <option value="8">8</option><option value="9">9</option>
+              <option value="12">12</option><option value="12.2">12.2</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div>
+            <label class="field-label">มิเตอร์ด้าน A (0-4)</label>
+            <input type="number" class="field-input" id="pt-side-a" min="0" max="4" value="0" oninput="recalcMeterCount()">
+          </div>
+          <div>
+            <label class="field-label">มิเตอร์ด้าน B (0-4)</label>
+            <input type="number" class="field-input" id="pt-side-b" min="0" max="4" value="0" oninput="recalcMeterCount()">
+          </div>
+        </div>
+        <div class="field-hint" id="pt-meter-count-hint">จำนวนมิเตอร์รวม: 0 เครื่อง</div>
+        <div class="field-row">
+          <div>
+            <label class="field-label">พิกัด (Lat, Lng)</label>
+            <input class="field-input" id="pt-latlng" placeholder="ยังไม่ระบุ" readonly>
+          </div>
+          <div style="flex:0 0 auto; align-self:flex-end;">
+            <button class="btn btn-blue" onclick="useCurrentLocation()">📍 ใช้ตำแหน่งปัจจุบัน</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">🧰 อุปกรณ์ที่ใช้</div>
+        <div class="field-row">
+          <div>
+            <label class="field-label">ไม้แป้น ขนาด (ซม.)</label>
+            <select class="field-select" id="pt-plank-size">
+              <option value="20">20</option><option value="60">60</option><option value="120">120</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">จำนวน (แผ่น)</label>
+            <input type="number" class="field-input" id="pt-plank-qty" min="0" value="0">
+          </div>
+        </div>
+        <div class="field-row">
+          <div>
+            <label class="field-label">น็อต ขนาด (มม.)</label>
+            <select class="field-select" id="pt-bolt-size">
+              <option value="9">9</option><option value="10">10</option>
+              <option value="12">12</option><option value="14">14</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">จำนวน (ตัว)</label>
+            <input type="number" class="field-input" id="pt-bolt-qty" min="0" value="0">
+          </div>
+        </div>
+        <div class="field-row">
+          <div>
+            <label class="field-label">แหวนสี่เหลี่ยม (ตัว)</label>
+            <input type="number" class="field-input" id="pt-washer-qty" min="0" value="0">
+          </div>
+        </div>
+        <div class="field-row">
+          <div>
+            <label class="field-label">สายทองแดง ขนาด 2×10 ตร.มม.</label>
+            <div class="field-input" style="background:transparent; border-style:dashed; color:var(--text2);">คงที่ 2×10 ตร.มม.</div>
+          </div>
+        </div>
+        <div class="field-row">
+          <div>
+            <label class="field-label">ความยาว/เส้น (ม.)</label>
+            <input type="number" class="field-input" id="pt-wire-length" min="0" step="0.1" value="0">
+          </div>
+          <div>
+            <label class="field-label">จำนวนเส้น (= จำนวนมิเตอร์)</label>
+            <input type="number" class="field-input" id="pt-wire-qty" min="0" value="0">
+          </div>
+        </div>
+        <div class="field-hint">จำนวนเส้นตั้งต้นเท่ากับจำนวนมิเตอร์รวมโดยอัตโนมัติ (แก้ไขเองได้หากมีกรณีพิเศษ)</div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-title">📷 รูปถ่าย</div>
+        <img id="d-photo-preview" class="photo-preview">
+        <div class="photo-row">
+          <button class="btn btn-blue" id="btn-take-photo" onclick="onPhotoButtonClick()">📷 ถ่ายรูป</button>
+          <button class="btn btn-ghost" onclick="onGalleryButtonClick()">🖼️ เลือกจากคลัง</button>
+          <button class="btn btn-danger" id="btn-delete-photo" style="display:none;" onclick="deletePhoto()">ลบรูป</button>
+        </div>
+        <input type="file" id="d-photo-input" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoSelected(event)">
+        <input type="file" id="d-gallery-input" accept="image/*" style="display:none" onchange="handlePhotoSelected(event)">
+        <div id="photo-upload-status" class="upload-status"></div>
+        <div id="drive-account-info" style="font-size:12px; color:var(--text2);"></div>
+        <button class="btn btn-ghost" id="btn-request-permission" style="display:none;" onclick="onRequestPermissionClick()">🔑 ขอสิทธิ์เชื่อมต่อ Google Drive</button>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="btn-delete-point" style="display:none;" onclick="deletePoint()">ลบจุดนี้</button>
+      <button class="btn btn-primary" onclick="savePoint()">บันทึกจุดสำรวจ</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyC7bzImCV7c89fLGhIq8OycWKQWRYdvZvE",
+    authDomain: "pea-system.firebaseapp.com",
+    projectId: "pea-system",
+    storageBucket: "pea-system.firebasestorage.app",
+    messagingSenderId: "1006235611544",
+    appId: "1:1006235611544:web:a7453d71ff56748166fbed",
+    measurementId: "G-V5NPYZ4KZW"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  window._db = db;
+  window._fsLib = { collection, doc, setDoc, deleteDoc };
+
+  const plansQ = query(collection(db, "survey_plans"), orderBy("createdAt", "desc"));
+  onSnapshot(plansQ, (snap) => {
+    window.PLANS = snap.docs.map(d => d.data());
+    window.renderPlansList && renderPlansList();
+    window.renderMapPlanOptions && renderMapPlanOptions();
+  }, (err) => console.error("Firestore(plans) error:", err));
+
+  const pointsQ = query(collection(db, "survey_points"), orderBy("pointNo", "asc"));
+  onSnapshot(pointsQ, (snap) => {
+    window.POINTS = snap.docs.map(d => d.data());
+    window.renderPlansList && renderPlansList();
+    window.renderPointsList && renderPointsList();
+    if (window.mapReady) window.renderMapMarkers();
+  }, (err) => console.error("Firestore(points) error:", err));
+</script>
+
+<script>
+// ══════════════════════════ STATE ══════════════════════════
+window.PLANS = [];
+window.POINTS = [];
+let currentTab = 'plans';
+let currentPlanId = null;   // แผนงานที่กำลังเปิดดูอยู่
+let editingPointKey = null; // planId_pointNo ของจุดที่กำลังแก้ไข (null = สร้างใหม่)
+let currentPointPhoto = { link: '', fileId: '', thumb: '' };
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+window.showToast = showToast;
+
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+// ══════════════════════════ TABS ══════════════════════════
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tab-plans').classList.toggle('active', tab === 'plans');
+  document.getElementById('tab-map').classList.toggle('active', tab === 'map');
+  document.getElementById('tab-plan-detail').classList.remove('active');
+  document.querySelectorAll('.nav-btn').forEach((b, i) => b.classList.toggle('active', (tab === 'plans' && i === 0) || (tab === 'map' && i === 1)));
+  document.getElementById('bottom-nav').style.display = 'flex';
+  document.getElementById('fab-btn').style.display = 'flex';
+  if (tab === 'map') {
+    setTimeout(() => { initMapIfNeeded(); renderMapMarkers(); }, 50);
+  }
+}
+window.switchTab = switchTab;
+
+function onFabClick() {
+  if (currentTab === 'plan-detail') {
+    openPointForm(currentPlanId, null);
+  } else if (currentTab === 'plans') {
+    openModal('plan-modal');
+  }
+}
+window.onFabClick = onFabClick;
+
+// ══════════════════════════ MODAL HELPERS ══════════════════════════
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+window.closeModal = closeModal;
+
+// ══════════════════════════ PLANS ══════════════════════════
+function renderPlansList() {
+  const wrap = document.getElementById('plans-list');
+  if (!window.PLANS.length) {
+    wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">🗂️</div>ยังไม่มีแผนงาน<br>กดปุ่ม + เพื่อสร้างแผนงานใหม่</div>`;
+    return;
+  }
+  wrap.innerHTML = window.PLANS.map(p => {
+    const count = window.POINTS.filter(pt => pt.planId === p.planId).length;
+    const surveyed = window.POINTS.filter(pt => pt.planId === p.planId && pt.status === 'surveyed').length;
+    return `
+      <div class="plan-card" onclick="openPlanDetail('${p.planId}')">
+        <div class="plan-icon">🗂️</div>
+        <div class="plan-info">
+          <div class="plan-name">${esc(p.planName)}</div>
+          <div class="plan-sub">${esc(p.area || 'ไม่ระบุพื้นที่')} · ${count} จุด (สำรวจแล้ว ${surveyed})</div>
+        </div>
+        <div class="plan-arrow">›</div>
+      </div>`;
+  }).join('');
+}
+window.renderPlansList = renderPlansList;
+
+async function createPlan() {
+  const name = document.getElementById('pf-plan-name').value.trim();
+  const area = document.getElementById('pf-plan-area').value.trim();
+  if (!name) { showToast('กรุณากรอกชื่อแผนงาน'); return; }
+  const planId = genId();
+  const { doc, setDoc } = window._fsLib;
+  await setDoc(doc(window._db, 'survey_plans', planId), {
+    planId, planName: name, area, status: 'active',
+    createdAt: Date.now(), updatedAt: Date.now()
+  });
+  document.getElementById('pf-plan-name').value = '';
+  document.getElementById('pf-plan-area').value = '';
+  closeModal('plan-modal');
+  showToast('สร้างแผนงานสำเร็จ ✓');
+  openPlanDetail(planId);
+}
+window.createPlan = createPlan;
+
+function openPlanDetail(planId) {
+  currentPlanId = planId;
+  currentTab = 'plan-detail';
+  document.getElementById('tab-plans').classList.remove('active');
+  document.getElementById('tab-map').classList.remove('active');
+  document.getElementById('tab-plan-detail').classList.add('active');
+  document.getElementById('bottom-nav').style.display = 'none';
+  document.getElementById('fab-btn').style.display = 'flex';
+  const plan = window.PLANS.find(p => p.planId === planId);
+  document.getElementById('plan-detail-title').textContent = plan ? plan.planName : 'แผนงาน';
+  renderPointsList();
+}
+window.openPlanDetail = openPlanDetail;
+
+function closePlanDetail() {
+  currentPlanId = null;
+  switchTab('plans');
+}
+window.closePlanDetail = closePlanDetail;
+
+// ══════════════════════════ POINTS ══════════════════════════
+function renderPointsList() {
+  if (!currentPlanId) return;
+  const wrap = document.getElementById('points-list');
+  const points = window.POINTS.filter(pt => pt.planId === currentPlanId).sort((a, b) => a.pointNo - b.pointNo);
+  if (!points.length) {
+    wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">📐</div>ยังไม่มีจุดสำรวจในแผนนี้<br>กดปุ่ม + เพื่อเพิ่มจุด</div>`;
+    return;
+  }
+  wrap.innerHTML = points.map(pt => {
+    const statusMeta = pt.status === 'surveyed'
+      ? { label: '✅ สำรวจแล้ว', cls: 'status-surveyed' }
+      : { label: '⏳ รอสำรวจ', cls: 'status-pending' };
+    const thumb = pt.photoThumb
+      ? `<img class="point-thumb" src="${esc(pt.photoThumb)}">`
+      : `<div class="point-thumb-placeholder">📷</div>`;
+    return `
+      <div class="point-card" onclick="openPointForm('${pt.planId}', ${pt.pointNo})">
+        <div class="point-top">
+          ${thumb}
+          <div style="flex:1; min-width:0;">
+            <div class="point-title">จุดที่ ${pt.pointNo}</div>
+            <div class="point-meta-row" style="margin-top:4px;">
+              <span class="point-chip">เสา ${esc(pt.poleSize)} ม.</span>
+              <span class="point-chip">มิเตอร์ ${pt.meterCount} เครื่อง</span>
+            </div>
+          </div>
+          <span class="status-badge ${statusMeta.cls}">${statusMeta.label}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+window.renderPointsList = renderPointsList;
+
+function nextPointNo(planId) {
+  const nums = window.POINTS.filter(pt => pt.planId === planId).map(pt => pt.pointNo);
+  return nums.length ? Math.max(...nums) + 1 : 1;
+}
+
+function recalcMeterCount() {
+  let a = parseInt(document.getElementById('pt-side-a').value) || 0;
+  let b = parseInt(document.getElementById('pt-side-b').value) || 0;
+  a = Math.max(0, Math.min(4, a)); b = Math.max(0, Math.min(4, b));
+  document.getElementById('pt-side-a').value = a;
+  document.getElementById('pt-side-b').value = b;
+  const total = a + b;
+  document.getElementById('pt-meter-count-hint').textContent = `จำนวนมิเตอร์รวม: ${total} เครื่อง`;
+  // ค่าเริ่มต้นจำนวนเส้นสายทองแดง = จำนวนมิเตอร์รวม (ผูกอัตโนมัติ เว้นแต่ผู้ใช้เคยแก้ไขเองแล้ว)
+  const wireQtyEl = document.getElementById('pt-wire-qty');
+  if (!wireQtyEl.dataset.manuallyEdited) wireQtyEl.value = total;
+  return total;
+}
+window.recalcMeterCount = recalcMeterCount;
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('pt-wire-qty').addEventListener('input', function () { this.dataset.manuallyEdited = '1'; });
+});
+
+function useCurrentLocation() {
+  if (!navigator.geolocation) { showToast('อุปกรณ์นี้ไม่รองรับ GPS'); return; }
+  showToast('กำลังขอตำแหน่ง...');
+  navigator.geolocation.getCurrentPosition(pos => {
+    const lat = pos.coords.latitude.toFixed(6), lng = pos.coords.longitude.toFixed(6);
+    document.getElementById('pt-latlng').value = `${lat}, ${lng}`;
+    document.getElementById('pt-latlng').dataset.lat = lat;
+    document.getElementById('pt-latlng').dataset.lng = lng;
+    showToast('ระบุตำแหน่งสำเร็จ ✓');
+  }, err => {
+    showToast('ไม่สามารถขอตำแหน่งได้ (' + err.message + ')');
+  }, { enableHighAccuracy: true, timeout: 15000 });
+}
+window.useCurrentLocation = useCurrentLocation;
+
+function openPointForm(planId, pointNo) {
+  currentPlanId = planId;
+  const isEdit = pointNo != null;
+  editingPointKey = isEdit ? `${planId}_${pointNo}` : null;
+  const pt = isEdit ? window.POINTS.find(p => p.planId === planId && p.pointNo === pointNo) : null;
+
+  document.getElementById('point-modal-title').textContent = isEdit ? `แก้ไขจุดที่ ${pointNo}` : 'เพิ่มจุดสำรวจ';
+  document.getElementById('btn-delete-point').style.display = isEdit ? 'block' : 'none';
+
+  document.getElementById('pt-pole-size').value = pt ? pt.poleSize : '8';
+  document.getElementById('pt-side-a').value = pt ? pt.sideA : 0;
+  document.getElementById('pt-side-b').value = pt ? pt.sideB : 0;
+  document.getElementById('pt-plank-size').value = pt ? pt.equipment.woodPlank.size : '20';
+  document.getElementById('pt-plank-qty').value = pt ? pt.equipment.woodPlank.qty : 0;
+  document.getElementById('pt-bolt-size').value = pt ? pt.equipment.bolt.size : '9';
+  document.getElementById('pt-bolt-qty').value = pt ? pt.equipment.bolt.qty : 0;
+  document.getElementById('pt-washer-qty').value = pt ? pt.equipment.washer.qty : 0;
+  document.getElementById('pt-wire-length').value = pt ? pt.equipment.copperWire.lengthM : 0;
+  const wireQtyEl = document.getElementById('pt-wire-qty');
+  wireQtyEl.dataset.manuallyEdited = pt ? '1' : '';
+  wireQtyEl.value = pt ? pt.equipment.copperWire.qty : 0;
+
+  const latlngEl = document.getElementById('pt-latlng');
+  if (pt && pt.lat != null) {
+    latlngEl.value = `${pt.lat}, ${pt.lng}`;
+    latlngEl.dataset.lat = pt.lat; latlngEl.dataset.lng = pt.lng;
+  } else {
+    latlngEl.value = ''; delete latlngEl.dataset.lat; delete latlngEl.dataset.lng;
+  }
+
+  recalcMeterCount();
+
+  currentPointPhoto = pt ? { link: pt.photoLink || '', fileId: pt.photoFileId || '', thumb: pt.photoThumb || '' } : { link: '', fileId: '', thumb: '' };
+  const preview = document.getElementById('d-photo-preview');
+  if (currentPointPhoto.thumb) { preview.src = currentPointPhoto.thumb; preview.style.display = 'block'; }
+  else { preview.style.display = 'none'; }
+  document.getElementById('btn-delete-photo').style.display = currentPointPhoto.fileId ? 'block' : 'none';
+  document.getElementById('photo-upload-status').textContent = '';
+  document.getElementById('photo-upload-status').className = 'upload-status';
+  renderDriveAccountInfo();
+
+  openModal('point-modal');
+}
+window.openPointForm = openPointForm;
+
+async function savePoint() {
+  if (!currentPlanId) return;
+  const total = recalcMeterCount();
+  const latlngEl = document.getElementById('pt-latlng');
+  const pointNo = editingPointKey ? parseInt(editingPointKey.split('_').pop()) : nextPointNo(currentPlanId);
+  const pointKey = `${currentPlanId}_${pointNo}`;
+
+  const data = {
+    planId: currentPlanId,
+    pointNo,
+    poleSize: document.getElementById('pt-pole-size').value,
+    sideA: parseInt(document.getElementById('pt-side-a').value) || 0,
+    sideB: parseInt(document.getElementById('pt-side-b').value) || 0,
+    meterCount: total,
+    equipment: {
+      woodPlank: { size: document.getElementById('pt-plank-size').value, qty: parseInt(document.getElementById('pt-plank-qty').value) || 0 },
+      bolt: { size: document.getElementById('pt-bolt-size').value, qty: parseInt(document.getElementById('pt-bolt-qty').value) || 0 },
+      washer: { qty: parseInt(document.getElementById('pt-washer-qty').value) || 0 },
+      copperWire: { size: '2x10', lengthM: parseFloat(document.getElementById('pt-wire-length').value) || 0, qty: parseInt(document.getElementById('pt-wire-qty').value) || 0 }
+    },
+    lat: latlngEl.dataset.lat ? parseFloat(latlngEl.dataset.lat) : null,
+    lng: latlngEl.dataset.lng ? parseFloat(latlngEl.dataset.lng) : null,
+    photoLink: currentPointPhoto.link,
+    photoFileId: currentPointPhoto.fileId,
+    photoThumb: currentPointPhoto.thumb,
+    status: currentPointPhoto.fileId ? 'surveyed' : 'pending',
+    createdAt: editingPointKey ? (window.POINTS.find(p => p.planId === currentPlanId && p.pointNo === pointNo) || {}).createdAt || Date.now() : Date.now(),
+    updatedAt: Date.now()
+  };
+
+  const { doc, setDoc } = window._fsLib;
+  await setDoc(doc(window._db, 'survey_points', pointKey), data);
+  editingPointKey = pointKey;
+  closeModal('point-modal');
+  showToast('บันทึกจุดสำรวจสำเร็จ ✓');
+}
+window.savePoint = savePoint;
+
+async function deletePoint() {
+  if (!editingPointKey) return;
+  if (!confirm('ลบจุดสำรวจนี้หรือไม่?')) return;
+  const { doc, deleteDoc } = window._fsLib;
+  await deleteDoc(doc(window._db, 'survey_points', editingPointKey));
+  editingPointKey = null;
+  closeModal('point-modal');
+  showToast('ลบจุดสำรวจแล้ว');
+}
+window.deletePoint = deletePoint;
+
+// ══════════════════════════ MAP ══════════════════════════
+let leafletMap = null, markerLayer = null;
+window.mapReady = false;
+
+function initMapIfNeeded() {
+  if (leafletMap) return;
+  leafletMap = L.map('map').setView([16.8211, 100.2659], 12); // ค่าเริ่มต้น: อ.บางระกำ พิษณุโลก
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(leafletMap);
+  markerLayer = L.layerGroup().addTo(leafletMap);
+  window.mapReady = true;
+}
+
+function renderMapPlanOptions() {
+  const sel = document.getElementById('map-plan-select');
+  const prevVal = sel.value;
+  sel.innerHTML = `<option value="all">ทั้งหมดทุกแผนงาน</option>` +
+    window.PLANS.map(p => `<option value="${p.planId}">${esc(p.planName)}</option>`).join('');
+  if (prevVal) sel.value = prevVal;
+}
+window.renderMapPlanOptions = renderMapPlanOptions;
+
+function onMapPlanChange() { renderMapMarkers(); }
+window.onMapPlanChange = onMapPlanChange;
+
+function renderMapMarkers() {
+  if (!window.mapReady) return;
+  markerLayer.clearLayers();
+  const sel = document.getElementById('map-plan-select').value || 'all';
+  const points = window.POINTS.filter(pt => pt.lat != null && pt.lng != null && (sel === 'all' || pt.planId === sel));
+  const bounds = [];
+  points.forEach(pt => {
+    const color = pt.status === 'surveyed' ? '#2ecc71' : '#a9bdd1';
+    const icon = L.divIcon({
+      className: 'point-pin', html: `<div class="pin-body" style="background:${color}"><span>📐</span></div>`,
+      iconSize: [28, 28], iconAnchor: [14, 28]
+    });
+    const plan = window.PLANS.find(p => p.planId === pt.planId);
+    const m = L.marker([pt.lat, pt.lng], { icon }).addTo(markerLayer);
+    m.bindPopup(`<b>จุดที่ ${pt.pointNo}</b><br><span class="popup-detail">${esc(plan ? plan.planName : '')}<br>เสา ${esc(pt.poleSize)} ม. · มิเตอร์ ${pt.meterCount} เครื่อง</span>`);
+    bounds.push([pt.lat, pt.lng]);
+  });
+  if (bounds.length) leafletMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 17 });
+}
+window.renderMapMarkers = renderMapMarkers;
+
+// ══════════════════════════ GOOGLE DRIVE (รูปถ่าย) ══════════════════════════
+const GOOGLE_CLIENT_ID = '1006235611544-tv5slgr1vef55i8ol56embfdvrimns4i.apps.googleusercontent.com';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
+const DRIVE_TARGET_EMAIL = 'appsheetbtah@gmail.com';
+let driveTokenClient = null;
+let driveAccessToken = null;
+let driveAccountEmail = null;
+let driveFolderCache = {};
+
+(function loadSavedDriveAuth() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('msurvey_drive_token') || 'null');
+    if (saved && saved.token && saved.expiresAt && Date.now() < saved.expiresAt) driveAccessToken = saved.token;
+    driveAccountEmail = localStorage.getItem('msurvey_drive_email') || null;
+  } catch (e) {}
+})();
+
+function saveDriveToken(token, expiresInSec) {
+  try {
+    localStorage.setItem('msurvey_drive_token', JSON.stringify({ token, expiresAt: Date.now() + ((expiresInSec || 3500) * 1000) - 60000 }));
+    localStorage.setItem('msurvey_drive_authorized', '1');
+    if (driveAccountEmail) localStorage.setItem('msurvey_drive_email', driveAccountEmail);
+  } catch (e) {}
+}
+
+function isDriveTokenExpired() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('msurvey_drive_token') || 'null');
+    if (!saved || !saved.expiresAt) return true;
+    return Date.now() >= saved.expiresAt;
+  } catch (e) { return true; }
+}
+
+function getDriveTokenClient() {
+  if (driveTokenClient) return driveTokenClient;
+  if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) return null;
+  driveTokenClient = google.accounts.oauth2.initTokenClient({ client_id: GOOGLE_CLIENT_ID, scope: DRIVE_SCOPE, callback: '' });
+  return driveTokenClient;
+}
+
+function requestDriveAccessToken(promptOverride) {
+  const attempt = new Promise((resolve, reject) => {
+    const client = getDriveTokenClient();
+    if (!client) { reject(new Error('โหลดระบบล็อกอิน Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่')); return; }
+    client.callback = (resp) => {
+      if (resp.error) {
+        try { localStorage.removeItem('msurvey_drive_authorized'); } catch (e) {}
+        reject(new Error(resp.error)); return;
+      }
+      driveAccessToken = resp.access_token;
+      saveDriveToken(resp.access_token, resp.expires_in);
+      resolve(driveAccessToken);
+    };
+    let everAuthorized = false;
+    try { everAuthorized = !!localStorage.getItem('msurvey_drive_authorized'); } catch (e) {}
+    const prompt = promptOverride !== undefined ? promptOverride : ((driveAccessToken || everAuthorized) ? '' : 'consent');
+    client.requestAccessToken({ prompt, hint: DRIVE_TARGET_EMAIL });
+  });
+  const timeout = new Promise((_, reject) => { setTimeout(() => reject(new Error('TIMEOUT_DRIVE_AUTH')), 20000); });
+  return Promise.race([attempt, timeout]);
+}
+
+async function findOrCreateFolder(name, parentId, token) {
+  const parentClause = parentId ? ` and '${parentId}' in parents` : " and 'root' in parents";
+  const qStr = encodeURIComponent(`name = '${name.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false${parentClause}`);
+  const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${qStr}&fields=files(id,name)`, { headers: { 'Authorization': `Bearer ${token}` } });
+  if (!searchRes.ok) { const err = new Error('ค้นหาโฟลเดอร์ไม่สำเร็จ: ' + searchRes.status); err.status = searchRes.status; throw err; }
+  const searchData = await searchRes.json();
+  if (searchData.files && searchData.files.length > 0) return searchData.files[0].id;
+  const createRes = await fetch('https://www.googleapis.com/drive/v3/files?fields=id', {
+    method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: parentId ? [parentId] : undefined })
+  });
+  if (!createRes.ok) { const err = new Error('สร้างโฟลเดอร์ไม่สำเร็จ: ' + createRes.status); err.status = createRes.status; throw err; }
+  return (await createRes.json()).id;
+}
+
+async function getSurveyPhotoFolderId(token) {
+  if (driveFolderCache.msurvey) return driveFolderCache.msurvey;
+  const rootId = await findOrCreateFolder('PEA App - รูปสำรวจปรับปรุงมิเตอร์', null, token);
+  driveFolderCache.msurvey = rootId;
+  return rootId;
+}
+
+async function uploadPhotoToDrive(file, token, folderId) {
+  const metadata = { name: `${editingPointKey}_${Date.now()}_${file.name}`, parents: [folderId] };
+  const boundary = 'peaAppBoundary' + Date.now();
+  const metaBytes = new TextEncoder().encode(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`);
+  const filePartHeader = new TextEncoder().encode(`--${boundary}\r\nContent-Type: ${file.type || 'image/jpeg'}\r\n\r\n`);
+  const closeBytes = new TextEncoder().encode(`\r\n--${boundary}--`);
+  const fileBuffer = await file.arrayBuffer();
+  const body = new Blob([metaBytes, filePartHeader, fileBuffer, closeBytes]);
+  const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink,thumbnailLink', {
+    method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` }, body
+  });
+  if (!uploadRes.ok) { const err = new Error('อัปโหลดไม่สำเร็จ: ' + uploadRes.status); err.status = uploadRes.status; throw err; }
+  const uploaded = await uploadRes.json();
+  await fetch(`https://www.googleapis.com/drive/v3/files/${uploaded.id}/permissions`, {
+    method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role: 'reader', type: 'anyone' })
+  }).catch(() => {});
+  return uploaded;
+}
+
+function isLikelyBlockedForDriveAuth() {
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const ua = navigator.userAgent || '';
+  const inAppBrowser = /Line\/|FBAN|FBAV|Instagram|MicroMessenger/i.test(ua);
+  return standalone || inAppBrowser;
+}
+
+async function fetchDriveAccountEmail(token) {
+  try {
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.email || null;
+  } catch (e) { return null; }
+}
+
+function renderDriveAccountInfo() {
+  const el = document.getElementById('drive-account-info');
+  if (!el) return;
+  if (driveAccountEmail) {
+    if (driveAccountEmail.toLowerCase() === DRIVE_TARGET_EMAIL.toLowerCase()) {
+      el.innerHTML = `🔗 เชื่อมต่อ Google Drive บัญชี: <b>${esc(driveAccountEmail)}</b> ✓ (บัญชีหลักของทีม)`; el.style.color = '';
+    } else {
+      el.innerHTML = `⚠️ กำลังใช้บัญชี <b>${esc(driveAccountEmail)}</b> ซึ่งไม่ใช่บัญชีหลักของทีม (${esc(DRIVE_TARGET_EMAIL)}) รูปจะไปเก็บอยู่ที่นี่แทน · <span class="link-btn" onclick="switchDriveAccount()">เปลี่ยนไปบัญชีหลัก</span>`;
+      el.style.color = 'var(--accent)';
+    }
+  } else if (driveAccessToken) {
+    el.innerHTML = `🔗 เชื่อมต่อ Google Drive แล้ว · <span class="link-btn" onclick="switchDriveAccount()">เปลี่ยนบัญชี</span>`; el.style.color = '';
+  } else {
+    el.textContent = `ยังไม่ได้เชื่อมต่อ Google Drive (จะขอสิทธิ์ตอนกดปุ่ม "ถ่ายรูป" ครั้งแรก แนะนำให้เลือกบัญชี ${DRIVE_TARGET_EMAIL})`; el.style.color = '';
+  }
+}
+window.renderDriveAccountInfo = renderDriveAccountInfo;
+
+async function switchDriveAccount() {
+  driveAccessToken = null; driveAccountEmail = null; driveFolderCache = {};
+  renderDriveAccountInfo();
+  const statusEl = document.getElementById('photo-upload-status');
+  statusEl.className = 'upload-status uploading'; statusEl.textContent = '🔄 กำลังเลือกบัญชี Google...';
+  try {
+    const token = await requestDriveAccessToken('select_account');
+    driveAccountEmail = await fetchDriveAccountEmail(token);
+    try { localStorage.setItem('msurvey_drive_email', driveAccountEmail || ''); } catch (e) {}
+    statusEl.className = 'upload-status'; statusEl.textContent = '';
+    renderDriveAccountInfo(); showToast('เปลี่ยนบัญชีสำเร็จ ✓');
+  } catch (e) {
+    console.error(e);
+    statusEl.className = 'upload-status error'; statusEl.textContent = '⚠️ เปลี่ยนบัญชีไม่สำเร็จ ลองใหม่อีกครั้ง';
+  }
+}
+window.switchDriveAccount = switchDriveAccount;
+
+async function ensureDriveAccess() {
+  const statusEl = document.getElementById('photo-upload-status');
+  const permBtn = document.getElementById('btn-request-permission');
+  if (driveAccessToken && !isDriveTokenExpired()) { permBtn.style.display = 'none'; return true; }
+  if (driveAccessToken && isDriveTokenExpired()) { driveAccessToken = null; try { localStorage.removeItem('msurvey_drive_token'); } catch (e) {} }
+  statusEl.className = 'upload-status uploading'; statusEl.textContent = '🔄 กำลังขอสิทธิ์เชื่อมต่อ Google Drive...';
+  try {
+    const token = await requestDriveAccessToken();
+    driveAccountEmail = await fetchDriveAccountEmail(token);
+    try { localStorage.setItem('msurvey_drive_email', driveAccountEmail || ''); } catch (e) {}
+    renderDriveAccountInfo();
+    if (driveAccountEmail && driveAccountEmail.toLowerCase() !== DRIVE_TARGET_EMAIL.toLowerCase()) showToast(`⚠️ นี่ไม่ใช่บัญชีหลักของทีม (${DRIVE_TARGET_EMAIL})`);
+    statusEl.className = 'upload-status'; statusEl.textContent = ''; permBtn.style.display = 'none';
+    return true;
+  } catch (e) {
+    console.error(e);
+    statusEl.className = 'upload-status error';
+    if (e && e.message === 'TIMEOUT_DRIVE_AUTH') statusEl.textContent = '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ (หมดเวลารอ) ตรวจสอบว่าอนุญาต popup ให้เว็บนี้แล้วลองกดปุ่ม "ขอสิทธิ์" ด้านล่าง';
+    else statusEl.textContent = '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ ลองกดปุ่ม "ขอสิทธิ์" ด้านล่างอีกครั้ง';
+    permBtn.style.display = 'block';
+    return false;
+  }
+}
+
+async function onPhotoButtonClick() {
+  if (!editingPointKey) { await autoAssignPointKeyForNewPoint(); }
+  if (await ensureDriveAccess()) document.getElementById('d-photo-input').click();
+}
+window.onPhotoButtonClick = onPhotoButtonClick;
+
+async function onGalleryButtonClick() {
+  if (!editingPointKey) { await autoAssignPointKeyForNewPoint(); }
+  if (await ensureDriveAccess()) document.getElementById('d-gallery-input').click();
+}
+window.onGalleryButtonClick = onGalleryButtonClick;
+
+// รูปต้องผูกกับจุดที่มี key แล้ว: ถ้าเป็นจุดใหม่ที่ยังไม่เคยบันทึก ให้บันทึกโครงข้อมูลเบื้องต้นก่อนแนบรูป กันรูปหาย
+async function autoAssignPointKeyForNewPoint() {
+  const total = recalcMeterCount();
+  const pointNo = nextPointNo(currentPlanId);
+  const pointKey = `${currentPlanId}_${pointNo}`;
+  const latlngEl = document.getElementById('pt-latlng');
+  const data = {
+    planId: currentPlanId, pointNo,
+    poleSize: document.getElementById('pt-pole-size').value,
+    sideA: parseInt(document.getElementById('pt-side-a').value) || 0,
+    sideB: parseInt(document.getElementById('pt-side-b').value) || 0,
+    meterCount: total,
+    equipment: {
+      woodPlank: { size: document.getElementById('pt-plank-size').value, qty: parseInt(document.getElementById('pt-plank-qty').value) || 0 },
+      bolt: { size: document.getElementById('pt-bolt-size').value, qty: parseInt(document.getElementById('pt-bolt-qty').value) || 0 },
+      washer: { qty: parseInt(document.getElementById('pt-washer-qty').value) || 0 },
+      copperWire: { size: '2x10', lengthM: parseFloat(document.getElementById('pt-wire-length').value) || 0, qty: parseInt(document.getElementById('pt-wire-qty').value) || 0 }
+    },
+    lat: latlngEl.dataset.lat ? parseFloat(latlngEl.dataset.lat) : null,
+    lng: latlngEl.dataset.lng ? parseFloat(latlngEl.dataset.lng) : null,
+    photoLink: '', photoFileId: '', photoThumb: '', status: 'pending',
+    createdAt: Date.now(), updatedAt: Date.now()
+  };
+  const { doc, setDoc } = window._fsLib;
+  await setDoc(doc(window._db, 'survey_points', pointKey), data);
+  editingPointKey = pointKey;
+  document.getElementById('point-modal-title').textContent = `แก้ไขจุดที่ ${pointNo}`;
+  document.getElementById('btn-delete-point').style.display = 'block';
+}
+
+async function onRequestPermissionClick() { await ensureDriveAccess(); }
+window.onRequestPermissionClick = onRequestPermissionClick;
+
+async function performPhotoUpload(file, token) {
+  const folderId = await getSurveyPhotoFolderId(token);
+  const result = await uploadPhotoToDrive(file, token, folderId);
+  const oldPhotoFileId = currentPointPhoto.fileId;
+  currentPointPhoto = { link: result.webViewLink, fileId: result.id, thumb: `https://drive.google.com/thumbnail?id=${result.id}&sz=w1000` };
+
+  const { doc, setDoc } = window._fsLib;
+  const [planId, pointNoStr] = editingPointKey.split('_');
+  const pointNo = parseInt(pointNoStr);
+  const existing = window.POINTS.find(p => p.planId === planId && p.pointNo === pointNo) || {};
+  await setDoc(doc(window._db, 'survey_points', editingPointKey), {
+    ...existing, photoLink: currentPointPhoto.link, photoFileId: currentPointPhoto.fileId,
+    photoThumb: currentPointPhoto.thumb, status: 'surveyed', updatedAt: Date.now()
+  });
+
+  if (oldPhotoFileId && oldPhotoFileId !== result.id) {
+    fetch(`https://www.googleapis.com/drive/v3/files/${oldPhotoFileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+  }
+}
+
+async function handlePhotoSelected(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file || !editingPointKey) return;
+
+  const statusEl = document.getElementById('photo-upload-status');
+  statusEl.className = 'upload-status uploading'; statusEl.textContent = '🔄 กำลังอัปโหลดรูป...';
+  const preview = document.getElementById('d-photo-preview');
+  preview.src = URL.createObjectURL(file); preview.style.display = 'block';
+  if (isLikelyBlockedForDriveAuth()) statusEl.textContent = '🔄 กำลังอัปโหลดรูป... (ถ้าค้างนาน อาจเป็นเพราะเปิดแอปผ่านไอคอนหน้าจอโฮม/แอปแชท ลองเปิดผ่าน Chrome/Safari ปกติแทน)';
+
+  try {
+    let token = driveAccessToken || await requestDriveAccessToken();
+    try {
+      await performPhotoUpload(file, token);
+    } catch (err) {
+      if (err && err.status === 401) {
+        statusEl.textContent = '🔄 การเชื่อมต่อ Google Drive หมดอายุ กำลังเชื่อมต่อใหม่และลองอัปโหลดอีกครั้ง...';
+        driveAccessToken = null; try { localStorage.removeItem('msurvey_drive_token'); } catch (e) {}
+        token = await requestDriveAccessToken(''); await performPhotoUpload(file, token);
+      } else { throw err; }
+    }
+    statusEl.className = 'upload-status'; statusEl.textContent = '📎 อัปโหลดรูปสำเร็จ';
+    document.getElementById('btn-delete-photo').style.display = 'block';
+    showToast('อัปโหลดรูปสำเร็จ ✓');
+  } catch (e) {
+    console.error(e);
+    statusEl.className = 'upload-status error';
+    if (e && e.message === 'TIMEOUT_DRIVE_AUTH') statusEl.textContent = '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ (หน้าต่างขอสิทธิ์อาจถูกบล็อก) ลองเปิดแอปผ่าน Chrome/Safari ปกติ แล้วลองใหม่';
+    else if (e && (e.message === 'popup_closed_by_user' || e.message === 'popup_blocked_by_browser')) statusEl.textContent = '⚠️ หน้าต่างขอสิทธิ์ Google ถูกปิดหรือถูกบล็อก ลองใหม่อีกครั้ง';
+    else if (e && e.status === 401) { statusEl.textContent = '⚠️ การเชื่อมต่อ Google Drive หมดอายุ กรุณากดปุ่ม "ขอสิทธิ์เชื่อมต่อ Google Drive" แล้วลองใหม่'; driveAccessToken = null; try { localStorage.removeItem('msurvey_drive_token'); } catch (e2) {} }
+    else statusEl.textContent = `⚠️ อัปโหลดรูปไม่สำเร็จ ลองใหม่อีกครั้ง${e && e.message ? ' (' + e.message + ')' : ''}`;
+    if (!driveAccessToken) document.getElementById('btn-request-permission').style.display = 'block';
+  }
+}
+window.handlePhotoSelected = handlePhotoSelected;
+
+async function deletePhoto() {
+  if (!editingPointKey) return;
+  if (!confirm('ลบรูปนี้ออกจากจุดสำรวจหรือไม่?')) return;
+  const oldPhotoFileId = currentPointPhoto.fileId;
+  const statusEl = document.getElementById('photo-upload-status');
+  statusEl.className = 'upload-status uploading'; statusEl.textContent = '🔄 กำลังลบรูป...';
+  try {
+    const [planId, pointNoStr] = editingPointKey.split('_');
+    const pointNo = parseInt(pointNoStr);
+    const existing = window.POINTS.find(p => p.planId === planId && p.pointNo === pointNo) || {};
+    const { doc, setDoc } = window._fsLib;
+    await setDoc(doc(window._db, 'survey_points', editingPointKey), { ...existing, photoLink: '', photoThumb: '', photoFileId: '', status: 'pending', updatedAt: Date.now() });
+    currentPointPhoto = { link: '', fileId: '', thumb: '' };
+    document.getElementById('d-photo-preview').style.display = 'none';
+    document.getElementById('btn-delete-photo').style.display = 'none';
+    statusEl.className = 'upload-status'; statusEl.textContent = '';
+    showToast('ลบรูปแล้ว ✓ กดปุ่ม "ถ่ายรูป" เพื่อถ่ายใหม่ได้เลย');
+    if (oldPhotoFileId && driveAccessToken) fetch(`https://www.googleapis.com/drive/v3/files/${oldPhotoFileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${driveAccessToken}` } }).catch(() => {});
+  } catch (e) {
+    console.error(e);
+    statusEl.className = 'upload-status error'; statusEl.textContent = '⚠️ ลบรูปไม่สำเร็จ ลองใหม่อีกครั้ง';
+  }
+}
+window.deletePhoto = deletePhoto;
+
+renderDriveAccountInfo();
+</script>
+
+</body>
+</html>
