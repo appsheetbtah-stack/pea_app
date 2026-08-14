@@ -269,55 +269,52 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       </div>
 
       <div class="section-block">
-        <div class="section-title">🧰 อุปกรณ์ที่ใช้</div>
+        <div class="section-title">🧰 อุปกรณ์ที่ใช้ <span style="font-weight:400; font-size:12px; color:var(--text2);">(คำนวณอัตโนมัติจากขนาดเสา+จำนวนมิเตอร์ แก้ไขเองได้)</span></div>
+
+        <div class="field-hint" style="color:var(--text2);">ไม้แป้น (2 อันบน+กลางเสา รับสายหลีด, อีก 1 อันยึดมิเตอร์ต่อด้าน)</div>
         <div class="field-row">
           <div>
-            <label class="field-label">ไม้แป้น ขนาด (ซม.)</label>
-            <select class="field-select" id="pt-plank-size">
-              <option value="20">20</option><option value="60">60</option><option value="120">120</option>
-            </select>
+            <label class="field-label">ไม้แป้น 20 (แผ่น)</label>
+            <input type="number" class="field-input" id="pt-plank20-qty" min="0" value="0">
           </div>
           <div>
-            <label class="field-label">จำนวน (แผ่น)</label>
-            <input type="number" class="field-input" id="pt-plank-qty" min="0" value="0">
+            <label class="field-label">ไม้แป้น 60 (แผ่น) <span style="color:var(--text2); font-weight:400;">มิเตอร์ 1-2/ด้าน</span></label>
+            <input type="number" class="field-input" id="pt-plank60-qty" min="0" value="0">
+          </div>
+          <div>
+            <label class="field-label">ไม้แป้น 120 (แผ่น) <span style="color:var(--text2); font-weight:400;">มิเตอร์ 3-4/ด้าน</span></label>
+            <input type="number" class="field-input" id="pt-plank120-qty" min="0" value="0">
           </div>
         </div>
+
+        <div class="field-hint" style="color:var(--text2);">น็อต+แหวน ยึดไม้แป้นกับเสา (ขนาดน็อต = ความยาวเป็นนิ้ว อ้างอิงตามขนาดเสา)</div>
         <div class="field-row">
           <div>
-            <label class="field-label">น็อต ขนาด (มม.)</label>
-            <select class="field-select" id="pt-bolt-size">
-              <option value="9">9</option><option value="10">10</option>
-              <option value="12">12</option><option value="14">14</option>
-            </select>
+            <label class="field-label" id="pt-bolt-small-label">น็อต ขนาด - นิ้ว (ตัว)</label>
+            <input type="number" class="field-input" id="pt-bolt-small-qty" min="0" value="0">
           </div>
           <div>
-            <label class="field-label">จำนวน (ตัว)</label>
-            <input type="number" class="field-input" id="pt-bolt-qty" min="0" value="0">
+            <label class="field-label" id="pt-bolt-large-label">น็อต ขนาด - นิ้ว (ตัว)</label>
+            <input type="number" class="field-input" id="pt-bolt-large-qty" min="0" value="0">
           </div>
-        </div>
-        <div class="field-row">
           <div>
             <label class="field-label">แหวนสี่เหลี่ยม (ตัว)</label>
             <input type="number" class="field-input" id="pt-washer-qty" min="0" value="0">
           </div>
         </div>
-        <div class="field-row">
-          <div>
-            <label class="field-label">สายทองแดง ขนาด 2×10 ตร.มม.</label>
-            <div class="field-input" style="background:transparent; border-style:dashed; color:var(--text2);">คงที่ 2×10 ตร.มม.</div>
-          </div>
-        </div>
+
+        <div class="field-hint" style="color:var(--text2);">สายหลีดเข้ามิเตอร์ (สายทองแดงขนาด 2×10 ตร.มม. คงที่)</div>
         <div class="field-row">
           <div>
             <label class="field-label">ความยาว/เส้น (ม.)</label>
-            <input type="number" class="field-input" id="pt-wire-length" min="0" step="0.1" value="0">
+            <input type="number" class="field-input" id="pt-wire-length" min="0" step="0.1" value="7">
           </div>
           <div>
             <label class="field-label">จำนวนเส้น (= จำนวนมิเตอร์)</label>
             <input type="number" class="field-input" id="pt-wire-qty" min="0" value="0">
           </div>
         </div>
-        <div class="field-hint">จำนวนเส้นตั้งต้นเท่ากับจำนวนมิเตอร์รวมโดยอัตโนมัติ (แก้ไขเองได้หากมีกรณีพิเศษ)</div>
+        <div class="field-hint">ค่าอุปกรณ์ทั้งหมดคำนวณตั้งต้นให้อัตโนมัติทุกครั้งที่เปลี่ยนขนาดเสา/จำนวนมิเตอร์ ถ้าเคยแก้ไขช่องไหนเองแล้วจะไม่ถูกคำนวณทับอีก</div>
       </div>
 
       <div class="section-block">
@@ -530,6 +527,44 @@ function nextPointNo(planId) {
   return nums.length ? Math.max(...nums) + 1 : 1;
 }
 
+// ขนาดน็อตอ้างอิงตามขนาดเสา: small = ยึดไม้แป้น20 (2ตัว/ด้าน), large = ยึดไม้แป้น60/120 (2ตัว/ด้าน)
+const BOLT_MAP = {
+  '8':    { small: 8,  large: 10 },
+  '9':    { small: 8,  large: 10 },
+  '12':   { small: 10, large: 12 },
+  '12.2': { small: 12, large: 14 }
+};
+
+// คำนวณอุปกรณ์ตั้งต้นจากขนาดเสา + จำนวนมิเตอร์แต่ละด้าน
+function calcEquipmentDefaults(poleSize, a, b) {
+  let plank20 = 0, plank60 = 0, plank120 = 0, boltSmallQty = 0, boltLargeQty = 0;
+  [a, b].forEach(cnt => {
+    if (!cnt || cnt <= 0) return;
+    plank20 += 2;                      // ไม้แป้น20 x2 ต่อด้าน (ด้านบน+กลางเสา)
+    if (cnt <= 2) plank60 += 1; else plank120 += 1; // ไม้แป้นยึดมิเตอร์ x1 ต่อด้าน
+    boltSmallQty += 2;                 // ยึดไม้แป้น20 ทั้ง 2 แผ่น
+    boltLargeQty += 2;                 // ยึดไม้แป้น60/120
+  });
+  const washerQty = (boltSmallQty + boltLargeQty) * 2; // น็อต 1 ตัว : แหวน 2 อัน
+  const boltSizes = BOLT_MAP[poleSize] || BOLT_MAP['9'];
+  return { plank20, plank60, plank120, boltSmallSize: boltSizes.small, boltSmallQty, boltLargeSize: boltSizes.large, boltLargeQty, washerQty };
+}
+
+// อ่านค่าอุปกรณ์ปัจจุบันจากฟอร์ม (หลัง auto-calc/แก้ไขเองแล้ว) เพื่อบันทึกลง Firestore
+function readEquipmentFromForm() {
+  const boltSmallLabel = document.getElementById('pt-bolt-small-label').textContent.match(/ขนาด\s*([\d.]+)/);
+  const boltLargeLabel = document.getElementById('pt-bolt-large-label').textContent.match(/ขนาด\s*([\d.]+)/);
+  return {
+    plank20: { size: 20, qty: parseInt(document.getElementById('pt-plank20-qty').value) || 0 },
+    plank60: { size: 60, qty: parseInt(document.getElementById('pt-plank60-qty').value) || 0 },
+    plank120: { size: 120, qty: parseInt(document.getElementById('pt-plank120-qty').value) || 0 },
+    boltSmall: { size: boltSmallLabel ? boltSmallLabel[1] : '', qty: parseInt(document.getElementById('pt-bolt-small-qty').value) || 0 },
+    boltLarge: { size: boltLargeLabel ? boltLargeLabel[1] : '', qty: parseInt(document.getElementById('pt-bolt-large-qty').value) || 0 },
+    washer: { qty: parseInt(document.getElementById('pt-washer-qty').value) || 0 },
+    copperWire: { size: '2x10', lengthM: parseFloat(document.getElementById('pt-wire-length').value) || 0, qty: parseInt(document.getElementById('pt-wire-qty').value) || 0 }
+  };
+}
+
 function recalcMeterCount() {
   let a = parseInt(document.getElementById('pt-side-a').value) || 0;
   let b = parseInt(document.getElementById('pt-side-b').value) || 0;
@@ -538,6 +573,24 @@ function recalcMeterCount() {
   document.getElementById('pt-side-b').value = b;
   const total = a + b;
   document.getElementById('pt-meter-count-hint').textContent = `จำนวนมิเตอร์รวม: ${total} เครื่อง`;
+
+  const poleSize = document.getElementById('pt-pole-size').value;
+  const eq = calcEquipmentDefaults(poleSize, a, b);
+
+  const setIfNotEdited = (id, val) => {
+    const el = document.getElementById(id);
+    if (!el.dataset.manuallyEdited) el.value = val;
+  };
+  setIfNotEdited('pt-plank20-qty', eq.plank20);
+  setIfNotEdited('pt-plank60-qty', eq.plank60);
+  setIfNotEdited('pt-plank120-qty', eq.plank120);
+  setIfNotEdited('pt-bolt-small-qty', eq.boltSmallQty);
+  setIfNotEdited('pt-bolt-large-qty', eq.boltLargeQty);
+  setIfNotEdited('pt-washer-qty', eq.washerQty);
+
+  document.getElementById('pt-bolt-small-label').textContent = `น็อต ขนาด ${eq.boltSmallSize} นิ้ว (ตัว)`;
+  document.getElementById('pt-bolt-large-label').textContent = `น็อต ขนาด ${eq.boltLargeSize} นิ้ว (ตัว)`;
+
   // ค่าเริ่มต้นจำนวนเส้นสายทองแดง = จำนวนมิเตอร์รวม (ผูกอัตโนมัติ เว้นแต่ผู้ใช้เคยแก้ไขเองแล้ว)
   const wireQtyEl = document.getElementById('pt-wire-qty');
   if (!wireQtyEl.dataset.manuallyEdited) wireQtyEl.value = total;
@@ -546,7 +599,10 @@ function recalcMeterCount() {
 window.recalcMeterCount = recalcMeterCount;
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('pt-wire-qty').addEventListener('input', function () { this.dataset.manuallyEdited = '1'; });
+  ['pt-plank20-qty', 'pt-plank60-qty', 'pt-plank120-qty', 'pt-bolt-small-qty', 'pt-bolt-large-qty', 'pt-washer-qty', 'pt-wire-qty'].forEach(id => {
+    document.getElementById(id).addEventListener('input', function () { this.dataset.manuallyEdited = '1'; });
+  });
+  document.getElementById('pt-pole-size').addEventListener('change', recalcMeterCount);
 });
 
 function useCurrentLocation() {
@@ -573,15 +629,24 @@ function openPointForm(planId, pointNo) {
   document.getElementById('point-modal-title').textContent = isEdit ? `แก้ไขจุดที่ ${pointNo}` : 'เพิ่มจุดสำรวจ';
   document.getElementById('btn-delete-point').style.display = isEdit ? 'block' : 'none';
 
-  document.getElementById('pt-pole-size').value = pt ? pt.poleSize : '8';
+  document.getElementById('pt-pole-size').value = pt ? pt.poleSize : '9';
   document.getElementById('pt-side-a').value = pt ? pt.sideA : 0;
   document.getElementById('pt-side-b').value = pt ? pt.sideB : 0;
-  document.getElementById('pt-plank-size').value = pt ? pt.equipment.woodPlank.size : '20';
-  document.getElementById('pt-plank-qty').value = pt ? pt.equipment.woodPlank.qty : 0;
-  document.getElementById('pt-bolt-size').value = pt ? pt.equipment.bolt.size : '9';
-  document.getElementById('pt-bolt-qty').value = pt ? pt.equipment.bolt.qty : 0;
-  document.getElementById('pt-washer-qty').value = pt ? pt.equipment.washer.qty : 0;
-  document.getElementById('pt-wire-length').value = pt ? pt.equipment.copperWire.lengthM : 0;
+
+  // ล้างสถานะ "แก้ไขเอง" ของทุกช่องอุปกรณ์ก่อน แล้วค่อยตั้งค่า — ถ้าเป็นจุดเดิม ให้ถือว่าค่าที่บันทึกไว้แล้วคือค่าที่ผู้ใช้ยืนยันแล้ว (ไม่ถูกคำนวณทับ)
+  const eqIds = ['pt-plank20-qty', 'pt-plank60-qty', 'pt-plank120-qty', 'pt-bolt-small-qty', 'pt-bolt-large-qty', 'pt-washer-qty'];
+  eqIds.forEach(id => { document.getElementById(id).dataset.manuallyEdited = pt ? '1' : ''; });
+  if (pt) {
+    document.getElementById('pt-plank20-qty').value = pt.equipment.plank20.qty;
+    document.getElementById('pt-plank60-qty').value = pt.equipment.plank60.qty;
+    document.getElementById('pt-plank120-qty').value = pt.equipment.plank120.qty;
+    document.getElementById('pt-bolt-small-qty').value = pt.equipment.boltSmall.qty;
+    document.getElementById('pt-bolt-large-qty').value = pt.equipment.boltLarge.qty;
+    document.getElementById('pt-washer-qty').value = pt.equipment.washer.qty;
+    document.getElementById('pt-bolt-small-label').textContent = `น็อต ขนาด ${pt.equipment.boltSmall.size} นิ้ว (ตัว)`;
+    document.getElementById('pt-bolt-large-label').textContent = `น็อต ขนาด ${pt.equipment.boltLarge.size} นิ้ว (ตัว)`;
+  }
+  document.getElementById('pt-wire-length').value = pt ? pt.equipment.copperWire.lengthM : 7;
   const wireQtyEl = document.getElementById('pt-wire-qty');
   wireQtyEl.dataset.manuallyEdited = pt ? '1' : '';
   wireQtyEl.value = pt ? pt.equipment.copperWire.qty : 0;
@@ -623,12 +688,7 @@ async function savePoint() {
     sideA: parseInt(document.getElementById('pt-side-a').value) || 0,
     sideB: parseInt(document.getElementById('pt-side-b').value) || 0,
     meterCount: total,
-    equipment: {
-      woodPlank: { size: document.getElementById('pt-plank-size').value, qty: parseInt(document.getElementById('pt-plank-qty').value) || 0 },
-      bolt: { size: document.getElementById('pt-bolt-size').value, qty: parseInt(document.getElementById('pt-bolt-qty').value) || 0 },
-      washer: { qty: parseInt(document.getElementById('pt-washer-qty').value) || 0 },
-      copperWire: { size: '2x10', lengthM: parseFloat(document.getElementById('pt-wire-length').value) || 0, qty: parseInt(document.getElementById('pt-wire-qty').value) || 0 }
-    },
+    equipment: readEquipmentFromForm(),
     lat: latlngEl.dataset.lat ? parseFloat(latlngEl.dataset.lat) : null,
     lng: latlngEl.dataset.lng ? parseFloat(latlngEl.dataset.lng) : null,
     photoLink: currentPointPhoto.link,
@@ -907,12 +967,7 @@ async function autoAssignPointKeyForNewPoint() {
     sideA: parseInt(document.getElementById('pt-side-a').value) || 0,
     sideB: parseInt(document.getElementById('pt-side-b').value) || 0,
     meterCount: total,
-    equipment: {
-      woodPlank: { size: document.getElementById('pt-plank-size').value, qty: parseInt(document.getElementById('pt-plank-qty').value) || 0 },
-      bolt: { size: document.getElementById('pt-bolt-size').value, qty: parseInt(document.getElementById('pt-bolt-qty').value) || 0 },
-      washer: { qty: parseInt(document.getElementById('pt-washer-qty').value) || 0 },
-      copperWire: { size: '2x10', lengthM: parseFloat(document.getElementById('pt-wire-length').value) || 0, qty: parseInt(document.getElementById('pt-wire-qty').value) || 0 }
-    },
+    equipment: readEquipmentFromForm(),
     lat: latlngEl.dataset.lat ? parseFloat(latlngEl.dataset.lat) : null,
     lng: latlngEl.dataset.lng ? parseFloat(latlngEl.dataset.lng) : null,
     photoLink: '', photoFileId: '', photoThumb: '', status: 'pending',
