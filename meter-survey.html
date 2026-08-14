@@ -181,10 +181,6 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     <div class="map-select-bar">
       <select class="field-select" id="map-plan-select" onchange="onMapPlanChange()"></select>
     </div>
-    <div class="map-legend">
-      <span><span class="legend-dot" style="background:#a9bdd1"></span> รอสำรวจ</span>
-      <span><span class="legend-dot" style="background:#2ecc71"></span> สำรวจแล้ว</span>
-    </div>
     <div id="map"></div>
   </div>
 </div>
@@ -205,11 +201,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
 <button class="fab" id="fab-btn" onclick="onFabClick()">+</button>
 
-<!-- ══ MODAL: สร้างแผนงานใหม่ ══ -->
+<!-- ══ MODAL: สร้าง/แก้ไขแผนงาน ══ -->
 <div class="modal-overlay" id="plan-modal">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">สร้างแผนงานใหม่</div>
+      <div class="modal-title" id="plan-modal-title">สร้างแผนงานใหม่</div>
       <button class="modal-close" onclick="closeModal('plan-modal')">✕</button>
     </div>
     <div class="modal-body">
@@ -223,8 +219,8 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('plan-modal')">ยกเลิก</button>
-      <button class="btn btn-primary" onclick="createPlan()">สร้างแผนงาน</button>
+      <button class="btn btn-danger" id="btn-delete-plan" style="display:none;" onclick="quickDeletePlan(editingPlanId, true)">ลบแผนงาน</button>
+      <button class="btn btn-primary" id="btn-save-plan" onclick="savePlan()">สร้างแผนงาน</button>
     </div>
   </div>
 </div>
@@ -428,7 +424,7 @@ function onFabClick() {
   if (currentTab === 'plan-detail') {
     openPointForm(currentPlanId, null);
   } else if (currentTab === 'plans') {
-    openModal('plan-modal');
+    openCreatePlan();
   }
 }
 window.onFabClick = onFabClick;
@@ -455,29 +451,86 @@ function renderPlansList() {
           <div class="plan-name">${esc(p.planName)}</div>
           <div class="plan-sub">${esc(p.area || 'ไม่ระบุพื้นที่')} · ${count} จุด (สำรวจแล้ว ${surveyed})</div>
         </div>
-        <div class="plan-arrow">›</div>
+        <button class="point-delete-btn" title="แก้ไขแผนงาน" style="background:rgba(59,158,222,0.15); border-color:rgba(59,158,222,0.4); color:var(--blue);" onclick="event.stopPropagation(); openEditPlan('${p.planId}')">✏️</button>
+        <button class="point-delete-btn" title="ลบแผนงาน" onclick="event.stopPropagation(); quickDeletePlan('${p.planId}')">🗑️</button>
       </div>`;
   }).join('');
 }
 window.renderPlansList = renderPlansList;
 
-async function createPlan() {
+let editingPlanId = null;
+
+function openCreatePlan() {
+  editingPlanId = null;
+  document.getElementById('plan-modal-title').textContent = 'สร้างแผนงานใหม่';
+  document.getElementById('btn-save-plan').textContent = 'สร้างแผนงาน';
+  document.getElementById('btn-delete-plan').style.display = 'none';
+  document.getElementById('pf-plan-name').value = '';
+  document.getElementById('pf-plan-area').value = '';
+  openModal('plan-modal');
+}
+window.openCreatePlan = openCreatePlan;
+
+function openEditPlan(planId) {
+  const plan = window.PLANS.find(p => p.planId === planId);
+  if (!plan) return;
+  editingPlanId = planId;
+  document.getElementById('plan-modal-title').textContent = 'แก้ไขแผนงาน';
+  document.getElementById('btn-save-plan').textContent = 'บันทึกการแก้ไข';
+  document.getElementById('btn-delete-plan').style.display = 'block';
+  document.getElementById('pf-plan-name').value = plan.planName || '';
+  document.getElementById('pf-plan-area').value = plan.area || '';
+  openModal('plan-modal');
+}
+window.openEditPlan = openEditPlan;
+
+async function savePlan() {
   const name = document.getElementById('pf-plan-name').value.trim();
   const area = document.getElementById('pf-plan-area').value.trim();
   if (!name) { showToast('กรุณากรอกชื่อแผนงาน'); return; }
-  const planId = genId();
   const { doc, setDoc } = window._fsLib;
-  await setDoc(doc(window._db, 'survey_plans', planId), {
-    planId, planName: name, area, status: 'active',
-    createdAt: Date.now(), updatedAt: Date.now()
-  });
-  document.getElementById('pf-plan-name').value = '';
-  document.getElementById('pf-plan-area').value = '';
-  closeModal('plan-modal');
-  showToast('สร้างแผนงานสำเร็จ ✓');
-  openPlanDetail(planId);
+
+  if (editingPlanId) {
+    const existing = window.PLANS.find(p => p.planId === editingPlanId) || {};
+    await setDoc(doc(window._db, 'survey_plans', editingPlanId), {
+      ...existing, planId: editingPlanId, planName: name, area, updatedAt: Date.now()
+    });
+    closeModal('plan-modal');
+    showToast('บันทึกการแก้ไขแผนงานแล้ว ✓');
+    if (topBarMode === 'planDetail' && currentPlanId === editingPlanId) {
+      document.getElementById('topbar-title-text').textContent = name;
+    }
+  } else {
+    const planId = genId();
+    await setDoc(doc(window._db, 'survey_plans', planId), {
+      planId, planName: name, area, status: 'active',
+      createdAt: Date.now(), updatedAt: Date.now()
+    });
+    closeModal('plan-modal');
+    showToast('สร้างแผนงานสำเร็จ ✓');
+    openPlanDetail(planId);
+  }
 }
-window.createPlan = createPlan;
+window.savePlan = savePlan;
+
+async function quickDeletePlan(planId, fromModal) {
+  const plan = window.PLANS.find(p => p.planId === planId);
+  const pointCount = window.POINTS.filter(pt => pt.planId === planId).length;
+  const warnMsg = pointCount > 0
+    ? `ลบแผนงาน "${plan ? plan.planName : ''}" และจุดสำรวจทั้งหมด ${pointCount} จุดในแผนนี้หรือไม่? (ลบแล้วกู้คืนไม่ได้)`
+    : `ลบแผนงาน "${plan ? plan.planName : ''}" หรือไม่? (ลบแล้วกู้คืนไม่ได้)`;
+  if (!confirm(warnMsg)) return;
+
+  const { doc, deleteDoc } = window._fsLib;
+  const pointsToDelete = window.POINTS.filter(pt => pt.planId === planId);
+  await Promise.all(pointsToDelete.map(pt => deleteDoc(doc(window._db, 'survey_points', `${pt.planId}_${pt.pointNo}`))));
+  await deleteDoc(doc(window._db, 'survey_plans', planId));
+
+  showToast('ลบแผนงานแล้ว');
+  if (fromModal) closeModal('plan-modal');
+  if (currentPlanId === planId) { currentPlanId = null; switchTab('plans'); }
+}
+window.quickDeletePlan = quickDeletePlan;
 
 function openPlanDetail(planId) {
   currentPlanId = planId;
