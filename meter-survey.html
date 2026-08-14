@@ -88,8 +88,6 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 /* ── MAP PANE ── */
 .map-pane-inner { position:relative; flex:1; display:flex; flex-direction:column; min-height:0; }
 #map { flex:1; min-height:0; }
-.map-select-bar { position:absolute; top:10px; left:10px; right:10px; z-index:501; }
-.map-select-bar select { width:100%; background:rgba(22,32,48,0.95); box-shadow:0 1px 6px rgba(0,0,0,.3); }
 .map-legend {
   position:absolute; top:56px; left:10px; right:10px; z-index:500;
   background:rgba(22,32,48,0.92); border:1px solid var(--border); border-radius:10px;
@@ -161,6 +159,39 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 }
 .fab:active { transform:scale(.93); }
 .link-btn { color:var(--blue); text-decoration:underline; cursor:pointer; }
+
+/* ── รายงาน ── */
+.report-toolbar { padding:12px; }
+#report-content { padding:0 12px 24px; }
+.report-page { background:#fff; color:#111; border-radius:10px; padding:20px 18px; font-family:var(--sans); }
+.report-title { font-size:19px; font-weight:700; text-align:center; margin-bottom:4px; }
+.report-subtitle { font-size:13px; text-align:center; color:#555; margin-bottom:16px; }
+.report-meta-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 16px; font-size:13px; margin-bottom:18px; padding-bottom:14px; border-bottom:1.5px solid #ccc; }
+.report-meta-grid b { color:#000; }
+.report-section-title { font-size:15px; font-weight:700; margin:18px 0 10px; padding-bottom:6px; border-bottom:2px solid #333; }
+.report-point-badge { font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:20px; white-space:nowrap; display:inline-block; }
+.report-point-badge.done { background:#dcf6e3; color:#1e8a42; }
+.report-point-badge.pending { background:#eee; color:#777; }
+.report-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:6px; }
+.report-table th, .report-table td { border:1px solid #ccc; padding:7px 9px; text-align:left; }
+.report-table th { background:#f0f0f0; font-weight:700; }
+.report-table td.num, .report-table th.num { text-align:right; }
+.report-table-scroll { overflow-x:auto; }
+.report-point-table { font-size:12px; }
+.report-point-table th, .report-point-table td { padding:6px 8px; white-space:nowrap; }
+.report-point-thumb { width:38px; height:38px; object-fit:cover; border-radius:4px; border:1px solid #ccc; display:block; }
+.report-sign-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-top:34px; font-size:12.5px; text-align:center; }
+.report-sign-line { border-top:1px solid #333; margin-top:38px; padding-top:6px; }
+.no-print { }
+@media print {
+  @page { size: A4 landscape; margin:12mm; }
+  body * { visibility:hidden; }
+  #report-content, #report-content * { visibility:visible; }
+  #report-content { position:absolute; left:0; top:0; width:100%; padding:0; }
+  .report-page { border-radius:0; padding:0; }
+  .report-point-table { font-size:11px; }
+  .no-print { display:none !important; }
+}
 </style>
 </head>
 <body>
@@ -178,9 +209,6 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 <!-- ══ TAB: แผนที่ ══ -->
 <div class="tab-pane map-pane" id="tab-map">
   <div class="map-pane-inner">
-    <div class="map-select-bar">
-      <select class="field-select" id="map-plan-select" onchange="onMapPlanChange()"></select>
-    </div>
     <div id="map"></div>
   </div>
 </div>
@@ -190,14 +218,15 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   <div class="list-wrap" id="points-list"></div>
 </div>
 
-<div class="bottom-nav" id="bottom-nav">
-  <button class="nav-btn active" onclick="switchTab('plans')">
-    <div class="nav-icon">🗂️</div><div class="nav-label">แผนงาน</div>
-  </button>
-  <button class="nav-btn" onclick="switchTab('map')">
-    <div class="nav-icon">🗺️</div><div class="nav-label">แผนที่</div>
-  </button>
+<!-- ══ TAB: รายงาน ══ -->
+<div class="tab-pane" id="tab-report">
+  <div class="report-toolbar no-print">
+    <button class="btn btn-primary" style="flex:1;" onclick="window.print()">🖨️ พิมพ์ / บันทึกเป็น PDF</button>
+  </div>
+  <div id="report-content"></div>
 </div>
+
+<div class="bottom-nav" id="bottom-nav" style="display:none;"></div>
 
 <button class="fab" id="fab-btn" onclick="onFabClick()">+</button>
 
@@ -363,7 +392,6 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   onSnapshot(plansQ, (snap) => {
     window.PLANS = snap.docs.map(d => d.data());
     window.renderPlansList && renderPlansList();
-    window.renderMapPlanOptions && renderMapPlanOptions();
   }, (err) => console.error("Firestore(plans) error:", err));
 
   const pointsQ = query(collection(db, "survey_points"), orderBy("pointNo", "asc"));
@@ -396,6 +424,7 @@ function genId() { return Date.now().toString(36) + Math.random().toString(36).s
 
 const DEFAULT_TOPBAR_TITLE = '📐 สำรวจปรับปรุงมิเตอร์';
 let topBarMode = 'hub'; // 'hub' | 'planDetail'
+let planSubTab = 'points'; // 'points' | 'map' (ใช้เมื่ออยู่ในหน้ารายละเอียดแผนงาน)
 
 function topBarBackClick() {
   if (topBarMode === 'planDetail') { closePlanDetail(); }
@@ -403,25 +432,60 @@ function topBarBackClick() {
 }
 window.topBarBackClick = topBarBackClick;
 
-// ══════════════════════════ TABS ══════════════════════════
-function switchTab(tab) {
-  currentTab = tab;
+// ══════════════════════════ TABS (หน้ารายการแผนงาน = หน้าหลัก ไม่มีแถบเมนูล่าง) ══════════════════════════
+function goToPlansList() {
+  currentTab = 'plans';
+  currentPlanId = null;
   topBarMode = 'hub';
   document.getElementById('topbar-title-text').textContent = DEFAULT_TOPBAR_TITLE;
-  document.getElementById('tab-plans').classList.toggle('active', tab === 'plans');
-  document.getElementById('tab-map').classList.toggle('active', tab === 'map');
+  document.getElementById('tab-plans').classList.add('active');
+  document.getElementById('tab-map').classList.remove('active');
   document.getElementById('tab-plan-detail').classList.remove('active');
-  document.querySelectorAll('.nav-btn').forEach((b, i) => b.classList.toggle('active', (tab === 'plans' && i === 0) || (tab === 'map' && i === 1)));
-  document.getElementById('bottom-nav').style.display = 'flex';
-  document.getElementById('fab-btn').style.display = (tab === 'map') ? 'none' : 'flex';
-  if (tab === 'map') {
+  document.getElementById('tab-report').classList.remove('active');
+  document.getElementById('bottom-nav').style.display = 'none';
+  document.getElementById('bottom-nav').innerHTML = '';
+  document.getElementById('fab-btn').style.display = 'flex';
+}
+window.goToPlansList = goToPlansList;
+
+// ══════════════════════════ แถบเมนูล่างเฉพาะตอนอยู่ในแผนงาน: รายการ / แผนที่ / รายงาน ══════════════════════════
+function renderPlanBottomNav() {
+  const nav = document.getElementById('bottom-nav');
+  nav.innerHTML = `
+    <button class="nav-btn" id="nav-btn-points" onclick="showPlanSubTab('points')">
+      <div class="nav-icon">📋</div><div class="nav-label">รายการ</div>
+    </button>
+    <button class="nav-btn" id="nav-btn-map" onclick="showPlanSubTab('map')">
+      <div class="nav-icon">🗺️</div><div class="nav-label">แผนที่</div>
+    </button>
+    <button class="nav-btn" id="nav-btn-report" onclick="showPlanSubTab('report')">
+      <div class="nav-icon">🧾</div><div class="nav-label">รายงาน</div>
+    </button>`;
+  nav.style.display = 'flex';
+}
+
+function showPlanSubTab(sub) {
+  planSubTab = sub;
+  document.getElementById('tab-plan-detail').classList.toggle('active', sub === 'points');
+  document.getElementById('tab-map').classList.toggle('active', sub === 'map');
+  document.getElementById('tab-report').classList.toggle('active', sub === 'report');
+  const btnPoints = document.getElementById('nav-btn-points');
+  const btnMap = document.getElementById('nav-btn-map');
+  const btnReport = document.getElementById('nav-btn-report');
+  if (btnPoints) btnPoints.classList.toggle('active', sub === 'points');
+  if (btnMap) btnMap.classList.toggle('active', sub === 'map');
+  if (btnReport) btnReport.classList.toggle('active', sub === 'report');
+  document.getElementById('fab-btn').style.display = (sub === 'points') ? 'flex' : 'none';
+  if (sub === 'map') {
     setTimeout(() => { initMapIfNeeded(); renderMapMarkers(); }, 50);
+  } else if (sub === 'report') {
+    renderReport();
   }
 }
-window.switchTab = switchTab;
+window.showPlanSubTab = showPlanSubTab;
 
 function onFabClick() {
-  if (currentTab === 'plan-detail') {
+  if (currentTab === 'plan-detail' && planSubTab === 'points') {
     openPointForm(currentPlanId, null);
   } else if (currentTab === 'plans') {
     openCreatePlan();
@@ -528,7 +592,7 @@ async function quickDeletePlan(planId, fromModal) {
 
   showToast('ลบแผนงานแล้ว');
   if (fromModal) closeModal('plan-modal');
-  if (currentPlanId === planId) { currentPlanId = null; switchTab('plans'); }
+  if (currentPlanId === planId) { goToPlansList(); }
 }
 window.quickDeletePlan = quickDeletePlan;
 
@@ -537,10 +601,8 @@ function openPlanDetail(planId) {
   currentTab = 'plan-detail';
   topBarMode = 'planDetail';
   document.getElementById('tab-plans').classList.remove('active');
-  document.getElementById('tab-map').classList.remove('active');
-  document.getElementById('tab-plan-detail').classList.add('active');
-  document.getElementById('bottom-nav').style.display = 'none';
-  document.getElementById('fab-btn').style.display = 'flex';
+  renderPlanBottomNav();
+  showPlanSubTab('points');
   const plan = window.PLANS.find(p => p.planId === planId);
   document.getElementById('topbar-title-text').textContent = plan ? plan.planName : 'แผนงาน';
   renderPointsList();
@@ -548,8 +610,7 @@ function openPlanDetail(planId) {
 window.openPlanDetail = openPlanDetail;
 
 function closePlanDetail() {
-  currentPlanId = null;
-  switchTab('plans');
+  goToPlansList();
 }
 window.closePlanDetail = closePlanDetail;
 
@@ -583,6 +644,122 @@ function renderPointsList() {
   }).join('');
 }
 window.renderPointsList = renderPointsList;
+
+// ══════════════════════════ รายงาน ══════════════════════════
+function formatThaiDate(d) {
+  const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear() + 543}`;
+}
+
+function renderReport() {
+  if (!currentPlanId) return;
+  const plan = window.PLANS.find(p => p.planId === currentPlanId);
+  const points = window.POINTS.filter(pt => pt.planId === currentPlanId).sort((a, b) => a.pointNo - b.pointNo);
+  const surveyedCount = points.filter(pt => pt.status === 'surveyed').length;
+
+  // สรุปอุปกรณ์รวมทั้งแผนงาน
+  let sumPlank20 = 0, sumPlank60 = 0, sumPlank120 = 0, sumWasher = 0, sumWireQty = 0, sumWireLength = 0;
+  const boltTotals = {}; // ขนาดน็อต(นิ้ว) -> จำนวนรวม
+  points.forEach(pt => {
+    const eq = pt.equipment || {};
+    sumPlank20 += eq.plank20 ? (eq.plank20.qty || 0) : 0;
+    sumPlank60 += eq.plank60 ? (eq.plank60.qty || 0) : 0;
+    sumPlank120 += eq.plank120 ? (eq.plank120.qty || 0) : 0;
+    sumWasher += eq.washer ? (eq.washer.qty || 0) : 0;
+    if (eq.copperWire) {
+      sumWireQty += eq.copperWire.qty || 0;
+      sumWireLength += (eq.copperWire.qty || 0) * (eq.copperWire.lengthM || 0);
+    }
+    [eq.boltSmall, eq.boltLarge].forEach(b => {
+      if (!b || !b.qty) return;
+      const key = b.size || '-';
+      boltTotals[key] = (boltTotals[key] || 0) + b.qty;
+    });
+  });
+  const boltRows = Object.keys(boltTotals).sort((a, b) => parseFloat(a) - parseFloat(b))
+    .map(size => `<tr><td>น็อต ขนาด ${esc(size)} นิ้ว (พร้อมแหวน)</td><td class="num">${boltTotals[size]}</td><td>ตัว</td></tr>`).join('');
+
+  const pointRows = points.map(pt => {
+    const eq = pt.equipment || {};
+    const thumb = pt.photoThumb
+      ? `<img class="report-point-thumb" src="${esc(pt.photoThumb)}">`
+      : `<span style="color:#bbb;">-</span>`;
+    const plankStr = `${(eq.plank20 && eq.plank20.qty) || 0}/${(eq.plank60 && eq.plank60.qty) || 0}/${(eq.plank120 && eq.plank120.qty) || 0}`;
+    const boltStr = [
+      eq.boltSmall && eq.boltSmall.qty ? `${eq.boltSmall.size}″×${eq.boltSmall.qty}` : '',
+      eq.boltLarge && eq.boltLarge.qty ? `${eq.boltLarge.size}″×${eq.boltLarge.qty}` : ''
+    ].filter(Boolean).join(', ') || '-';
+    const washerStr = (eq.washer && eq.washer.qty) || 0;
+    const wireStr = eq.copperWire && eq.copperWire.qty ? `${eq.copperWire.lengthM}ม.×${eq.copperWire.qty}เส้น` : '-';
+    const coordStr = pt.lat != null ? `${pt.lat.toFixed(5)}, ${pt.lng.toFixed(5)}` : '-';
+    const badge = pt.status === 'surveyed'
+      ? `<span class="report-point-badge done">สำรวจแล้ว</span>`
+      : `<span class="report-point-badge pending">รอสำรวจ</span>`;
+    return `
+      <tr>
+        <td class="num">${pt.pointNo}</td>
+        <td>${badge}</td>
+        <td>${thumb}</td>
+        <td class="num">${esc(pt.poleSize)}</td>
+        <td class="num">${pt.sideA || 0} / ${pt.sideB || 0} (${pt.meterCount})</td>
+        <td class="num">${plankStr}</td>
+        <td>${boltStr}</td>
+        <td class="num">${washerStr}</td>
+        <td>${wireStr}</td>
+        <td style="white-space:nowrap; font-size:11px;">${coordStr}</td>
+      </tr>`;
+  }).join('');
+
+  const pointsHtml = points.length ? `
+    <div class="report-table-scroll">
+      <table class="report-table report-point-table">
+        <thead>
+          <tr>
+            <th>ที่</th><th>สถานะ</th><th>รูป</th><th>เสา (ม.)</th><th>มิเตอร์ A/B (รวม)</th>
+            <th>ไม้แป้น 20/60/120</th><th>น็อต</th><th>แหวน</th><th>สายทองแดง</th><th>พิกัด</th>
+          </tr>
+        </thead>
+        <tbody>${pointRows}</tbody>
+      </table>
+    </div>` : '<div style="color:#777; font-size:13px;">ยังไม่มีจุดสำรวจในแผนนี้</div>';
+
+  const summaryRows = [
+    sumPlank20 ? `<tr><td>ไม้แป้น 20</td><td class="num">${sumPlank20}</td><td>แผ่น</td></tr>` : '',
+    sumPlank60 ? `<tr><td>ไม้แป้น 60</td><td class="num">${sumPlank60}</td><td>แผ่น</td></tr>` : '',
+    sumPlank120 ? `<tr><td>ไม้แป้น 120</td><td class="num">${sumPlank120}</td><td>แผ่น</td></tr>` : '',
+    boltRows,
+    sumWasher ? `<tr><td>แหวนสี่เหลี่ยม</td><td class="num">${sumWasher}</td><td>ตัว</td></tr>` : '',
+    sumWireQty ? `<tr><td>สายทองแดงขนาด 2×10 ตร.มม. (ยาวรวมประมาณ ${sumWireLength.toFixed(1)} ม.)</td><td class="num">${sumWireQty}</td><td>เส้น</td></tr>` : ''
+  ].join('');
+
+  document.getElementById('report-content').innerHTML = `
+    <div class="report-page">
+      <div class="report-title">รายงานผลสำรวจปรับปรุงมิเตอร์</div>
+      <div class="report-subtitle">แผนงาน: ${esc(plan ? plan.planName : '-')}</div>
+      <div class="report-meta-grid">
+        <div>พื้นที่/สายป้อน: <b>${esc(plan && plan.area ? plan.area : '-')}</b></div>
+        <div>วันที่ออกรายงาน: <b>${formatThaiDate(new Date())}</b></div>
+        <div>จำนวนจุดสำรวจทั้งหมด: <b>${points.length} จุด</b></div>
+        <div>สำรวจแล้ว: <b>${surveyedCount} / ${points.length} จุด</b></div>
+      </div>
+
+      <div class="report-section-title">รายละเอียดแต่ละจุดสำรวจ</div>
+      ${pointsHtml}
+
+      <div class="report-section-title">สรุปอุปกรณ์รวมทั้งแผนงาน</div>
+      <table class="report-table">
+        <thead><tr><th>รายการอุปกรณ์</th><th class="num">จำนวนรวม</th><th>หน่วย</th></tr></thead>
+        <tbody>${summaryRows || '<tr><td colspan="3" style="text-align:center; color:#777;">ยังไม่มีข้อมูลอุปกรณ์</td></tr>'}</tbody>
+      </table>
+
+      <div class="report-sign-grid">
+        <div><div class="report-sign-line">ผู้สำรวจ</div></div>
+        <div><div class="report-sign-line">ผู้ตรวจสอบ</div></div>
+        <div><div class="report-sign-line">ผู้อนุมัติ</div></div>
+      </div>
+    </div>`;
+}
+window.renderReport = renderReport;
 
 function nextPointNo(planId) {
   const nums = window.POINTS.filter(pt => pt.planId === planId).map(pt => pt.pointNo);
@@ -835,23 +1012,10 @@ function locateMeOnMap() {
 }
 window.locateMeOnMap = locateMeOnMap;
 
-function renderMapPlanOptions() {
-  const sel = document.getElementById('map-plan-select');
-  const prevVal = sel.value;
-  sel.innerHTML = `<option value="all">ทั้งหมดทุกแผนงาน</option>` +
-    window.PLANS.map(p => `<option value="${p.planId}">${esc(p.planName)}</option>`).join('');
-  if (prevVal) sel.value = prevVal;
-}
-window.renderMapPlanOptions = renderMapPlanOptions;
-
-function onMapPlanChange() { renderMapMarkers(); }
-window.onMapPlanChange = onMapPlanChange;
-
 function renderMapMarkers() {
   if (!window.mapReady) return;
   markerLayer.clearLayers();
-  const sel = document.getElementById('map-plan-select').value || 'all';
-  const points = window.POINTS.filter(pt => pt.lat != null && pt.lng != null && (sel === 'all' || pt.planId === sel));
+  const points = window.POINTS.filter(pt => pt.lat != null && pt.lng != null && pt.planId === currentPlanId);
   const bounds = [];
   points.forEach(pt => {
     const color = pt.status === 'surveyed' ? '#2ecc71' : '#a9bdd1';
@@ -859,9 +1023,8 @@ function renderMapMarkers() {
       className: 'point-pin', html: `<div class="pin-body" style="background:${color}"><span>📐</span></div>`,
       iconSize: [28, 28], iconAnchor: [14, 28]
     });
-    const plan = window.PLANS.find(p => p.planId === pt.planId);
     const m = L.marker([pt.lat, pt.lng], { icon }).addTo(markerLayer);
-    m.bindPopup(`<b>จุดที่ ${pt.pointNo}</b><br><span class="popup-detail">${esc(plan ? plan.planName : '')}<br>เสา ${esc(pt.poleSize)} ม. · มิเตอร์ ${pt.meterCount} เครื่อง</span>`);
+    m.bindPopup(`<b>จุดที่ ${pt.pointNo}</b><br><span class="popup-detail">เสา ${esc(pt.poleSize)} ม. · มิเตอร์ ${pt.meterCount} เครื่อง</span>`);
     bounds.push([pt.lat, pt.lng]);
   });
   if (bounds.length) leafletMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 17 });
