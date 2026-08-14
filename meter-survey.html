@@ -169,9 +169,6 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .report-meta-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 16px; font-size:13px; margin-bottom:18px; padding-bottom:14px; border-bottom:1.5px solid #ccc; }
 .report-meta-grid b { color:#000; }
 .report-section-title { font-size:15px; font-weight:700; margin:18px 0 10px; padding-bottom:6px; border-bottom:2px solid #333; }
-.report-point-badge { font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:20px; white-space:nowrap; display:inline-block; }
-.report-point-badge.done { background:#dcf6e3; color:#1e8a42; }
-.report-point-badge.pending { background:#eee; color:#777; }
 .report-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:6px; }
 .report-table th, .report-table td { border:1px solid #ccc; padding:7px 9px; text-align:left; }
 .report-table th { background:#f0f0f0; font-weight:700; }
@@ -179,6 +176,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .report-table-scroll { overflow-x:auto; }
 .report-point-table { font-size:12px; }
 .report-point-table th, .report-point-table td { padding:6px 8px; white-space:nowrap; }
+.report-point-table th { text-align:center; }
 .report-point-thumb { width:38px; height:38px; object-fit:cover; border-radius:4px; border:1px solid #ccc; display:block; }
 .report-sign-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-top:34px; font-size:12.5px; text-align:center; }
 .report-sign-line { border-top:1px solid #333; margin-top:38px; padding-top:6px; }
@@ -677,14 +675,16 @@ function renderReport() {
     });
   });
   const boltRows = Object.keys(boltTotals).sort((a, b) => parseFloat(a) - parseFloat(b))
-    .map(size => `<tr><td>น็อต ขนาด ${esc(size)} นิ้ว (พร้อมแหวน)</td><td class="num">${boltTotals[size]}</td><td>ตัว</td></tr>`).join('');
+    .map(size => `<tr><td>น็อต ขนาด ${esc(size)} นิ้ว</td><td class="num">${boltTotals[size]}</td><td>ตัว</td></tr>`).join('');
 
   const pointRows = points.map(pt => {
     const eq = pt.equipment || {};
     const thumb = pt.photoThumb
       ? `<img class="report-point-thumb" src="${esc(pt.photoThumb)}">`
       : `<span style="color:#bbb;">-</span>`;
-    const plankStr = `${(eq.plank20 && eq.plank20.qty) || 0}/${(eq.plank60 && eq.plank60.qty) || 0}/${(eq.plank120 && eq.plank120.qty) || 0}`;
+    const plank20 = (eq.plank20 && eq.plank20.qty) || 0;
+    const plank60 = (eq.plank60 && eq.plank60.qty) || 0;
+    const plank120 = (eq.plank120 && eq.plank120.qty) || 0;
     const boltStr = [
       eq.boltSmall && eq.boltSmall.qty ? `${eq.boltSmall.size}″×${eq.boltSmall.qty}` : '',
       eq.boltLarge && eq.boltLarge.qty ? `${eq.boltLarge.size}″×${eq.boltLarge.qty}` : ''
@@ -692,17 +692,16 @@ function renderReport() {
     const washerStr = (eq.washer && eq.washer.qty) || 0;
     const wireStr = eq.copperWire && eq.copperWire.qty ? `${eq.copperWire.lengthM}ม.×${eq.copperWire.qty}เส้น` : '-';
     const coordStr = pt.lat != null ? `${pt.lat.toFixed(5)}, ${pt.lng.toFixed(5)}` : '-';
-    const badge = pt.status === 'surveyed'
-      ? `<span class="report-point-badge done">สำรวจแล้ว</span>`
-      : `<span class="report-point-badge pending">รอสำรวจ</span>`;
     return `
       <tr>
         <td class="num">${pt.pointNo}</td>
-        <td>${badge}</td>
         <td>${thumb}</td>
         <td class="num">${esc(pt.poleSize)}</td>
-        <td class="num">${pt.sideA || 0} / ${pt.sideB || 0} (${pt.meterCount})</td>
-        <td class="num">${plankStr}</td>
+        <td class="num">${pt.sideA || 0}</td>
+        <td class="num">${pt.sideB || 0}</td>
+        <td class="num">${plank20}</td>
+        <td class="num">${plank60}</td>
+        <td class="num">${plank120}</td>
         <td>${boltStr}</td>
         <td class="num">${washerStr}</td>
         <td>${wireStr}</td>
@@ -715,8 +714,19 @@ function renderReport() {
       <table class="report-table report-point-table">
         <thead>
           <tr>
-            <th>ที่</th><th>สถานะ</th><th>รูป</th><th>เสา (ม.)</th><th>มิเตอร์ A/B (รวม)</th>
-            <th>ไม้แป้น 20/60/120</th><th>น็อต</th><th>แหวน</th><th>สายทองแดง</th><th>พิกัด</th>
+            <th rowspan="2">ที่</th>
+            <th rowspan="2">รูป</th>
+            <th rowspan="2">เสา (ม.)</th>
+            <th colspan="2">จำนวนมิเตอร์</th>
+            <th colspan="3">จำนวนไม้แป้น</th>
+            <th rowspan="2">น็อต</th>
+            <th rowspan="2">แหวน</th>
+            <th rowspan="2">สายทองแดง</th>
+            <th rowspan="2">พิกัด</th>
+          </tr>
+          <tr>
+            <th>ด้าน A</th><th>ด้าน B</th>
+            <th>20</th><th>60</th><th>120</th>
           </tr>
         </thead>
         <tbody>${pointRows}</tbody>
