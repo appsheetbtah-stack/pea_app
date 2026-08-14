@@ -161,8 +161,8 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 <body>
 
 <div class="topbar">
-  <a class="back-btn" href="survey-hub.html" id="btn-top-back">← กลับ</a>
-  <div class="topbar-title">📐 สำรวจปรับปรุงมิเตอร์</div>
+  <button class="back-btn" id="btn-top-back" onclick="topBarBackClick()">← กลับ</button>
+  <div class="topbar-title" id="topbar-title-text">📐 สำรวจปรับปรุงมิเตอร์</div>
 </div>
 
 <!-- ══ TAB: รายการแผนงาน ══ -->
@@ -185,11 +185,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 </div>
 
 <!-- ══ SCREEN: รายละเอียดแผนงาน (จุดสำรวจ) ══ -->
-<div class="tab-pane" id="tab-plan-detail" style="top:0; bottom:0;">
-  <div class="detail-header">
-    <button class="back-btn" onclick="closePlanDetail()">← กลับ</button>
-    <div class="detail-title" id="plan-detail-title">แผนงาน</div>
-  </div>
+<div class="tab-pane" id="tab-plan-detail">
   <div class="list-wrap" id="points-list"></div>
 </div>
 
@@ -397,9 +393,20 @@ window.showToast = showToast;
 
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
+const DEFAULT_TOPBAR_TITLE = '📐 สำรวจปรับปรุงมิเตอร์';
+let topBarMode = 'hub'; // 'hub' | 'planDetail'
+
+function topBarBackClick() {
+  if (topBarMode === 'planDetail') { closePlanDetail(); }
+  else { window.location.href = 'survey-hub.html'; }
+}
+window.topBarBackClick = topBarBackClick;
+
 // ══════════════════════════ TABS ══════════════════════════
 function switchTab(tab) {
   currentTab = tab;
+  topBarMode = 'hub';
+  document.getElementById('topbar-title-text').textContent = DEFAULT_TOPBAR_TITLE;
   document.getElementById('tab-plans').classList.toggle('active', tab === 'plans');
   document.getElementById('tab-map').classList.toggle('active', tab === 'map');
   document.getElementById('tab-plan-detail').classList.remove('active');
@@ -470,13 +477,14 @@ window.createPlan = createPlan;
 function openPlanDetail(planId) {
   currentPlanId = planId;
   currentTab = 'plan-detail';
+  topBarMode = 'planDetail';
   document.getElementById('tab-plans').classList.remove('active');
   document.getElementById('tab-map').classList.remove('active');
   document.getElementById('tab-plan-detail').classList.add('active');
   document.getElementById('bottom-nav').style.display = 'none';
   document.getElementById('fab-btn').style.display = 'flex';
   const plan = window.PLANS.find(p => p.planId === planId);
-  document.getElementById('plan-detail-title').textContent = plan ? plan.planName : 'แผนงาน';
+  document.getElementById('topbar-title-text').textContent = plan ? plan.planName : 'แผนงาน';
   renderPointsList();
 }
 window.openPlanDetail = openPlanDetail;
