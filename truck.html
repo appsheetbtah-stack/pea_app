@@ -280,8 +280,14 @@
   }
   .info-grid-single{display:grid;grid-template-columns:1fr !important;gap:12px}
   @media(max-width:480px){.info-grid-single{gap:8px}}
-  .back-btn{background:none;border:none;color:#fff;font-size:20px;padding:4px 8px 4px 0;cursor:pointer;line-height:1;display:flex;align-items:center}
-  .back-btn:hover{opacity:0.75}
+  .back-btn{
+    color:var(--text2); text-decoration:none; font-size:13px;
+    display:inline-flex; align-items:center; gap:4px;
+    padding:6px 10px; border:1px solid var(--border); border-radius:6px;
+    background:none; cursor:pointer; flex-shrink:0; transition:color .15s, border-color .15s;
+    font-family:'Sarabun',sans-serif;
+  }
+  .back-btn:hover{color:var(--accent); border-color:var(--accent)}
 
   /* ===== Report page (own view, no popup) ===== */
   .report-btn{width:100%;display:flex;align-items:center;gap:12px;padding:16px;border:1px solid #e0e0e0;border-radius:10px;background:#fafafa;font-family:'Sarabun',sans-serif;font-size:15px;font-weight:600;color:#1a1a2e;margin-bottom:12px;cursor:pointer;text-align:left}
@@ -595,43 +601,57 @@
   .report-btn-sub{color:var(--text2) !important}
   #view-usage{display:none}
 
-  /* ===== Usage log view ===== */
-  .usage-history-wrap{overflow-x:auto}
-  .usage-table{width:100%;border-collapse:collapse;font-size:13px}
-  .usage-table th{background:var(--surface2);color:var(--text);padding:8px 10px;text-align:left;font-size:12px;border:1px solid var(--border);white-space:nowrap}
-  .usage-table td{background:var(--surface);color:var(--text);padding:7px 10px;border:1px solid var(--border);white-space:nowrap}
-  .usage-table tr:hover td{background:var(--surface2)}
-  @media(max-width:560px){
-    .usage-table thead{display:none}
-    .usage-table, .usage-table tbody, .usage-table tr, .usage-table td{display:block;width:100%}
-    .usage-table tr{border:1px solid var(--border,#e0e0e0);border-radius:8px;margin-bottom:10px;overflow:hidden}
-    .usage-table td{border:none;border-bottom:1px solid rgba(255,255,255,0.06);white-space:normal !important;min-width:0 !important;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:right}
-    .usage-table td:last-child{border-bottom:none}
-    .usage-table td[data-label]::before{content:attr(data-label);font-size:11px;font-weight:700;color:var(--text2,#8a8a8a);text-align:left;flex-shrink:0}
-    .usage-table td.usage-actions{justify-content:flex-end}
-    .usage-table td.usage-actions::before{display:none}
-    .usage-table td.usage-empty{display:block;text-align:center}
-    .usage-table td.usage-empty::before{display:none}
-  }
-  .usage-actions button{border:none;border-radius:5px;padding:4px 9px;font-size:12px;cursor:pointer;margin-right:4px;font-family:'Sarabun',sans-serif}
+  /* ===== Usage log view: Accordion history ===== */
+  .ac-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden}
+  .ac-head{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;cursor:pointer}
+  .ac-head-left{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .ac-driver{font-weight:600;font-size:13.5px;color:var(--text)}
+  .ac-date{font-size:11.5px;color:var(--text2)}
+  .ac-head-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .ac-badge{background:rgba(46,204,113,0.15);color:#7be3a3;font-weight:700;font-size:12px;padding:2px 9px;border-radius:10px;white-space:nowrap}
+  .ac-chevron{font-size:12px;color:var(--text2);transition:transform .2s}
+  .ac-item.open .ac-chevron{transform:rotate(180deg)}
+  .ac-body{max-height:0;overflow:hidden;transition:max-height .25s ease}
+  .ac-item.open .ac-body{max-height:400px}
+  .ac-body-inner{padding:0 14px 12px;border-top:1px solid var(--border);padding-top:10px}
+  .ac-row{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;margin-bottom:6px;color:var(--text2)}
+  .ac-row span:last-child{color:var(--text);text-align:right}
+  .ac-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
+  .ac-actions button{border:none;border-radius:5px;padding:4px 9px;font-size:11.5px;font-family:'Sarabun',sans-serif;cursor:pointer}
+  .usage-edit-btn{background:rgba(59,158,222,0.2);color:#8ecdf0}
+  .usage-del-btn{background:rgba(231,76,60,0.2);color:#f5b7b1}
+  .usage-empty{padding:24px;text-align:center;color:var(--text2)}
+
   .usage-edit-btn{background:rgba(59,158,222,0.2);color:#8ecdf0}
   .usage-del-btn{background:rgba(231,76,60,0.2);color:#f5b7b1}
   .usage-save-btn{background:var(--accent);color:#1a1a2e;border:none;border-radius:6px;padding:9px 18px;font-family:'Sarabun',sans-serif;font-weight:600;cursor:pointer}
   .usage-cancel-btn{background:rgba(255,255,255,0.08);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:9px 18px;font-family:'Sarabun',sans-serif;cursor:pointer}
   .usage-distance-badge{display:inline-block;background:rgba(46,204,113,0.15);color:#7be3a3;padding:2px 9px;border-radius:10px;font-weight:700}
   .usage-empty{padding:24px;text-align:center;color:var(--text2)}
+
+  /* ===== Usage report (flexible date range) ===== */
+  .range-preset-row{display:flex;gap:6px;flex-wrap:wrap}
+  .range-preset-btn{flex:1;min-width:70px;padding:9px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text2);font-family:'Sarabun',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;text-align:center}
+  .range-preset-btn.active{background:var(--accent);color:#1a1a2e;border-color:var(--accent)}
+  .report-summary-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+  .report-stat{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+  .report-stat-label{font-size:11px;color:var(--text2)}
+  .report-stat-value{font-size:18px;font-weight:700;color:var(--accent);margin-top:2px}
+  .report-driver-row{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:13px}
+  .report-driver-name{font-weight:600}
+  .report-driver-stats{color:var(--text2);font-size:12px}
+  .report-section-title{font-size:13px;font-weight:700;color:var(--accent);margin:14px 0 8px}
 </style>
 </head>
 <body>
 
 <div class="header">
   <div class="header-left" style="display:flex;align-items:center;gap:4px">
-    <button class="back-btn" onclick="location.href='index.html'" title="กลับเมนูหลัก">←</button>
+    <a class="back-btn" href="index.html">← กลับ</a>
     <h1>🚒 รถแก้ไฟฯ</h1>
   </div>
   <div class="header-actions">
-    <span class="auto-save" id="save-status">● บันทึกอัตโนมัติ</span>
-    <span style="font-size:10px;opacity:0.5;margin-left:6px">rev.6</span>
+    <span class="auto-save" id="save-status" style="display:none">● บันทึกอัตโนมัติ</span>
   </div>
 </div>
 
@@ -1550,18 +1570,8 @@ function printWithTitle(){
       <h2>📚 ประวัติการใช้งานรถ</h2>
       <span style="font-size:12px;opacity:0.8" id="u-history-count"></span>
     </div>
-    <div class="usage-history-wrap">
-      <table class="usage-table">
-        <thead>
-          <tr>
-            <th>วันที่</th><th>ผู้ขับ/ผู้เบิกรถ</th><th>รายการใช้รถ</th>
-            <th>ไมล์ออก</th><th>ไมล์กลับ</th><th>ระยะทาง</th><th>จัดการ</th>
-          </tr>
-        </thead>
-        <tbody id="u-history-body">
-          <tr><td colspan="7" class="usage-empty">กำลังโหลดข้อมูล...</td></tr>
-        </tbody>
-      </table>
+    <div class="form-card-body" id="u-history-body">
+      <div class="usage-empty">กำลังโหลดข้อมูล...</div>
     </div>
   </div>
 </div>
@@ -1581,7 +1591,7 @@ function printWithTitle(){
 
 <!-- ===== VIEW 3: ออกรายงาน ===== -->
 <div class="container" id="view-report" style="display:none">
-  <div class="form-card">
+  <div class="form-card" id="report-menu-card">
     <div class="form-card-header">
       <h2>📊 ออกรายงาน</h2>
       <span style="font-size:12px;opacity:0.8">รถ กฟส.ทอห. 82-3116 พล. (HINO)</span>
@@ -1595,7 +1605,50 @@ function printWithTitle(){
         <span class="rs-icon">🖨</span>
         <span>พิมพ์แบบฟอร์มวันนี้<span class="report-btn-sub">พิมพ์แบบฟอร์มตรวจรถของวันที่เลือกไว้</span></span>
       </button>
+      <button class="report-btn" onclick="openUsageReportPanel()">
+        <span class="rs-icon">📈</span>
+        <span>รายงานการใช้รถ<span class="report-btn-sub">เลือกช่วงเวลา รายวัน/รายสัปดาห์/รายเดือน สำหรับรายงานผู้บริหาร</span></span>
+      </button>
     </div>
+  </div>
+
+  <div id="usage-report-panel" style="display:none">
+    <button class="back-btn" style="margin-bottom:10px" onclick="closeUsageReportPanel()">← กลับไปเมนูออกรายงาน</button>
+
+    <div class="form-card">
+      <div class="form-card-header">
+        <h2>📈 รายงานการใช้รถ</h2>
+        <span style="font-size:12px;opacity:0.8">สำหรับรายงานผู้บริหาร</span>
+      </div>
+      <div class="form-card-body">
+        <div class="range-preset-row">
+          <button class="range-preset-btn active" data-range="today" onclick="selectRangePreset('today')">รายวัน</button>
+          <button class="range-preset-btn" data-range="week" onclick="selectRangePreset('week')">รายสัปดาห์</button>
+          <button class="range-preset-btn" data-range="month" onclick="selectRangePreset('month')">รายเดือน</button>
+          <button class="range-preset-btn" data-range="custom" onclick="selectRangePreset('custom')">กำหนดเอง</button>
+        </div>
+
+        <div class="info-grid info-grid-single" id="custom-range-fields" style="display:none;margin-top:12px">
+          <div class="field"><label>จากวันที่</label><input type="date" id="r-start"></div>
+          <div class="field"><label>ถึงวันที่</label><input type="date" id="r-end"></div>
+        </div>
+
+        <button class="usage-save-btn" style="margin-top:14px;width:100%;justify-content:center" onclick="generateUsageReport()">📈 สร้างรายงาน</button>
+      </div>
+    </div>
+
+  <div class="form-card" id="usage-report-result" style="display:none">
+    <div class="form-card-header">
+      <h2>📋 ผลรายงาน</h2>
+      <span style="font-size:12px;opacity:0.8" id="report-period-label"></span>
+    </div>
+    <div class="form-card-body">
+      <div class="report-summary-grid" id="report-summary-grid"></div>
+      <div id="report-driver-breakdown"></div>
+      <div id="report-entries-list" style="margin-top:14px"></div>
+      <button class="usage-save-btn" style="margin-top:14px;width:100%;justify-content:center" onclick="printUsageReport()">🖨 พิมพ์รายงานนี้</button>
+    </div>
+  </div>
   </div>
 </div>
 
@@ -1621,6 +1674,7 @@ function switchView(view){
   } else if(view === 'report'){
     report.style.display = 'block';
     bnReport.classList.add('active');
+    if(typeof closeUsageReportPanel === 'function') closeUsageReportPanel();
   } else {
     insp.style.display = 'block';
     bnInsp.classList.add('active');
@@ -1734,14 +1788,14 @@ async function deleteUsageEntry(id){
 async function loadUsageHistory(){
   const body = document.getElementById('u-history-body');
   const countEl = document.getElementById('u-history-count');
-  body.innerHTML = '<tr><td colspan="7" class="usage-empty">กำลังโหลดข้อมูล...</td></tr>';
+  body.innerHTML = '<div class="usage-empty">กำลังโหลดข้อมูล...</div>';
   if(!window.loadUsageLogs){
-    body.innerHTML = '<tr><td colspan="7" class="usage-empty">ไม่สามารถเชื่อมต่อฐานข้อมูลได้</td></tr>';
+    body.innerHTML = '<div class="usage-empty">ไม่สามารถเชื่อมต่อฐานข้อมูลได้</div>';
     return;
   }
   const entries = await window.loadUsageLogs();
   if(!entries || entries.length === 0){
-    body.innerHTML = '<tr><td colspan="7" class="usage-empty">ยังไม่มีข้อมูลการใช้งานรถ</td></tr>';
+    body.innerHTML = '<div class="usage-empty">ยังไม่มีข้อมูลการใช้งานรถ</div>';
     countEl.textContent = '';
     return;
   }
@@ -1749,24 +1803,233 @@ async function loadUsageHistory(){
   countEl.textContent = 'ทั้งหมด ' + entries.length + ' รายการ';
   body.innerHTML = entries.map(({id, data}) => {
     const d = data.date ? formatThaiDate(data.date) : '-';
-    return `<tr>
-      <td data-label="วันที่">${d}</td>
-      <td data-label="ผู้ขับ/ผู้เบิกรถ">${data.driver || '-'}</td>
-      <td data-label="รายการใช้รถ" style="white-space:normal;min-width:200px">${data.purpose || '-'}</td>
-      <td data-label="ไมล์ออก">${data.startMileage?.toLocaleString() ?? '-'}</td>
-      <td data-label="ไมล์กลับ">${data.endMileage?.toLocaleString() ?? '-'}</td>
-      <td data-label="ระยะทาง"><span class="usage-distance-badge">${(data.distance ?? 0).toLocaleString()} กม.</span></td>
-      <td data-label="จัดการ" class="usage-actions">
-        <button class="usage-edit-btn" onclick='editUsageEntry(${JSON.stringify(id)}, ${JSON.stringify(data).replace(/'/g,"&#39;")})'>✏️ แก้ไข</button>
-        <button class="usage-del-btn" onclick="deleteUsageEntry(${JSON.stringify(id)})">🗑 ลบ</button>
-      </td>
-    </tr>`;
+    return `<div class="ac-item" onclick="this.classList.toggle('open')">
+      <div class="ac-head">
+        <div class="ac-head-left">
+          <span class="ac-driver">${data.driver || '-'}</span>
+          <span class="ac-date">${d}</span>
+        </div>
+        <div class="ac-head-right">
+          <span class="ac-badge">${(data.distance ?? 0).toLocaleString()} กม.</span>
+          <span class="ac-chevron">▼</span>
+        </div>
+      </div>
+      <div class="ac-body">
+        <div class="ac-body-inner">
+          <div class="ac-row"><span>รายการใช้รถ</span><span>${data.purpose || '-'}</span></div>
+          <div class="ac-row"><span>ไมล์ออก</span><span>${data.startMileage?.toLocaleString() ?? '-'}</span></div>
+          <div class="ac-row"><span>ไมล์กลับ</span><span>${data.endMileage?.toLocaleString() ?? '-'}</span></div>
+          <div class="ac-actions">
+            <button class="usage-edit-btn" onclick='event.stopPropagation();editUsageEntry(${JSON.stringify(id)}, ${JSON.stringify(data).replace(/'/g,"&#39;")})'>✏️ แก้ไข</button>
+            <button class="usage-del-btn" onclick="event.stopPropagation();deleteUsageEntry(${JSON.stringify(id)})">🗑 ลบ</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
   }).join('');
 }
 
 document.getElementById('u-start').addEventListener('input', calcUsageDistance);
 document.getElementById('u-end').addEventListener('input', calcUsageDistance);
 document.getElementById('u-date').value = new Date().toISOString().slice(0,10);
+
+// ===== USAGE REPORT (flexible date range) =====
+let currentReportRange = 'today';
+
+function openUsageReportPanel(){
+  document.getElementById('report-menu-card').style.display = 'none';
+  document.getElementById('usage-report-panel').style.display = 'block';
+}
+function closeUsageReportPanel(){
+  document.getElementById('usage-report-panel').style.display = 'none';
+  document.getElementById('report-menu-card').style.display = 'block';
+}
+
+function toDateInputValue(d){
+  // ใช้วันที่ตามเวลาท้องถิ่น ไม่ผ่าน UTC (toISOString ทำให้วันที่คลาดเคลื่อนในโซนเวลาไทย)
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+function selectRangePreset(range){
+  currentReportRange = range;
+  document.querySelectorAll('.range-preset-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.range-preset-btn[data-range="${range}"]`).classList.add('active');
+  const customFields = document.getElementById('custom-range-fields');
+  customFields.style.display = (range === 'custom') ? 'grid' : 'none';
+
+  if(range !== 'custom'){
+    const today = new Date();
+    let start = new Date(today), end = new Date(today);
+    if(range === 'week'){
+      start.setDate(today.getDate() - 6);
+    } else if(range === 'month'){
+      start = new Date(today.getFullYear(), today.getMonth(), 1);
+      end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    }
+    document.getElementById('r-start').value = toDateInputValue(start);
+    document.getElementById('r-end').value = toDateInputValue(end);
+  }
+}
+
+function getReportRangeLabel(startStr, endStr){
+  const s = formatThaiDate(startStr), e = formatThaiDate(endStr);
+  return (startStr === endStr) ? s : `${s} - ${e}`;
+}
+
+async function generateUsageReport(){
+  const resultBox = document.getElementById('usage-report-result');
+  const periodLabel = document.getElementById('report-period-label');
+  const summaryGrid = document.getElementById('report-summary-grid');
+  const driverBox = document.getElementById('report-driver-breakdown');
+  const entriesBox = document.getElementById('report-entries-list');
+
+  let startStr = document.getElementById('r-start').value;
+  let endStr = document.getElementById('r-end').value;
+
+  if(currentReportRange !== 'custom' || !startStr || !endStr){
+    // ensure defaults are populated for today/week/month if not yet set
+    if(!startStr || !endStr){
+      selectRangePreset(currentReportRange === 'custom' ? 'today' : currentReportRange);
+      startStr = document.getElementById('r-start').value;
+      endStr = document.getElementById('r-end').value;
+    }
+  }
+  if(!startStr || !endStr){
+    alert('กรุณาเลือกช่วงวันที่ให้ครบถ้วน');
+    return;
+  }
+  if(endStr < startStr){
+    alert('วันที่สิ้นสุดต้องไม่ก่อนวันที่เริ่มต้น');
+    return;
+  }
+
+  resultBox.style.display = 'block';
+  periodLabel.textContent = 'กำลังโหลด...';
+  summaryGrid.innerHTML = '';
+  driverBox.innerHTML = '';
+  entriesBox.innerHTML = '<div class="usage-empty">กำลังโหลดข้อมูล...</div>';
+  resultBox.scrollIntoView({behavior:'smooth', block:'start'});
+
+  if(!window.loadUsageLogs){
+    entriesBox.innerHTML = '<div class="usage-empty">ไม่สามารถเชื่อมต่อฐานข้อมูลได้</div>';
+    periodLabel.textContent = '';
+    return;
+  }
+
+  const all = await window.loadUsageLogs();
+  const filtered = (all || []).filter(({data}) => data.date && data.date >= startStr && data.date <= endStr);
+
+  periodLabel.textContent = getReportRangeLabel(startStr, endStr);
+  window._currentReportData = {startStr, endStr, filtered};
+
+  if(filtered.length === 0){
+    summaryGrid.innerHTML = '';
+    driverBox.innerHTML = '';
+    entriesBox.innerHTML = '<div class="usage-empty">ไม่มีข้อมูลการใช้งานรถในช่วงเวลานี้</div>';
+    return;
+  }
+
+  const totalTrips = filtered.length;
+  const totalDistance = filtered.reduce((sum, {data}) => sum + (data.distance || 0), 0);
+  const uniqueDrivers = new Set(filtered.map(({data}) => data.driver || '-')).size;
+  const avgDistance = Math.round(totalDistance / totalTrips);
+
+  summaryGrid.innerHTML = `
+    <div class="report-stat"><div class="report-stat-label">จำนวนเที่ยวรถ</div><div class="report-stat-value">${totalTrips} เที่ยว</div></div>
+    <div class="report-stat"><div class="report-stat-label">ระยะทางรวม</div><div class="report-stat-value">${totalDistance.toLocaleString()} กม.</div></div>
+    <div class="report-stat"><div class="report-stat-label">จำนวนผู้ขับ</div><div class="report-stat-value">${uniqueDrivers} คน</div></div>
+    <div class="report-stat"><div class="report-stat-label">ระยะทางเฉลี่ย/เที่ยว</div><div class="report-stat-value">${avgDistance.toLocaleString()} กม.</div></div>
+  `;
+
+  // สรุปแยกตามผู้ขับ
+  const byDriver = {};
+  filtered.forEach(({data}) => {
+    const name = data.driver || 'ไม่ระบุ';
+    if(!byDriver[name]) byDriver[name] = {trips:0, distance:0};
+    byDriver[name].trips += 1;
+    byDriver[name].distance += (data.distance || 0);
+  });
+  const driverRows = Object.entries(byDriver).sort((a,b) => b[1].distance - a[1].distance);
+  driverBox.innerHTML = `<div class="report-section-title">สรุปแยกตามผู้ขับ</div>` +
+    driverRows.map(([name, stat]) => `
+      <div class="report-driver-row">
+        <span class="report-driver-name">${name}</span>
+        <span class="report-driver-stats">${stat.trips} เที่ยว · ${stat.distance.toLocaleString()} กม.</span>
+      </div>
+    `).join('');
+
+  // รายการทั้งหมด
+  const sortedEntries = [...filtered].sort((a,b) => (a.data.date||'').localeCompare(b.data.date||''));
+  entriesBox.innerHTML = `<div class="report-section-title">รายการทั้งหมด</div>` +
+    sortedEntries.map(({data}) => `
+      <div class="report-driver-row" style="align-items:flex-start;flex-direction:column;gap:2px">
+        <div style="display:flex;justify-content:space-between;width:100%">
+          <span class="report-driver-name">${formatThaiDate(data.date)} · ${data.driver || '-'}</span>
+          <span class="usage-distance-badge">${(data.distance||0).toLocaleString()} กม.</span>
+        </div>
+        <span class="report-driver-stats">${data.purpose || '-'}</span>
+      </div>
+    `).join('');
+}
+
+function printUsageReport(){
+  const d = window._currentReportData;
+  if(!d || !d.filtered || d.filtered.length === 0){
+    alert('กรุณาสร้างรายงานก่อนพิมพ์');
+    return;
+  }
+  const periodText = getReportRangeLabel(d.startStr, d.endStr);
+  const totalTrips = d.filtered.length;
+  const totalDistance = d.filtered.reduce((sum,{data}) => sum + (data.distance||0), 0);
+  const byDriver = {};
+  d.filtered.forEach(({data}) => {
+    const name = data.driver || 'ไม่ระบุ';
+    if(!byDriver[name]) byDriver[name] = {trips:0, distance:0};
+    byDriver[name].trips += 1;
+    byDriver[name].distance += (data.distance||0);
+  });
+  const driverRows = Object.entries(byDriver).sort((a,b) => b[1].distance - a[1].distance);
+  const sortedEntries = [...d.filtered].sort((a,b) => (a.data.date||'').localeCompare(b.data.date||''));
+
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <html><head><title>รายงานการใช้รถ</title>
+    <style>
+      body{font-family:'Sarabun',sans-serif;padding:24px;color:#1a1a2e}
+      h1{font-size:18px;margin-bottom:2px}
+      .sub{font-size:12px;color:#666;margin-bottom:16px}
+      table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:12.5px}
+      th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}
+      th{background:#f0f0f0}
+      .stats{display:flex;gap:16px;margin-bottom:20px}
+      .stat{border:1px solid #ccc;border-radius:6px;padding:8px 14px}
+      .stat-label{font-size:11px;color:#666}
+      .stat-value{font-size:16px;font-weight:700}
+    </style></head><body>
+    <h1>รายงานการใช้รถ กฟส.ทอห. 82-3116 พล. (HINO)</h1>
+    <div class="sub">ช่วงเวลา: ${periodText} · พิมพ์เมื่อ ${new Date().toLocaleString('th-TH')}</div>
+    <div class="stats">
+      <div class="stat"><div class="stat-label">จำนวนเที่ยวรถ</div><div class="stat-value">${totalTrips} เที่ยว</div></div>
+      <div class="stat"><div class="stat-label">ระยะทางรวม</div><div class="stat-value">${totalDistance.toLocaleString()} กม.</div></div>
+    </div>
+    <h3>สรุปแยกตามผู้ขับ</h3>
+    <table><thead><tr><th>ผู้ขับ/ผู้เบิกรถ</th><th>จำนวนเที่ยว</th><th>ระยะทางรวม (กม.)</th></tr></thead>
+    <tbody>${driverRows.map(([name,s]) => `<tr><td>${name}</td><td>${s.trips}</td><td>${s.distance.toLocaleString()}</td></tr>`).join('')}</tbody></table>
+    <h3>รายการทั้งหมด</h3>
+    <table><thead><tr><th>วันที่</th><th>ผู้ขับ/ผู้เบิกรถ</th><th>รายการใช้รถ</th><th>ไมล์ออก</th><th>ไมล์กลับ</th><th>ระยะทาง (กม.)</th></tr></thead>
+    <tbody>${sortedEntries.map(({data}) => `<tr><td>${formatThaiDate(data.date)}</td><td>${data.driver||'-'}</td><td>${data.purpose||'-'}</td><td>${data.startMileage?.toLocaleString()??'-'}</td><td>${data.endMileage?.toLocaleString()??'-'}</td><td>${(data.distance||0).toLocaleString()}</td></tr>`).join('')}</tbody></table>
+    </body></html>
+  `);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 300);
+}
+
+// ตั้งค่าเริ่มต้นเป็น "รายวัน"
+selectRangePreset('today');
 </script>
 
 <!-- ===== MONTHLY SUMMARY PAGE ===== -->
