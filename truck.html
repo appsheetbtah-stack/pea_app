@@ -241,6 +241,7 @@
 </script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
+  html,body{max-width:100%;overflow-x:hidden}
   body{font-family:'Sarabun',sans-serif;background:#f0f2f5;color:#1a1a2e;font-size:14px}
   
   .header{background:linear-gradient(135deg,#1a237e,#283593);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
@@ -264,10 +265,33 @@
 
   .info-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
   @media(max-width:900px){.info-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:480px){
+    .info-grid{grid-template-columns:1fr;gap:8px}
+    .container{padding:10px}
+    .form-card{margin-bottom:10px;border-radius:8px}
+    .form-card-body{padding:10px}
+    .form-card-header{padding:8px 12px;flex-direction:column;align-items:flex-start;gap:2px}
+    .form-card-header h2{font-size:13.5px;line-height:1.35}
+    .form-card-header span{font-size:11px !important}
+    .field label{font-size:11px}
+    .field input,.field select{padding:7px 9px;font-size:13.5px}
+    .usage-save-btn,.usage-cancel-btn{width:100%;justify-content:center;text-align:center}
+    #u-save-btn{margin-bottom:0}
+  }
+  .info-grid-single{display:grid;grid-template-columns:1fr !important;gap:12px}
+  @media(max-width:480px){.info-grid-single{gap:8px}}
+  .back-btn{background:none;border:none;color:#fff;font-size:20px;padding:4px 8px 4px 0;cursor:pointer;line-height:1;display:flex;align-items:center}
+  .back-btn:hover{opacity:0.75}
+
+  /* ===== Report page (own view, no popup) ===== */
+  .report-btn{width:100%;display:flex;align-items:center;gap:12px;padding:16px;border:1px solid #e0e0e0;border-radius:10px;background:#fafafa;font-family:'Sarabun',sans-serif;font-size:15px;font-weight:600;color:#1a1a2e;margin-bottom:12px;cursor:pointer;text-align:left}
+  .report-btn .rs-icon{font-size:22px}
+  .report-btn:hover{background:#f0f0f0}
+  .report-btn-sub{display:block;font-size:12px;font-weight:400;color:#8a8a8a;margin-top:2px}
   
-  .field{display:flex;flex-direction:column;gap:4px}
+  .field{display:flex;flex-direction:column;gap:4px;min-width:0}
   .field label{font-size:12px;color:#5c6bc0;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
-  .field input,.field select{border:1px solid #e0e0e0;border-radius:6px;padding:8px 10px;font-family:'Sarabun',sans-serif;font-size:14px;color:#1a1a2e;transition:border 0.15s;background:#fafafa}
+  .field input,.field select{width:100%;max-width:100%;border:1px solid #e0e0e0;border-radius:6px;padding:8px 10px;font-family:'Sarabun',sans-serif;font-size:14px;color:#1a1a2e;transition:border 0.15s;background:#fafafa}
   .field input:focus,.field select:focus{outline:none;border-color:#3949ab;background:#fff}
 
   .tabs{display:flex;gap:0;border-bottom:2px solid #e0e0e0;margin-bottom:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -564,6 +588,11 @@
   .bottom-nav-btn .bn-icon{font-size:19px;line-height:1}
   .bottom-nav-btn.active{color:var(--accent)}
   .bottom-nav-btn.active .bn-icon{filter:drop-shadow(0 0 4px rgba(245,166,35,0.5))}
+
+  /* ===== Report sheet (dark theme) ===== */
+  .report-btn{background:var(--bg) !important;border:1px solid var(--border) !important;color:var(--text) !important}
+  .report-btn:hover{background:var(--surface2) !important}
+  .report-btn-sub{color:var(--text2) !important}
   #view-usage{display:none}
 
   /* ===== Usage log view ===== */
@@ -572,6 +601,18 @@
   .usage-table th{background:var(--surface2);color:var(--text);padding:8px 10px;text-align:left;font-size:12px;border:1px solid var(--border);white-space:nowrap}
   .usage-table td{background:var(--surface);color:var(--text);padding:7px 10px;border:1px solid var(--border);white-space:nowrap}
   .usage-table tr:hover td{background:var(--surface2)}
+  @media(max-width:560px){
+    .usage-table thead{display:none}
+    .usage-table, .usage-table tbody, .usage-table tr, .usage-table td{display:block;width:100%}
+    .usage-table tr{border:1px solid var(--border,#e0e0e0);border-radius:8px;margin-bottom:10px;overflow:hidden}
+    .usage-table td{border:none;border-bottom:1px solid rgba(255,255,255,0.06);white-space:normal !important;min-width:0 !important;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:right}
+    .usage-table td:last-child{border-bottom:none}
+    .usage-table td[data-label]::before{content:attr(data-label);font-size:11px;font-weight:700;color:var(--text2,#8a8a8a);text-align:left;flex-shrink:0}
+    .usage-table td.usage-actions{justify-content:flex-end}
+    .usage-table td.usage-actions::before{display:none}
+    .usage-table td.usage-empty{display:block;text-align:center}
+    .usage-table td.usage-empty::before{display:none}
+  }
   .usage-actions button{border:none;border-radius:5px;padding:4px 9px;font-size:12px;cursor:pointer;margin-right:4px;font-family:'Sarabun',sans-serif}
   .usage-edit-btn{background:rgba(59,158,222,0.2);color:#8ecdf0}
   .usage-del-btn{background:rgba(231,76,60,0.2);color:#f5b7b1}
@@ -584,14 +625,13 @@
 <body>
 
 <div class="header">
-  <div class="header-left">
-    <h1>🚒 ระบบตรวจรถแก้กระแสไฟฟ้าขัดข้อง</h1>
-    <p>FM1-SOH3-S04-6104 · บันทึกประจำวัน</p>
+  <div class="header-left" style="display:flex;align-items:center;gap:4px">
+    <button class="back-btn" onclick="location.href='index.html'" title="กลับเมนูหลัก">←</button>
+    <h1>🚒 รถแก้ไฟฯ</h1>
   </div>
   <div class="header-actions">
     <span class="auto-save" id="save-status">● บันทึกอัตโนมัติ</span>
-    <button class="btn btn-ghost" onclick="openMonthly()">📊 สรุปรายเดือน</button>
-    <button class="btn btn-ghost" onclick="printWithTitle()">🖨 พิมพ์</button>
+    <span style="font-size:10px;opacity:0.5;margin-left:6px">rev.5</span>
   </div>
 </div>
 
@@ -1470,21 +1510,25 @@ function printWithTitle(){
       <span style="font-size:12px;opacity:0.8">รถ กฟส.ทอห. 82-3116 พล. (HINO)</span>
     </div>
     <div class="form-card-body">
-      <div class="info-grid">
+      <div class="info-grid info-grid-single">
         <div class="field"><label>วันที่</label><input type="date" id="u-date"></div>
         <div class="field"><label>ชื่อผู้ขับ/ผู้เบิกรถ</label>
           <select id="u-driver">
             <option value="">เลือกผู้ขับ/ผู้เบิกรถ</option>
+            <option>นายสัตตยา  นุเครือ  พชง.3 กฟส.ทอห.</option>
+            <option>นายนิติพัฒน์  พุกสุข  พชง.4 กฟส.ทอห.</option>
+            <option>นายอนลัส  เลี่ยมสกุล  พชง.5 กฟส.ทอห.</option>
+            <option>นายชาคริต  บุญม่วง  พชง.6 กฟส.ทอห.</option>
             <option>นายจักรพันธ์  ราชอ่อง</option>
             <option>นายประเสริฐ  ทิมทอง</option>
             <option>นายดนุภพ  คำมาเปียง</option>
             <option>นายชารี  ราชอ่อง</option>
-            <option>นายชาคริต  บุญม่วง  พชง.6 กฟส.ทอห.</option>
-            <option>นายอนลัส  เลี่ยมสกุล  พชง.5 กฟส.ทอห.</option>
-            <option>นายนิติพัฒน์  พุกสุข  พชง.4 กฟส.ทอห.</option>
+            <option>นายพุฒิพงษ์  มั่นคง</option>
+            <option>นายธนภัทร์  วิสิทธิ์</option>
+            <option>นายสุกนต์ธี  สุขแม้น</option>
           </select>
         </div>
-        <div class="field" style="grid-column:span 2"><label>รายการใช้รถ / วัตถุประสงค์</label>
+        <div class="field"><label>รายการใช้รถ / วัตถุประสงค์</label>
           <input type="text" id="u-purpose" placeholder="เช่น ออกแก้กระแสไฟฟ้าขัดข้อง หมู่ 3 ต.ทุ่งอ้ายโห้">
         </div>
         <div class="field"><label>เลขไมล์ออก (กม.)</label><input type="number" id="u-start" min="0" step="1"></div>
@@ -1493,7 +1537,7 @@ function printWithTitle(){
           <div id="u-distance-box" style="border:1px solid var(--border);border-radius:6px;padding:7px 10px;background:var(--bg);font-size:14px;min-height:36px;display:flex;align-items:center;font-weight:700;color:var(--green)">0 กม.</div>
         </div>
       </div>
-      <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
+      <div class="usage-btn-row" style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <button class="usage-save-btn" id="u-save-btn" onclick="saveUsageEntry()">💾 บันทึกรายการ</button>
         <button class="usage-cancel-btn" id="u-cancel-btn" onclick="cancelUsageEdit()" style="display:none">✕ ยกเลิกแก้ไข</button>
         <span id="u-save-status" style="font-size:12px;color:var(--text2)"></span>
@@ -1530,6 +1574,29 @@ function printWithTitle(){
   <button class="bottom-nav-btn" id="bn-usage" onclick="switchView('usage')">
     <span class="bn-icon">📝</span><span>บันทึกการใช้งานรถ</span>
   </button>
+  <button class="bottom-nav-btn" id="bn-report" onclick="switchView('report')">
+    <span class="bn-icon">📊</span><span>ออกรายงาน</span>
+  </button>
+</div>
+
+<!-- ===== VIEW 3: ออกรายงาน ===== -->
+<div class="container" id="view-report" style="display:none">
+  <div class="form-card">
+    <div class="form-card-header">
+      <h2>📊 ออกรายงาน</h2>
+      <span style="font-size:12px;opacity:0.8">รถ กฟส.ทอห. 82-3116 พล. (HINO)</span>
+    </div>
+    <div class="form-card-body">
+      <button class="report-btn" onclick="openMonthly()">
+        <span class="rs-icon">📊</span>
+        <span>สรุปรายเดือน<span class="report-btn-sub">ดูภาพรวมการตรวจสอบรถทั้งเดือน แยกตามสถานะ</span></span>
+      </button>
+      <button class="report-btn" onclick="printWithTitle()">
+        <span class="rs-icon">🖨</span>
+        <span>พิมพ์แบบฟอร์มวันนี้<span class="report-btn-sub">พิมพ์แบบฟอร์มตรวจรถของวันที่เลือกไว้</span></span>
+      </button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1537,25 +1604,34 @@ function printWithTitle(){
 function switchView(view){
   const insp = document.getElementById('view-inspect');
   const usage = document.getElementById('view-usage');
+  const report = document.getElementById('view-report');
   const bnInsp = document.getElementById('bn-inspect');
   const bnUsage = document.getElementById('bn-usage');
+  const bnReport = document.getElementById('bn-report');
+  insp.style.display = 'none';
+  usage.style.display = 'none';
+  report.style.display = 'none';
+  bnInsp.classList.remove('active');
+  bnUsage.classList.remove('active');
+  bnReport.classList.remove('active');
   if(view === 'usage'){
-    insp.style.display = 'none';
     usage.style.display = 'block';
-    bnInsp.classList.remove('active');
     bnUsage.classList.add('active');
     if(typeof loadUsageHistory === 'function') loadUsageHistory();
+  } else if(view === 'report'){
+    report.style.display = 'block';
+    bnReport.classList.add('active');
   } else {
     insp.style.display = 'block';
-    usage.style.display = 'none';
-    bnUsage.classList.remove('active');
     bnInsp.classList.add('active');
   }
 }
-// เปิดตาม query string ?view=usage ถ้ามี
+
+// เปิดตาม query string ?view=usage หรือ ?view=report ถ้ามี
 (function(){
   const params = new URLSearchParams(location.search);
-  if(params.get('view') === 'usage') switchView('usage');
+  const v = params.get('view');
+  if(v === 'usage' || v === 'report') switchView(v);
 })();
 
 // ===== USAGE LOG LOGIC =====
@@ -1674,13 +1750,13 @@ async function loadUsageHistory(){
   body.innerHTML = entries.map(({id, data}) => {
     const d = data.date ? formatThaiDate(data.date) : '-';
     return `<tr>
-      <td>${d}</td>
-      <td>${data.driver || '-'}</td>
-      <td style="white-space:normal;min-width:200px">${data.purpose || '-'}</td>
-      <td>${data.startMileage?.toLocaleString() ?? '-'}</td>
-      <td>${data.endMileage?.toLocaleString() ?? '-'}</td>
-      <td><span class="usage-distance-badge">${(data.distance ?? 0).toLocaleString()} กม.</span></td>
-      <td class="usage-actions">
+      <td data-label="วันที่">${d}</td>
+      <td data-label="ผู้ขับ/ผู้เบิกรถ">${data.driver || '-'}</td>
+      <td data-label="รายการใช้รถ" style="white-space:normal;min-width:200px">${data.purpose || '-'}</td>
+      <td data-label="ไมล์ออก">${data.startMileage?.toLocaleString() ?? '-'}</td>
+      <td data-label="ไมล์กลับ">${data.endMileage?.toLocaleString() ?? '-'}</td>
+      <td data-label="ระยะทาง"><span class="usage-distance-badge">${(data.distance ?? 0).toLocaleString()} กม.</span></td>
+      <td data-label="จัดการ" class="usage-actions">
         <button class="usage-edit-btn" onclick='editUsageEntry(${JSON.stringify(id)}, ${JSON.stringify(data).replace(/'/g,"&#39;")})'>✏️ แก้ไข</button>
         <button class="usage-del-btn" onclick="deleteUsageEntry(${JSON.stringify(id)})">🗑 ลบ</button>
       </td>
