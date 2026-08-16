@@ -500,8 +500,18 @@
       page-break-inside:avoid;
       break-inside:avoid;
     }
-    .form-card-header{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    /* ลดการใช้พื้นสีทึบตอนพิมพ์ เพื่อประหยัดหมึก — ใช้ตัวอักษร/เส้นขอบสีแทนพื้นสีทึบ
+       (ใช้ selector ที่ specificity สูงกว่ากฎธีมมืดปกติ เพื่อให้ชนะแน่นอนตอนพิมพ์) */
+    body:not(.print-monthly) .form-card-header{background:#fff !important;color:#1a237e !important;border-bottom:2px solid #1a237e !important}
+    body:not(.print-monthly) table th{background:#fff !important;color:#1a237e !important;border:1px solid #1a237e !important}
+    /* แถบวันที่/เวร (แดงทึบ) → ขาว+ตัวอักษรแดง+ขอบแดง */
+    body:not(.print-monthly) th.col-day-single,
+    body:not(.print-monthly) table th[style*="e53935"]{background:#fff !important;color:#c62828 !important;border:1px solid #c62828 !important}
+    /* ป้ายสถานะ (ครบ/ขาด) → เอาพื้นสีทึบออก เหลือแค่ตัวอักษร+เส้นขอบ */
+    body:not(.print-monthly) .status-badge{background:#fff !important}
+    body:not(.print-monthly) .status-ok{color:#2e7d32 !important;border:1px solid #2e7d32 !important}
+    body:not(.print-monthly) .status-missing{color:#c62828 !important;border:1px solid #c62828 !important}
+    body:not(.print-monthly) .status-empty{color:#9e9e9e !important;border:1px dashed #bdbdbd !important}
     .print-section-title{
       display:block;
       font-size:15px;
@@ -678,8 +688,9 @@
   .report-driver-row{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:13px}
   .report-driver-name{font-weight:600}
   .report-driver-stats{color:var(--text2);font-size:12px}
-  .report-section-title{font-size:13px;font-weight:700;color:var(--accent);margin:14px 0 8px}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -1561,6 +1572,136 @@ function openPrintFormPanel(){
   }
 }
 
+function getVehicleStatusDoc(val){
+  if(val==='p') return {symbol:'✓', color:'#2e7d32'};
+  if(val==='o') return {symbol:'✗', color:'#c62828'};
+  if(val==='na') return {symbol:'−', color:'#757575'};
+  return {symbol:'·', color:'#bdbdbd'};
+}
+
+// สร้างเอกสารแบบฟอร์มตรวจรถแยกเป็นไฟล์ของตัวเอง (ไม่ผูกกับ CSS/ธีมของหน้าแอปหลัก)
+// ใช้ทั้งกับปุ่ม "พิมพ์แบบฟอร์ม" (เปิดหน้าต่างใหม่แล้วสั่งพิมพ์) และ "แชร์ PDF" (ถ่ายภาพเอกสารนี้)
+function buildDailyFormHtml(dateVal, shiftVal){
+  const sh = shiftVal.includes('เช้า') ? 'am' : 'pm';
+  const dateKey = dateVal;
+  const thaiDate = formatThaiDate(dateVal);
+  const shLabel = sh==='am' ? '☀️ เวรเช้า' : '🌙 เวรเย็น';
+
+  const dept = document.getElementById('dept').value || '-';
+  const plate = document.getElementById('plate').value || '-';
+  const brand = document.getElementById('brand').value || '-';
+  const inspector = inspectorData[dateKey+'_'+sh] || '-';
+  const supervisor = inspectorData['sup_'+dateKey+'_'+sh] || '-';
+
+  let vehicleRows = '';
+  ITEMS.vehicle.forEach((item,i)=>{
+    const val = states.vehicle[`${i}_${dateKey}_${sh}`];
+    const st = getVehicleStatusDoc(val);
+    vehicleRows += `<tr><td class="c-no">${i+1}</td><td class="c-name">${item}</td><td class="c-status" style="color:${st.color};font-weight:700">${st.symbol}</td></tr>`;
+  });
+
+  let toolsRows = '';
+  ITEMS.tools.forEach((item,i)=>{
+    const val = toolCounts[`${i}_tools_${dateKey}_${sh}`];
+    const status = getToolStatus(val, item.qty);
+    const badge = status==='ok' ? `<span class="badge badge-ok">✓ ครบ</span>`
+      : status==='missing' ? `<span class="badge badge-bad">✗ ขาด ${item.qty-parseInt(val)}</span>`
+      : `<span class="badge badge-empty">—</span>`;
+    toolsRows += `<tr><td class="c-no">${i+1}</td><td class="c-name">${item.name}</td><td class="c-qty">${item.qty}</td><td class="c-qty">${val!==undefined && val!=='' ? val : '-'}</td><td class="c-status">${badge}</td></tr>`;
+  });
+
+  let materialsRows = '';
+  ITEMS.materials.forEach((item,i)=>{
+    const recv = matData[`${i}_mat_recv_${dateKey}_${sh}`];
+    const add = matData[`${i}_mat_add_${dateKey}_${sh}`];
+    const remain = calcRemain(recv, add);
+    const badge = remain===null ? `<span class="badge badge-empty">—</span>`
+      : remain>=item.qty ? `<span class="badge badge-ok">✓ ครบ (${remain})</span>`
+      : `<span class="badge badge-bad">✗ ขาด ${item.qty-remain} (มี ${remain}/${item.qty})</span>`;
+    materialsRows += `<tr><td class="c-no">${i+1}</td><td class="c-name">${item.name}</td><td class="c-qty">${item.qty}</td><td class="c-qty">${recv||'-'}</td><td class="c-qty">${add||'-'}</td><td class="c-qty">${remain!==null?remain:'-'}</td><td class="c-status">${badge}</td></tr>`;
+  });
+
+  // สรุปข้อบกพร่องเฉพาะวัน/เวรนี้
+  const defects = [];
+  ITEMS.vehicle.forEach((item,i)=>{
+    if(states.vehicle[`${i}_${dateKey}_${sh}`]==='o') defects.push({name:item, detail:'ต้องซ่อม'});
+  });
+  ITEMS.tools.forEach((item,i)=>{
+    const val = toolCounts[`${i}_tools_${dateKey}_${sh}`];
+    if(getToolStatus(val,item.qty)==='missing') defects.push({name:item.name, detail:`ขาด ${item.qty-parseInt(val)} (มี ${val}/${item.qty})`});
+  });
+  ITEMS.materials.forEach((item,i)=>{
+    const remain = calcRemain(matData[`${i}_mat_recv_${dateKey}_${sh}`], matData[`${i}_mat_add_${dateKey}_${sh}`]);
+    if(remain!==null && remain<item.qty) defects.push({name:item.name, detail:`ขาด ${item.qty-remain} (คงเหลือ ${remain}/${item.qty})`});
+  });
+  const defectsHtml = defects.length
+    ? `<table class="doc-table"><thead><tr><th>รายการ</th><th>รายละเอียด</th></tr></thead><tbody>${defects.map(d=>`<tr><td>${d.name}</td><td style="color:#c62828">${d.detail}</td></tr>`).join('')}</tbody></table>`
+    : `<div class="ok-box">✅ ไม่พบข้อบกพร่อง</div>`;
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ตรวจรถ กฟส.ทอห. 82-3116 พล. - ${thaiDate} - ${shiftVal}</title>
+  <style>
+    @page{ size:A4 portrait; margin:12mm 10mm; }
+    *{box-sizing:border-box}
+    body{font-family:'Sarabun',sans-serif;margin:0;color:#1a1a2e;background:#fff}
+    .doc-header{border-bottom:3px solid #1a237e;padding:14px 4px 10px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-end}
+    .doc-header h1{font-size:17px;margin:0;color:#1a237e}
+    .doc-header .code{font-size:11px;color:#757575}
+    .day-badge{font-size:12px;color:#c62828;border:1px solid #c62828;border-radius:6px;padding:4px 10px;white-space:nowrap}
+    .info-table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12.5px}
+    .info-table td{border:1px solid #ccc;padding:6px 10px}
+    .info-table td.label{background:#f5f5f5;font-weight:600;width:110px;color:#444}
+    .section-title{font-size:14px;font-weight:700;color:#1a237e;border-bottom:2px solid #1a237e;padding:8px 4px 6px;margin:18px 0 8px}
+    .doc-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px}
+    .doc-table th{border:1px solid #1a237e;color:#1a237e;background:#fff;padding:6px 8px;text-align:center}
+    .doc-table td{border:1px solid #ddd;padding:6px 8px}
+    .c-no{width:32px;text-align:center;color:#757575}
+    .c-name{text-align:left}
+    .c-qty{width:70px;text-align:center}
+    .c-status{width:90px;text-align:center}
+    .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;border:1px solid}
+    .badge-ok{color:#2e7d32;border-color:#2e7d32}
+    .badge-bad{color:#c62828;border-color:#c62828}
+    .badge-empty{color:#9e9e9e;border-color:#bdbdbd;border-style:dashed}
+    .ok-box{border:1px solid #2e7d32;color:#2e7d32;padding:10px 14px;border-radius:6px;font-weight:600;text-align:center}
+    tr{page-break-inside:avoid}
+    thead{display:table-header-group}
+    .section-block{page-break-before:always}
+    .section-block:first-of-type{page-break-before:auto}
+  </style></head><body>
+  <div class="doc-header">
+    <div>
+      <h1>📋 แบบฟอร์มการตรวจรถแก้กระแสไฟฟ้าขัดข้อง</h1>
+      <div class="code">FM1-SOH3-S04-6104</div>
+    </div>
+    <div class="day-badge">${thaiDate} · ${shLabel}</div>
+  </div>
+  <table class="info-table">
+    <tr><td class="label">หน่วยงาน</td><td>${dept}</td><td class="label">เลขทะเบียน</td><td>${plate}</td></tr>
+    <tr><td class="label">ยี่ห้อรถ/รุ่น</td><td>${brand}</td><td class="label">ผู้ตรวจสอบ</td><td>${inspector}</td></tr>
+    <tr><td class="label">ช่างหัวหน้าเวร</td><td colspan="3">${supervisor}</td></tr>
+  </table>
+
+  <div class="section-block">
+    <div class="section-title">🚗 ตรวจสอบยานพาหนะ</div>
+    <table class="doc-table"><thead><tr><th style="width:32px">ที่</th><th>รายการ</th><th style="width:70px">สถานะ</th></tr></thead><tbody>${vehicleRows}</tbody></table>
+  </div>
+
+  <div class="section-block">
+    <div class="section-title">🔧 ตรวจสอบเครื่องมือ/อุปกรณ์</div>
+    <table class="doc-table"><thead><tr><th style="width:32px">ที่</th><th>รายการ</th><th style="width:70px">มาตรฐาน</th><th style="width:70px">นับได้</th><th style="width:90px">สถานะ</th></tr></thead><tbody>${toolsRows}</tbody></table>
+  </div>
+
+  <div class="section-block">
+    <div class="section-title">📦 วัสดุ/อุปกรณ์บนรถ</div>
+    <table class="doc-table"><thead><tr><th style="width:32px">ที่</th><th>รายการ</th><th style="width:60px">มาตรฐาน</th><th style="width:60px">รับจากเวร</th><th style="width:60px">เติมเพิ่ม</th><th style="width:60px">คงเหลือ</th><th style="width:110px">สถานะ</th></tr></thead><tbody>${materialsRows}</tbody></table>
+  </div>
+
+  <div class="section-title" style="margin-top:14px">⚠️ สรุปข้อบกพร่อง</div>
+  ${defectsHtml}
+
+  </body></html>`;
+}
+
 function closePrintFormPanel(){
   document.getElementById('print-form-panel').style.display = 'none';
   document.getElementById('report-menu-card').style.display = 'block';
@@ -1572,53 +1713,147 @@ async function printSelectedForm(){
   if(!dateVal){ alert('กรุณาเลือกวันที่ก่อนพิมพ์'); return; }
   if(!shiftVal){ alert('กรุณาเลือกช่วงเวลา (เวร) ก่อนพิมพ์'); return; }
 
-  // ตั้งค่าฟอร์มหลักให้ตรงกับวันที่/เวรที่เลือก แล้วโหลดข้อมูลของวันนั้นก่อนพิมพ์
-  document.getElementById('checkdate').value = dateVal;
-  document.getElementById('shift').value = shiftVal;
-  const dk = getSelectedDate();
-  if(dk) await loadDayData(dk);
-  buildTable('vehicle');
-  buildTable('tools');
-  buildTable('materials');
-  updateDefects();
-  updateDayStatus();
-  restoreShiftFields();
+  await loadDayData(dateVal);
+  const html = buildDailyFormHtml(dateVal, shiftVal);
 
-  printWithTitle();
+  const win = window.open('', '_blank');
+  if(!win){ alert('เบราว์เซอร์บล็อกป๊อปอัป กรุณาอนุญาตแล้วลองใหม่อีกครั้ง'); return; }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 300);
 }
 
-function printWithTitle(){
-  const dateVal=document.getElementById('checkdate').value;
-  const shift=document.getElementById('shift').value;
-  const thaiMonths=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-  let datePart='';
-  if(dateVal){
+async function shareFormPDF(){
+  const dateVal = document.getElementById('print-pick-date').value;
+  const shiftVal = document.getElementById('print-pick-shift').value;
+  if(!dateVal){ alert('กรุณาเลือกวันที่ก่อนแชร์'); return; }
+  if(!shiftVal){ alert('กรุณาเลือกช่วงเวลา (เวร) ก่อนแชร์'); return; }
+
+  const btn = document.getElementById('share-pdf-btn');
+  const origBtnText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '⏳ กำลังสร้าง PDF...';
+
+  let container;
+  try{
+    await loadDayData(dateVal);
+    const html = buildDailyFormHtml(dateVal, shiftVal);
+
+    // render เอกสารลง iframe ที่ซ่อนอยู่นอกจอ (ไม่ใช่หน้าแอปหลัก) แล้วถ่ายภาพจากตรงนั้นแทน
+    container = document.createElement('div');
+    container.style.cssText = 'position:fixed;left:-99999px;top:0;width:794px';
+    document.body.appendChild(container);
+
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'width:794px;border:none;display:block';
+    container.appendChild(iframe);
+    iframe.contentDocument.open();
+    iframe.contentDocument.write(html);
+    iframe.contentDocument.close();
+    await new Promise(r => setTimeout(r, 150));
+
+    const bodyEl = iframe.contentDocument.body;
+    iframe.style.height = bodyEl.scrollHeight + 'px';
+    await new Promise(r => setTimeout(r, 60));
+
+    const scale = 2;
+    const bodyTop = bodyEl.getBoundingClientRect().top;
+    const sectionEls = Array.from(bodyEl.querySelectorAll('.section-block'));
+    const breakOffsetsCss = sectionEls.slice(1).map(el => el.getBoundingClientRect().top - bodyTop);
+    // เก็บตำแหน่ง "ขอบล่างของแต่ละแถวตาราง" ไว้ล่วงหน้า เพื่อไม่ให้ตัดหน้ากลางแถว
+    const rowBottomsCss = Array.from(bodyEl.querySelectorAll('.doc-table tr')).map(tr => tr.getBoundingClientRect().bottom - bodyTop);
+
+    const canvas = await html2canvas(bodyEl, {
+      scale,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      windowWidth: bodyEl.scrollWidth,
+      height: bodyEl.scrollHeight,
+      windowHeight: bodyEl.scrollHeight
+    });
+
+    document.body.removeChild(container);
+    container = null;
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidthMm = 210, pageHeightMm = 297;
+    const pxPerMm = canvas.width / pageWidthMm;
+    const pageHeightPx = pageHeightMm * pxPerMm;
+    const hardBreaksPx = breakOffsetsCss.map(v => Math.round(v * scale)).filter(v => v > 0 && v < canvas.height).sort((a,b) => a-b);
+    const boundaries = [0, ...hardBreaksPx, canvas.height];
+    const rowBottomsPx = rowBottomsCss.map(v => Math.round(v * scale)).sort((a,b) => a-b);
+
+    // หาจุดตัดหน้าที่ดีที่สุด: ถ้าตัดตรงตำแหน่งที่คำนวณไว้แล้วจะโดนกลางแถวพอดี
+    // ให้ขยับจุดตัดขึ้นไปที่ขอบล่างของแถวก่อนหน้าแทน (ไม่ตัดกลางแถว)
+    function findSafeSliceEnd(cursor, idealEnd, hardLimit){
+      if(idealEnd >= hardLimit) return hardLimit;
+      // แถวที่ขอบล่างอยู่เกิน idealEnd ไปเล็กน้อย แปลว่า idealEnd ตกอยู่กลางแถวนั้น
+      // → หาแถวสุดท้ายที่ขอบล่าง <= idealEnd มาใช้เป็นจุดตัดแทน
+      let bestRowBottom = -1;
+      for(const rb of rowBottomsPx){
+        if(rb > cursor && rb <= idealEnd) bestRowBottom = rb;
+        if(rb > idealEnd) break;
+      }
+      if(bestRowBottom > cursor) return bestRowBottom;
+      return idealEnd; // ไม่เจอขอบแถวที่เหมาะสม (แถวสูงเกิน 1 หน้า) — ใช้ค่าตามความสูงหน้าไปก่อน
+    }
+
+    let pageIndex = 0;
+    for(let seg = 0; seg < boundaries.length - 1; seg++){
+      let cursor = boundaries[seg];
+      const segEnd = boundaries[seg + 1];
+      if(segEnd <= cursor) continue;
+      while(cursor < segEnd){
+        const idealEnd = Math.min(cursor + pageHeightPx, segEnd);
+        const sliceEnd = findSafeSliceEnd(cursor, idealEnd, segEnd);
+        const sliceH = sliceEnd - cursor;
+        const pc = document.createElement('canvas');
+        pc.width = canvas.width; pc.height = sliceH;
+        pc.getContext('2d').drawImage(canvas, 0, cursor, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+        const img = pc.toDataURL('image/jpeg', 0.92);
+        if(pageIndex > 0) doc.addPage();
+        doc.addImage(img, 'JPEG', 0, 0, pageWidthMm, sliceH / pxPerMm);
+        cursor = sliceEnd;
+        pageIndex++;
+      }
+    }
+
+    const blob = doc.output('blob');
+    const thaiMonths=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
     const [y,m,d]=dateVal.split('-');
-    datePart=parseInt(d)+' '+thaiMonths[parseInt(m)-1]+' '+(parseInt(y)+543);
+    const dateLabel = parseInt(d)+' '+thaiMonths[parseInt(m)-1]+' '+(parseInt(y)+543);
+    const fileName = `ตรวจรถ กฟส.ทอห. 82-3116 พล. - ${dateLabel} - ${shiftVal}.pdf`;
+    const file = new File([blob], fileName, { type: 'application/pdf' });
+
+    if(navigator.canShare && navigator.canShare({ files: [file] })){
+      await navigator.share({
+        files: [file],
+        title: 'แบบฟอร์มตรวจรถ',
+        text: `แบบฟอร์มตรวจรถ กฟส.ทอห. 82-3116 พล. วันที่ ${dateLabel} ${shiftVal}`
+      });
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+      alert('เบราว์เซอร์นี้ไม่รองรับการแชร์ไฟล์โดยตรง ระบบดาวน์โหลด PDF ให้แล้ว กรุณาเปิดไฟล์จาก Downloads แล้วแชร์ไปยัง LINE เองอีกขั้นตอนนึงครับ');
+    }
+  } catch(err){
+    if(container && container.parentNode) document.body.removeChild(container);
+    if(err && err.name !== 'AbortError'){
+      console.error(err);
+      alert('เกิดข้อผิดพลาดระหว่างสร้าง/แชร์ PDF กรุณาลองใหม่อีกครั้ง');
+    }
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origBtnText;
   }
-  const shiftPart=shift||'';
-  const parts=['ตรวจรถ กฟส.ทอห. 82-3116 พล.',datePart,shiftPart].filter(Boolean);
-  const origTitle=document.title;
-  document.body.classList.remove('print-monthly');
-
-  // ปุ่มนี้กดจากหน้า "ออกรายงาน" ซึ่งหน้าฟอร์มตรวจรถ (view-inspect) ถูกซ่อนอยู่ (display:none)
-  // ถ้าสั่งพิมพ์ตรงนี้เลย จะได้หน้าว่างเพราะฟอร์มไม่ได้แสดงอยู่จริง
-  // ต้องสลับไปแสดงหน้าฟอร์มก่อน แล้วค่อยสั่งพิมพ์ จากนั้นค่อยสลับกลับหน้าเดิม
-  const wasView = document.getElementById('view-inspect').style.display === 'none'
-    ? (document.getElementById('view-usage').style.display !== 'none' ? 'usage' : 'report')
-    : 'inspect';
-  if(wasView !== 'inspect') switchView('inspect');
-  document.title=parts.join(' - ');
-
-  // หน่วงเล็กน้อยให้เบราว์เซอร์ render หน้าฟอร์มที่เพิ่งสลับมาก่อนค่อยเปิดพิมพ์
-  setTimeout(()=>{
-    window.print();
-    // หน่วงอีกครั้งก่อนสลับกลับ กันกรณีระบบพิมพ์ยังอ่านค่า DOM ไม่เสร็จ
-    setTimeout(()=>{
-      document.title=origTitle;
-      if(wasView !== 'inspect') switchView(wasView);
-    }, 800);
-  }, 50);
 }
 </script>
 
@@ -1731,7 +1966,10 @@ function printWithTitle(){
             <option>เวรเย็น (16.00–08.00)</option>
           </select>
         </div>
-        <button class="usage-save-btn" style="margin-top:14px;width:100%;justify-content:center" onclick="printSelectedForm()">🖨 พิมพ์แบบฟอร์ม</button>
+        <div style="display:flex;gap:10px;margin-top:14px">
+          <button class="usage-save-btn" style="flex:1;justify-content:center" onclick="printSelectedForm()">🖨 พิมพ์แบบฟอร์ม</button>
+          <button class="usage-save-btn" id="share-pdf-btn" style="flex:1;justify-content:center;background:#06c755;color:#fff" onclick="shareFormPDF()">📤 แชร์ PDF</button>
+        </div>
       </div>
     </div>
   </div>
