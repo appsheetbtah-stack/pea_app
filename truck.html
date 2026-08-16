@@ -483,12 +483,23 @@
   }
 
   @media print{
-    .header-actions,.tabs,.legend,.bottom-nav,.header-spacer{display:none !important}
+    .header-actions,.tabs,.legend,.bottom-nav,.header-spacer,.back-btn{display:none !important}
+    .header{position:static !important;box-shadow:none !important}
     .tab-content{display:block !important}
-    .tab-content + .tab-content{page-break-before:always}
+    .tab-content + .tab-content:not(#tab-defects){page-break-before:always}
+    #tab-defects{margin-top:14px;page-break-inside:avoid;break-inside:avoid}
     body{background:#fff}
     .container{padding:8px}
-    .form-card{box-shadow:none;margin-bottom:8px;border:none}
+    .form-card{box-shadow:none !important;margin-bottom:8px !important;border:none !important}
+    .table-wrap{overflow:visible !important}
+    /* กันไม่ให้แถวของตารางฟอร์มรายวันถูกตัดกลางแถวตอนขึ้นหน้าใหม่
+       (ช่วยลดปัญหาเส้นขอบตารางเพี้ยนตอนตารางยาวข้ามหลายหน้าด้วย) */
+    #table-vehicle tr,
+    #table-tools tr,
+    #table-materials tr{
+      page-break-inside:avoid;
+      break-inside:avoid;
+    }
     .form-card-header{-webkit-print-color-adjust:exact;print-color-adjust:exact}
     th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
     .print-section-title{
@@ -509,14 +520,23 @@
     }
     .monthly-section{
       margin-bottom:8px !important;
-      /* Tables are long (up to 31 days x 2 shifts), so let them flow across
-         pages naturally instead of forcing the whole table to jump to a new
-         page — that just leaves a big blank gap on the page before it. */
+      /* Each table section (vehicle / tools / materials / defects) gets its
+         own dedicated page — start fresh instead of splitting a table
+         awkwardly right after the previous section. */
+      page-break-before:always;
+      break-before:always;
       page-break-inside:auto;
       break-inside:auto;
     }
     [id^="m-matrix"] table{
       page-break-inside:auto !important;
+    }
+    /* Vehicle and tools tables are short enough to fit on a single landscape
+       A4 page when they start fresh — keep them fully intact, no split. */
+    #m-matrix-vehicle table,
+    #m-matrix-tools table{
+      page-break-inside:avoid !important;
+      break-inside:avoid !important;
     }
     [id^="m-matrix"] tr{
       page-break-inside:avoid;
@@ -1521,6 +1541,52 @@ setTimeout(()=>{
 // ถ้า GAS module พร้อมก่อน timeout ก็จะถูกเรียกทาง _onGASReady แล้ว
 if (window._gasReady && !_gasLoaded) window._onGASReady();
 
+function openPrintFormPanel(){
+  document.getElementById('report-menu-card').style.display = 'none';
+  document.getElementById('print-form-panel').style.display = 'block';
+  // ตั้งค่าเริ่มต้นจากวันที่/เวรที่เลือกอยู่ในฟอร์มหลัก (ถ้ามี) ไม่งั้นใช้วันนี้
+  const dateEl = document.getElementById('print-pick-date');
+  const shiftEl = document.getElementById('print-pick-shift');
+  if(!dateEl.value){
+    const mainDate = document.getElementById('checkdate').value;
+    if(mainDate) dateEl.value = mainDate;
+    else{
+      const now = new Date();
+      dateEl.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    }
+  }
+  if(!shiftEl.value){
+    const mainShift = document.getElementById('shift').value;
+    if(mainShift) shiftEl.value = mainShift;
+  }
+}
+
+function closePrintFormPanel(){
+  document.getElementById('print-form-panel').style.display = 'none';
+  document.getElementById('report-menu-card').style.display = 'block';
+}
+
+async function printSelectedForm(){
+  const dateVal = document.getElementById('print-pick-date').value;
+  const shiftVal = document.getElementById('print-pick-shift').value;
+  if(!dateVal){ alert('กรุณาเลือกวันที่ก่อนพิมพ์'); return; }
+  if(!shiftVal){ alert('กรุณาเลือกช่วงเวลา (เวร) ก่อนพิมพ์'); return; }
+
+  // ตั้งค่าฟอร์มหลักให้ตรงกับวันที่/เวรที่เลือก แล้วโหลดข้อมูลของวันนั้นก่อนพิมพ์
+  document.getElementById('checkdate').value = dateVal;
+  document.getElementById('shift').value = shiftVal;
+  const dk = getSelectedDate();
+  if(dk) await loadDayData(dk);
+  buildTable('vehicle');
+  buildTable('tools');
+  buildTable('materials');
+  updateDefects();
+  updateDayStatus();
+  restoreShiftFields();
+
+  printWithTitle();
+}
+
 function printWithTitle(){
   const dateVal=document.getElementById('checkdate').value;
   const shift=document.getElementById('shift').value;
@@ -1635,14 +1701,38 @@ function printWithTitle(){
         <span class="rs-icon">📊</span>
         <span>สรุปรายเดือน<span class="report-btn-sub">ดูภาพรวมการตรวจสอบรถทั้งเดือน แยกตามสถานะ</span></span>
       </button>
-      <button class="report-btn" onclick="printWithTitle()">
+      <button class="report-btn" onclick="openPrintFormPanel()">
         <span class="rs-icon">🖨</span>
-        <span>พิมพ์แบบฟอร์มวันนี้<span class="report-btn-sub">พิมพ์แบบฟอร์มตรวจรถของวันที่เลือกไว้</span></span>
+        <span>พิมพ์แบบฟอร์มตรวจรถ<span class="report-btn-sub">เลือกวันที่และช่วงเวลา (เวร) ที่ต้องการพิมพ์</span></span>
       </button>
       <button class="report-btn" onclick="openUsageReportPanel()">
         <span class="rs-icon">📈</span>
         <span>รายงานการใช้รถ<span class="report-btn-sub">เลือกช่วงเวลา รายวัน/รายสัปดาห์/รายเดือน สำหรับรายงานผู้บริหาร</span></span>
       </button>
+    </div>
+  </div>
+
+  <div id="print-form-panel" style="display:none">
+    <button class="back-btn" style="margin-bottom:10px" onclick="closePrintFormPanel()">← กลับไปเมนูออกรายงาน</button>
+
+    <div class="form-card">
+      <div class="form-card-header">
+        <h2>🖨 พิมพ์แบบฟอร์มตรวจรถ</h2>
+        <span style="font-size:12px;opacity:0.8">เลือกวันที่และช่วงเวลา (เวร) ที่ต้องการพิมพ์</span>
+      </div>
+      <div class="form-card-body">
+        <div class="field"><label>วันที่ต้องการพิมพ์</label>
+          <input type="date" id="print-pick-date">
+        </div>
+        <div class="field" style="margin-top:10px"><label>ช่วงเวลา (เวร)</label>
+          <select id="print-pick-shift">
+            <option value="">เลือกเวร</option>
+            <option>เวรเช้า (08.00–16.00)</option>
+            <option>เวรเย็น (16.00–08.00)</option>
+          </select>
+        </div>
+        <button class="usage-save-btn" style="margin-top:14px;width:100%;justify-content:center" onclick="printSelectedForm()">🖨 พิมพ์แบบฟอร์ม</button>
+      </div>
     </div>
   </div>
 
@@ -1709,6 +1799,7 @@ function switchView(view){
     report.style.display = 'block';
     bnReport.classList.add('active');
     if(typeof closeUsageReportPanel === 'function') closeUsageReportPanel();
+    if(typeof closePrintFormPanel === 'function') closePrintFormPanel();
   } else {
     insp.style.display = 'block';
     bnInsp.classList.add('active');
@@ -2032,29 +2123,55 @@ function printUsageReport(){
   win.document.write(`
     <html><head><title>รายงานการใช้รถ</title>
     <style>
-      body{font-family:'Sarabun',sans-serif;padding:24px;color:#1a1a2e}
-      h1{font-size:18px;margin-bottom:2px}
-      .sub{font-size:12px;color:#666;margin-bottom:16px}
-      table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:12.5px}
-      th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}
-      th{background:#f0f0f0}
-      .stats{display:flex;gap:16px;margin-bottom:20px}
-      .stat{border:1px solid #ccc;border-radius:6px;padding:8px 14px}
-      .stat-label{font-size:11px;color:#666}
-      .stat-value{font-size:16px;font-weight:700}
+      @page{ size:A4 portrait; margin:12mm 10mm; }
+      *{box-sizing:border-box}
+      body{font-family:'Sarabun',sans-serif;margin:0;padding:0;color:#1a1a2e;background:#f0f2f5}
+      .rpt-header{background:linear-gradient(135deg,#004d40,#00695c);color:#fff;padding:16px 22px}
+      .rpt-header h1{font-size:19px;margin:0 0 2px;font-weight:700}
+      .rpt-header .sub{font-size:12px;opacity:0.9}
+      .rpt-container{max-width:1000px;margin:0 auto;padding:18px}
+      .summary-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:18px}
+      .stat-card{background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,0.08);border-left:4px solid #ccc}
+      .stat-card.s-trips{border-color:#1565c0}
+      .stat-card.s-dist{border-color:#e65100}
+      .stat-card-label{font-size:11px;color:#757575;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
+      .stat-card-value{font-size:24px;font-weight:700;color:#1a1a2e;line-height:1}
+      .rpt-section{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.08);overflow:hidden;margin-bottom:16px}
+      .rpt-section-header{background:#1a237e;color:#fff;padding:8px 14px;font-size:14px;font-weight:700}
+      .rpt-section.alt .rpt-section-header{background:#e65100}
+      table{width:100%;border-collapse:collapse;font-size:12.5px}
+      th,td{border:1px solid #e0e0e0;padding:7px 10px;text-align:left}
+      th{background:#f0f4ff;color:#1a237e;font-weight:700}
+      tr:nth-child(even) td{background:#fafbff}
+      .distance-badge{display:inline-block;background:#fff3e0;color:#e65100;border-radius:10px;padding:2px 9px;font-weight:700;font-size:12px}
+      @media print{ body{background:#fff} .rpt-header{position:static} }
     </style></head><body>
-    <h1>รายงานการใช้รถ กฟส.ทอห. 82-3116 พล. (HINO)</h1>
-    <div class="sub">ช่วงเวลา: ${periodText} · พิมพ์เมื่อ ${new Date().toLocaleString('th-TH')}</div>
-    <div class="stats">
-      <div class="stat"><div class="stat-label">จำนวนเที่ยวรถ</div><div class="stat-value">${totalTrips} เที่ยว</div></div>
-      <div class="stat"><div class="stat-label">ระยะทางรวม</div><div class="stat-value">${totalDistance.toLocaleString()} กม.</div></div>
+    <div class="rpt-header">
+      <h1>📈 รายงานการใช้รถ กฟส.ทอห. 82-3116 พล. (HINO)</h1>
+      <div class="sub">ช่วงเวลา: ${periodText} · พิมพ์เมื่อ ${new Date().toLocaleString('th-TH')}</div>
     </div>
-    <h3>สรุปแยกตามผู้ขับ</h3>
-    <table><thead><tr><th>ผู้ขับ/ผู้เบิกรถ</th><th>จำนวนเที่ยว</th><th>ระยะทางรวม (กม.)</th></tr></thead>
-    <tbody>${driverRows.map(([name,s]) => `<tr><td>${name}</td><td>${s.trips}</td><td>${s.distance.toLocaleString()}</td></tr>`).join('')}</tbody></table>
-    <h3>รายการทั้งหมด</h3>
-    <table><thead><tr><th>วันที่</th><th>ผู้ขับ/ผู้เบิกรถ</th><th>รายการใช้รถ</th><th>ไมล์ออก</th><th>ไมล์กลับ</th><th>ระยะทาง (กม.)</th></tr></thead>
-    <tbody>${sortedEntries.map(({data}) => `<tr><td>${formatThaiDate(data.date)}</td><td>${data.driver||'-'}</td><td>${data.purpose||'-'}</td><td>${data.startMileage?.toLocaleString()??'-'}</td><td>${data.endMileage?.toLocaleString()??'-'}</td><td>${(data.distance||0).toLocaleString()}</td></tr>`).join('')}</tbody></table>
+    <div class="rpt-container">
+      <div class="summary-stats">
+        <div class="stat-card s-trips">
+          <div class="stat-card-label">จำนวนเที่ยวรถ</div>
+          <div class="stat-card-value">${totalTrips} เที่ยว</div>
+        </div>
+        <div class="stat-card s-dist">
+          <div class="stat-card-label">ระยะทางรวม</div>
+          <div class="stat-card-value">${totalDistance.toLocaleString()} กม.</div>
+        </div>
+      </div>
+      <div class="rpt-section">
+        <div class="rpt-section-header">สรุปแยกตามผู้ขับ</div>
+        <table><thead><tr><th>ผู้ขับ/ผู้เบิกรถ</th><th>จำนวนเที่ยว</th><th>ระยะทางรวม (กม.)</th></tr></thead>
+        <tbody>${driverRows.map(([name,s]) => `<tr><td>${name}</td><td>${s.trips}</td><td>${s.distance.toLocaleString()}</td></tr>`).join('')}</tbody></table>
+      </div>
+      <div class="rpt-section alt">
+        <div class="rpt-section-header">รายการทั้งหมด</div>
+        <table><thead><tr><th>วันที่</th><th>ผู้ขับ/ผู้เบิกรถ</th><th>รายการใช้รถ</th><th>ไมล์ออก</th><th>ไมล์กลับ</th><th>ระยะทาง (กม.)</th></tr></thead>
+        <tbody>${sortedEntries.map(({data}) => `<tr><td>${formatThaiDate(data.date)}</td><td>${data.driver||'-'}</td><td>${data.purpose||'-'}</td><td>${data.startMileage?.toLocaleString()??'-'}</td><td>${data.endMileage?.toLocaleString()??'-'}</td><td><span class="distance-badge">${(data.distance||0).toLocaleString()} กม.</span></td></tr>`).join('')}</tbody></table>
+      </div>
+    </div>
     </body></html>
   `);
   win.document.close();
