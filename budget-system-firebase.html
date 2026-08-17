@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ระบบตัดงบทำการประจำปี 2569</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -2163,8 +2163,15 @@ function saveReportPDF(){
   const btn = document.getElementById('btn-rpt-pdf');
 
   if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
-    alert('⚠️ โหลดเครื่องมือสร้าง PDF ไม่สำเร็จ (อาจเป็นเพราะยังไม่เชื่อมต่ออินเทอร์เน็ต) — ลองใช้ปุ่ม "พิมพ์รายงาน" แทนได้ครับ');
+    alert('⚠️ โหลดไลบรารี jsPDF ไม่สำเร็จ (เช็คการเชื่อมต่ออินเทอร์เน็ต หรือลองรีเฟรชหน้าใหม่) — ลองใช้ปุ่ม "พิมพ์รายงาน" แทนได้ครับ');
     return;
+  }
+  {
+    const testDoc = new window.jspdf.jsPDF();
+    if (typeof testDoc.autoTable !== 'function') {
+      alert('⚠️ โหลดปลั๊กอินตาราง (jspdf-autotable) ไม่สำเร็จ (เช็คการเชื่อมต่ออินเทอร์เน็ต หรือลองรีเฟรชหน้าใหม่) — ลองใช้ปุ่ม "พิมพ์รายงาน" แทนได้ครับ');
+      return;
+    }
   }
 
   statusEl.className = 'rpt-status working';
