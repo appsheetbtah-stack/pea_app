@@ -95,9 +95,15 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .stat-card.blue::before { background:var(--blue); }
 .stat-card.green::before { background:var(--green); }
 .stat-card.red::before { background:var(--red); }
+.stat-card-type::before { background:var(--card-accent, var(--accent)); }
 .stat-label { font-size:13px; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:8px; line-height:1.4; }
 .stat-value { font-family:var(--mono); font-size:24px; font-weight:600; color:var(--text); line-height:1; }
 .stat-unit { font-size:13px; color:var(--text2); margin-top:5px; }
+
+.mt-dot { width:9px; height:9px; border-radius:2px; flex-shrink:0; }
+.mt-cards-slot { display:contents; }
+.stat-card-type .stat-label { display:flex; align-items:center; gap:6px; }
+.stat-card-type .mt-dot { width:9px; height:9px; border-radius:2px; flex-shrink:0; }
 
 .charts-row { display:flex; flex-direction:column; gap:10px; }
 .chart-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
@@ -288,27 +294,13 @@ textarea.form-control { resize:vertical; min-height:70px; }
 <!-- TAB: DASHBOARD -->
 <div class="tab-pane active" id="pane-dashboard">
   <div class="db-wrap">
-    <div class="stats-grid">
+    <div class="stats-grid" id="stats-grid">
       <div class="stat-card orange">
         <div class="stat-label">ผู้ใช้ไฟฟ้าทั้งหมด</div>
         <div class="stat-value" id="stat-total">—</div>
         <div class="stat-unit">ราย</div>
       </div>
-      <div class="stat-card blue">
-        <div class="stat-label">มิเตอร์ปกติ (Normal)</div>
-        <div class="stat-value" id="stat-normal">—</div>
-        <div class="stat-unit">เครื่อง</div>
-      </div>
-      <div class="stat-card green">
-        <div class="stat-label">มิเตอร์ E-Meter/AMI</div>
-        <div class="stat-value" id="stat-smart">—</div>
-        <div class="stat-unit">เครื่อง</div>
-      </div>
-      <div class="stat-card red">
-        <div class="stat-label">Ticket แจ้งเหตุ</div>
-        <div class="stat-value" id="stat-tickets">0</div>
-        <div class="stat-unit">รายการ</div>
-      </div>
+      <div id="mt-cards" class="mt-cards-slot"></div>
     </div>
     <div class="charts-row">
       <div class="chart-card">
@@ -430,7 +422,6 @@ textarea.form-control { resize:vertical; min-height:70px; }
   const q = query(collection(db, "tickets"), orderBy("createdAt", "desc"));
   onSnapshot(q, (snapshot) => {
     tickets = snapshot.docs.map(d => ({ _docId: d.id, ...d.data() }));
-    document.getElementById('stat-tickets').textContent = tickets.length;
   }, (err) => {
     console.warn("Firestore listen error:", err);
     document.getElementById('fb-dot').style.background = '#e74c3c';
@@ -487,21 +478,21 @@ window.addEventListener('DOMContentLoaded', () => {
   loadTickets();
   document.getElementById('total-badge').textContent = ALL_RECORDS.length.toLocaleString() + ' รายการ';
   initDashboard();
-  if(tickets.length) { document.getElementById('stat-tickets').textContent = tickets.length; }
 });
 
 function initDashboard() { initStats(); }
 function initStats() {
   document.getElementById('stat-total').textContent = ALL_RECORDS.length.toLocaleString();
-  const normal = ALL_RECORDS.filter(r => r.METERTYPE === 'NORMAL').length;
-  const smart = ALL_RECORDS.filter(r => ['E-METE','E-METER','AMI','AMR'].includes(r.METERTYPE)).length;
-  document.getElementById('stat-normal').textContent = normal.toLocaleString();
-  document.getElementById('stat-smart').textContent = smart.toLocaleString();
 
   const mtCount = {};
-  ALL_RECORDS.forEach(r => { if(r.METERTYPE) mtCount[r.METERTYPE] = (mtCount[r.METERTYPE]||0)+1; });
+  ALL_RECORDS.forEach(r => {
+    if(!r.METERTYPE) return;
+    const key = r.METERTYPE === 'E-METE' ? 'E-METER' : r.METERTYPE; // fix data typo: E-METE == E-METER
+    mtCount[key] = (mtCount[key]||0)+1;
+  });
   const mtSorted = Object.entries(mtCount).sort((a,b)=>b[1]-a[1]);
   renderPieChart('chart-metertype', mtSorted);
+  renderMeterTypeCards(mtSorted);
 
   const cwCount = {};
   ALL_RECORDS.forEach(r => { if(r.CHANGWAT) cwCount[r.CHANGWAT] = (cwCount[r.CHANGWAT]||0)+1; });
@@ -541,6 +532,22 @@ function renderPieChart(containerId, entries) {
       '</div>' +
       '<div class="pie-legend">'+legend+'</div>' +
     '</div>';
+}
+
+function renderMeterTypeCards(entries) {
+  const el = document.getElementById('mt-cards');
+  if(!el) return;
+  const total = entries.reduce((s,[,v]) => s+v, 0) || 1;
+  el.innerHTML = entries.map(([k,v], i) => {
+    const color = PIE_COLORS[i % PIE_COLORS.length];
+    const label = k || '(ไม่ระบุ)';
+    const pct = (v/total*100).toFixed(1);
+    return '<div class="stat-card stat-card-type" style="--card-accent:'+color+'">' +
+      '<div class="stat-label"><span class="mt-dot" style="background:'+color+'"></span>'+label+'</div>' +
+      '<div class="stat-value">'+v.toLocaleString()+'</div>' +
+      '<div class="stat-unit">เครื่อง ('+pct+'%)</div>' +
+    '</div>';
+  }).join('');
 }
 
 // ======= TAB SWITCHING =======
