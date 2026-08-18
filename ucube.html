@@ -128,6 +128,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 }
 .ticket-action-btn:active { border-color:var(--accent); }
 .ticket-action-btn.nav { background:rgba(59,158,222,.15); color:var(--blue); border-color:rgba(59,158,222,.3); }
+.ticket-action-btn.danger { background:rgba(224,60,60,.15); color:#e04c4c; border-color:rgba(224,60,60,.3); }
 .ticket-action-btn:disabled { opacity:.4; cursor:not-allowed; }
 
 /* ── DASHBOARD ── */
@@ -615,6 +616,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         <input class="field-input" id="add-metersize" placeholder="ไม่บังคับ">
       </div>
       <div>
+        <label class="field-label">สาเหตุที่ต้องตรวจสอบ</label>
+        <textarea class="field-input" id="add-detail" rows="3" placeholder="พิมพ์รายละเอียดหรือหมายเหตุเพิ่มเติม..." style="resize:vertical;"></textarea>
+      </div>
+      <div>
         <label class="field-label">หน่วยอ้างอิง (ถ้ามี)</label>
         <input class="field-input" id="add-refunit" type="number" placeholder="ไม่บังคับ" inputmode="decimal">
         <div class="field-hint">ค่าหน่วยล่าสุดที่มีในระบบ ไว้เทียบกับหน่วยที่ช่างอ่านได้หน้างาน ว่าขึ้น/ลงมากผิดปกติหรือไม่</div>
@@ -637,10 +642,6 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         <div class="field-hint" id="add-location-hint"></div>
       </div>
       <div>
-        <label class="field-label">สาเหตุ/อาการที่แจ้ง</label>
-        <div class="field-input reason-picker-field" id="add-reasons-display" onclick="openReasonPicker('add')">เลือกสาเหตุ...</div>
-      </div>
-      <div>
         <label class="field-label">สถานะเริ่มต้น</label>
         <select class="field-input" id="add-status-select">
           <option value="pending">⏳ รอตรวจสอบ</option>
@@ -661,6 +662,28 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeAddTicketModal()">ยกเลิก</button>
       <button class="btn btn-primary" onclick="saveAddTicket()">บันทึกใบงาน</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DELETE CONFIRM MODAL ══ -->
+<div class="modal-overlay" id="delete-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🗑️ ลบใบงาน</div>
+      <button class="modal-close" onclick="closeDeleteConfirm()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-hint" style="color:#e04c4c;">การลบใบงานนี้ไม่สามารถกู้คืนได้ กรุณายืนยันโดยพิมพ์เลข PEA มิเตอร์ของใบงานนี้ให้ตรงกัน</div>
+      <div style="margin-top:12px;">
+        <label class="field-label">PEANO ของใบงานนี้คือ <b id="delete-target-peano" style="color:var(--text);"></b></label>
+        <input class="field-input" id="delete-confirm-input" placeholder="พิมพ์เลข PEA มิเตอร์เพื่อยืนยัน" oninput="validateDeleteConfirm()" autocomplete="off">
+        <div class="field-hint" id="delete-confirm-hint"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeDeleteConfirm()">ยกเลิก</button>
+      <button class="btn btn-danger" id="delete-confirm-btn" style="flex:1;" disabled onclick="confirmDeleteTicket()">ลบใบงานนี้</button>
     </div>
   </div>
 </div>
@@ -771,7 +794,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import {
-    getFirestore, collection, onSnapshot, doc, setDoc, getDoc, query, orderBy, writeBatch
+    getFirestore, collection, onSnapshot, doc, setDoc, getDoc, deleteDoc, query, orderBy, writeBatch
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -788,7 +811,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   const COLLECTION = "ucube_tickets";
 
   window._db = db;
-  window._fsLib = { collection, doc, setDoc, getDoc, writeBatch };
+  window._fsLib = { collection, doc, setDoc, getDoc, deleteDoc, writeBatch };
 
   const q = query(collection(db, COLLECTION), orderBy("jobDate", "desc"));
   onSnapshot(q, (snap) => {
@@ -1245,6 +1268,7 @@ function renderList() {
         <div class="ticket-actions">
           <button class="ticket-action-btn" ${t.lat && t.lng ? '' : 'disabled'} onclick="event.stopPropagation(); viewOnMap('${escAttr(t.reqNo)}')">🗺️ ดูแผนที่</button>
           <button class="ticket-action-btn nav" ${t.lat && t.lng ? '' : 'disabled'} onclick="event.stopPropagation(); navigateTo(${t.lat}, ${t.lng})">🧭 นำทาง</button>
+          <button class="ticket-action-btn danger" onclick="event.stopPropagation(); openDeleteConfirm('${escAttr(t.reqNo)}')">🗑️ ลบ</button>
         </div>
       </div>`;
   }).join('');
@@ -1405,7 +1429,7 @@ function openDetail(reqNo) {
     <div class="info-row"><span class="info-label">ขนาดมิเตอร์</span><input class="info-edit-input" id="d-info-metersize" placeholder="ไม่บังคับ" value="${escAttr(t.meterSizeCode)}"></div>
     <div class="info-row"><span class="info-label">หน่วยอ้างอิง</span><input class="info-edit-input" id="d-info-refunit" type="number" inputmode="decimal" placeholder="ไม่บังคับ" value="${escAttr(t.referenceUnit)}" oninput="document.getElementById('d-unit-refhint').textContent = this.value ? 'หน่วยอ้างอิงในระบบ: ' + this.value : '';"></div>
     <div class="info-row"><span class="info-label">ที่อยู่</span><input class="info-edit-input" id="d-info-address" placeholder="ไม่บังคับ" value="${escAttr(t.locationAddress)}"></div>
-    <div class="info-row"><span class="info-label">รายละเอียด</span><input class="info-edit-input" id="d-info-detail" placeholder="ไม่บังคับ" value="${escAttr(t.anotherDetail)}"></div>
+    <div class="info-row"><span class="info-label">สาเหตุที่ต้องตรวจสอบ</span><input class="info-edit-input" id="d-info-detail" placeholder="ไม่บังคับ" value="${escAttr(t.anotherDetail)}"></div>
     <div class="info-row"><span class="info-label">วันที่ออกใบงาน</span><span class="info-value">${esc(t.jobDate)}</span></div>
   `;
 
@@ -2262,9 +2286,9 @@ function openAddTicketModal() {
   document.getElementById('add-lat').value = '';
   document.getElementById('add-lng').value = '';
   document.getElementById('add-location-hint').textContent = '';
+  document.getElementById('add-detail').value = '';
   document.getElementById('add-status-select').value = 'pending';
   addTicketReasons = [];
-  renderAddReasonsSummary();
   populateMonthYearSelect('add-month', 'add-year');
   document.getElementById('add-overlay').classList.add('active');
 }
@@ -2319,10 +2343,13 @@ async function saveAddTicket() {
   const batchKey = `${batchYear}-${String(batchMonth).padStart(2, '0')}`;
   const batchLabel = `${THAI_MONTHS[batchMonth - 1]} ${batchYear}`;
   const reqNo = generateAdhocReqNo();
+  const reasonsText = addTicketReasons.join(', ');
+  const customDetail = document.getElementById('add-detail').value.trim();
+  const anotherDetail = [reasonsText, customDetail].filter(Boolean).join(' - ');
 
   const ticket = {
     reqNo, jobDate: formatNowDateTime(), mru, userno, peanoMeter,
-    meterSizeCode, referenceUnit, customerName, locationAddress, anotherDetail: addTicketReasons.join(', '),
+    meterSizeCode, referenceUnit, customerName, locationAddress, anotherDetail,
     lat, lng, batchMonth, batchYear, batchKey, batchLabel,
     status, reasons: [...addTicketReasons], checkDate: '', unitRead: '', newMeterNo: '', newUnitRead: '',
     photoLink: '', photoThumb: '', source: 'manual', createdAt: Date.now(), updatedAt: Date.now()
@@ -2339,6 +2366,60 @@ async function saveAddTicket() {
   }
 }
 window.saveAddTicket = saveAddTicket;
+
+// ══════════════════════════ ลบใบงาน (ยืนยันด้วย PEANO) ══════════════════════════
+let deleteTargetReqNo = null;
+
+function openDeleteConfirm(reqNo) {
+  const t = window.TICKETS.find(x => x.reqNo === reqNo);
+  if (!t) return;
+  deleteTargetReqNo = reqNo;
+  document.getElementById('delete-target-peano').textContent = t.peanoMeter || '(ไม่มีเลข PEANO)';
+  document.getElementById('delete-confirm-input').value = '';
+  document.getElementById('delete-confirm-hint').textContent = '';
+  document.getElementById('delete-confirm-btn').disabled = true;
+  document.getElementById('delete-overlay').classList.add('active');
+}
+window.openDeleteConfirm = openDeleteConfirm;
+
+function closeDeleteConfirm() {
+  document.getElementById('delete-overlay').classList.remove('active');
+  deleteTargetReqNo = null;
+}
+window.closeDeleteConfirm = closeDeleteConfirm;
+
+function validateDeleteConfirm() {
+  const t = window.TICKETS.find(x => x.reqNo === deleteTargetReqNo);
+  const btn = document.getElementById('delete-confirm-btn');
+  const hint = document.getElementById('delete-confirm-hint');
+  if (!t) { btn.disabled = true; return; }
+  const typed = document.getElementById('delete-confirm-input').value.trim();
+  const match = typed.length > 0 && typed === String(t.peanoMeter || '').trim();
+  btn.disabled = !match;
+  hint.textContent = typed.length > 0 && !match ? '⚠️ เลข PEANO ไม่ตรงกัน' : '';
+}
+window.validateDeleteConfirm = validateDeleteConfirm;
+
+async function confirmDeleteTicket() {
+  if (!deleteTargetReqNo) return;
+  const t = window.TICKETS.find(x => x.reqNo === deleteTargetReqNo);
+  if (!t) return;
+  const typed = document.getElementById('delete-confirm-input').value.trim();
+  if (typed !== String(t.peanoMeter || '').trim()) {
+    document.getElementById('delete-confirm-hint').textContent = '⚠️ เลข PEANO ไม่ตรงกัน';
+    return;
+  }
+  try {
+    const { doc, deleteDoc } = window._fsLib;
+    await deleteDoc(doc(window._db, 'ucube_tickets', deleteTargetReqNo));
+    showToast('ลบใบงานสำเร็จ ✓');
+    closeDeleteConfirm();
+  } catch (e) {
+    console.error(e);
+    showToast('⚠️ ลบไม่สำเร็จ ลองใหม่อีกครั้ง');
+  }
+}
+window.confirmDeleteTicket = confirmDeleteTicket;
 
 // ══════════════════════════ จัดการรอบใบงานเดิม (ส่งออก / ลบ) ══════════════════════════
 function populateBatchManageSelect() {
