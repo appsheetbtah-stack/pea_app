@@ -88,8 +88,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .stats-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
 .stat-card {
   background:var(--surface); border:1px solid var(--border); border-radius:10px;
-  padding:14px 16px; position:relative; overflow:hidden;
+  padding:14px 16px; position:relative; overflow:hidden; cursor:pointer;
+  transition:transform .12s ease, border-color .12s ease;
 }
+.stat-card:active { transform:scale(0.97); }
+.stat-card.orange:hover, .stat-card-type:hover { border-color:var(--card-accent, var(--accent)); }
 .stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
 .stat-card.orange::before { background:var(--accent); }
 .stat-card.blue::before { background:var(--blue); }
@@ -104,6 +107,15 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .mt-cards-slot { display:contents; }
 .stat-card-type .stat-label { display:flex; align-items:center; gap:6px; }
 .stat-card-type .mt-dot { width:9px; height:9px; border-radius:2px; flex-shrink:0; }
+
+.meter-filter-chip {
+  display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--accent);
+  color:var(--text); font-size:13px; padding:6px 12px; border-radius:20px; width:fit-content; margin:6px 0;
+}
+.meter-filter-chip .chip-x {
+  cursor:pointer; color:var(--text2); font-size:12px; line-height:1; padding:2px 4px; border-radius:50%;
+}
+.meter-filter-chip .chip-x:hover { color:var(--red); background:rgba(255,255,255,0.08); }
 
 .charts-row { display:flex; flex-direction:column; gap:10px; }
 .chart-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
@@ -295,7 +307,7 @@ textarea.form-control { resize:vertical; min-height:70px; }
 <div class="tab-pane active" id="pane-dashboard">
   <div class="db-wrap">
     <div class="stats-grid" id="stats-grid">
-      <div class="stat-card orange">
+      <div class="stat-card orange" onclick="filterByMeterType(null)">
         <div class="stat-label">ผู้ใช้ไฟฟ้าทั้งหมด</div>
         <div class="stat-value" id="stat-total">—</div>
         <div class="stat-unit">ราย</div>
@@ -322,6 +334,7 @@ textarea.form-control { resize:vertical; min-height:70px; }
       <input class="search-input" id="search-input" placeholder="🔍 CA, PEANO, ชื่อ, ตำบล, เบอร์โทร..." oninput="doSearch()" />
       <button class="btn btn-ghost" onclick="clearSearch()">ล้าง</button>
     </div>
+    <div class="meter-filter-chip" id="meter-filter-chip" style="display:none;"></div>
     <div class="results-info" id="results-info">— ใส่คำค้นหาเพื่อเริ่มต้น</div>
     <div class="table-wrap">
       <table id="search-table">
@@ -542,7 +555,7 @@ function renderMeterTypeCards(entries) {
     const color = PIE_COLORS[i % PIE_COLORS.length];
     const label = k || '(ไม่ระบุ)';
     const pct = (v/total*100).toFixed(1);
-    return '<div class="stat-card stat-card-type" style="--card-accent:'+color+'">' +
+    return '<div class="stat-card stat-card-type" style="--card-accent:'+color+'" onclick="filterByMeterType('+JSON.stringify(k)+')">' +
       '<div class="stat-label"><span class="mt-dot" style="background:'+color+'"></span>'+label+'</div>' +
       '<div class="stat-value">'+v.toLocaleString()+'</div>' +
       '<div class="stat-unit">เครื่อง ('+pct+'%)</div>' +
@@ -564,24 +577,59 @@ function switchTab(tab) {
 }
 
 // ======= SEARCH =======
+let activeMeterFilter = null; // null = no filter applied yet, 'ALL' = show all users, or a specific METERTYPE
+function normMeterType(t) { return t === 'E-METE' ? 'E-METER' : t; }
+
+function filterByMeterType(type) {
+  activeMeterFilter = type === null ? 'ALL' : type;
+  document.getElementById('search-input').value = '';
+  switchTab('search');
+  doSearch();
+  document.getElementById('search-input').focus();
+}
+
+function clearMeterFilter() {
+  activeMeterFilter = null;
+  doSearch();
+}
+
+function renderFilterChip() {
+  const el = document.getElementById('meter-filter-chip');
+  if(!el) return;
+  if(!activeMeterFilter || activeMeterFilter === 'ALL') { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'flex';
+  el.innerHTML = 'ตัวกรองมิเตอร์: <b>' + activeMeterFilter + '</b>' +
+    '<span class="chip-x" onclick="clearMeterFilter()">✕</span>';
+}
+
 function doSearch() {
   const raw = document.getElementById('search-input').value.trim().toLowerCase();
-  if(!raw) { searchResults = []; renderTable(); return; }
   const terms = raw.split(/\s+/).filter(Boolean);
-  searchResults = ALL_RECORDS.filter(r => {
-    const haystack = [
-      r.CA, r.PEANO, r.CUSTOMERNAME, r.CUSTOMERSIRNAME,
-      r.TUMBOL, r.AMPHOE, r.MOBILE_NO, r.ADDRESSNO
-    ].map(v => (v+'').toLowerCase());
-    return terms.every(term => haystack.some(field => field.includes(term)));
-  });
+  let base = ALL_RECORDS;
+  if(activeMeterFilter && activeMeterFilter !== 'ALL') {
+    base = base.filter(r => normMeterType(r.METERTYPE) === activeMeterFilter);
+  }
+  if(!terms.length) {
+    searchResults = activeMeterFilter ? base : [];
+  } else {
+    searchResults = base.filter(r => {
+      const haystack = [
+        r.CA, r.PEANO, r.CUSTOMERNAME, r.CUSTOMERSIRNAME,
+        r.TUMBOL, r.AMPHOE, r.MOBILE_NO, r.ADDRESSNO
+      ].map(v => (v+'').toLowerCase());
+      return terms.every(term => haystack.some(field => field.includes(term)));
+    });
+  }
   currentPage = 1;
+  renderFilterChip();
   renderTable();
 }
 
 function clearSearch() {
   document.getElementById('search-input').value = '';
+  activeMeterFilter = null;
   searchResults = [];
+  renderFilterChip();
   renderTable();
 }
 
@@ -601,7 +649,7 @@ function renderTable() {
   const body = document.getElementById('search-body');
   if(!searchResults.length) {
     body.innerHTML = '';
-    document.getElementById('results-info').textContent = q ? '❌ ไม่พบข้อมูลที่ตรงกัน' : '— ใส่คำค้นหาเพื่อเริ่มต้น';
+    document.getElementById('results-info').textContent = (q || activeMeterFilter) ? '❌ ไม่พบข้อมูลที่ตรงกัน' : '— ใส่คำค้นหาเพื่อเริ่มต้น';
     document.getElementById('pagination').innerHTML = '';
     return;
   }
