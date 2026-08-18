@@ -555,12 +555,15 @@ function renderMeterTypeCards(entries) {
     const color = PIE_COLORS[i % PIE_COLORS.length];
     const label = k || '(ไม่ระบุ)';
     const pct = (v/total*100).toFixed(1);
-    return '<div class="stat-card stat-card-type" style="--card-accent:'+color+'" onclick="filterByMeterType('+JSON.stringify(k)+')">' +
+    return '<div class="stat-card stat-card-type" style="--card-accent:'+color+'" data-meter-type="'+k+'">' +
       '<div class="stat-label"><span class="mt-dot" style="background:'+color+'"></span>'+label+'</div>' +
       '<div class="stat-value">'+v.toLocaleString()+'</div>' +
       '<div class="stat-unit">เครื่อง ('+pct+'%)</div>' +
     '</div>';
   }).join('');
+  el.querySelectorAll('.stat-card-type').forEach(card => {
+    card.addEventListener('click', () => filterByMeterType(card.dataset.meterType));
+  });
 }
 
 // ======= TAB SWITCHING =======
