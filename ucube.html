@@ -1429,11 +1429,17 @@ function openDetail(reqNo) {
     <div class="info-row"><span class="info-label">ขนาดมิเตอร์</span><input class="info-edit-input" id="d-info-metersize" placeholder="ไม่บังคับ" value="${escAttr(t.meterSizeCode)}"></div>
     <div class="info-row"><span class="info-label">หน่วยอ้างอิง</span><input class="info-edit-input" id="d-info-refunit" type="number" inputmode="decimal" placeholder="ไม่บังคับ" value="${escAttr(t.referenceUnit)}" oninput="document.getElementById('d-unit-refhint').textContent = this.value ? 'หน่วยอ้างอิงในระบบ: ' + this.value : '';"></div>
     <div class="info-row"><span class="info-label">ที่อยู่</span><input class="info-edit-input" id="d-info-address" placeholder="ไม่บังคับ" value="${escAttr(t.locationAddress)}"></div>
+    <div class="info-row"><span class="info-label">พิกัด (Lat/Long)</span>
+      <input class="info-edit-input" id="d-info-lat" type="number" inputmode="decimal" placeholder="Lat" value="${escAttr(t.lat || '')}" style="flex:1;">
+      <input class="info-edit-input" id="d-info-lng" type="number" inputmode="decimal" placeholder="Long" value="${escAttr(t.lng || '')}" style="flex:1;">
+    </div>
+    <div class="info-row"><span class="info-label"></span><button class="btn btn-blue" style="flex:1;padding:6px 12px;font-size:12.5px;" onclick="useCurrentLocationForDetail()">📍 ใช้ตำแหน่งปัจจุบัน</button><span class="field-hint" id="d-location-hint" style="margin:0;"></span></div>
     <div class="info-row"><span class="info-label">สาเหตุที่ต้องตรวจสอบ</span><input class="info-edit-input" id="d-info-detail" placeholder="ไม่บังคับ" value="${escAttr(t.anotherDetail)}"></div>
     <div class="info-row"><span class="info-label">วันที่ออกใบงาน</span><span class="info-value">${esc(t.jobDate)}</span></div>
   `;
 
   document.getElementById('d-checkdate').value = t.checkDate || formatNowDateTime();
+  document.getElementById('d-location-hint').textContent = '';
   document.getElementById('d-unit').value = t.unitRead || '';
   document.getElementById('d-unit-refhint').textContent = t.referenceUnit ? `หน่วยอ้างอิงในระบบ: ${t.referenceUnit}` : '';
   document.getElementById('d-newmeter').value = t.newMeterNo || '';
@@ -1606,6 +1612,8 @@ async function saveDetail() {
     meterSizeCode: document.getElementById('d-info-metersize').value.trim(),
     referenceUnit: document.getElementById('d-info-refunit').value.trim(),
     locationAddress: document.getElementById('d-info-address').value.trim(),
+    lat: parseFloat(document.getElementById('d-info-lat').value) || 0,
+    lng: parseFloat(document.getElementById('d-info-lng').value) || 0,
     anotherDetail: document.getElementById('d-info-detail').value.trim(),
     reasons: getSelectedReasons(),
     unitRead: document.getElementById('d-unit').value,
@@ -2314,6 +2322,22 @@ function useCurrentLocationForAdd() {
   );
 }
 window.useCurrentLocationForAdd = useCurrentLocationForAdd;
+
+function useCurrentLocationForDetail() {
+  const hint = document.getElementById('d-location-hint');
+  if (!navigator.geolocation) { hint.textContent = '⚠️ อุปกรณ์นี้ไม่รองรับ GPS'; return; }
+  hint.textContent = '🔄 กำลังค้นหาตำแหน่ง...';
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      document.getElementById('d-info-lat').value = pos.coords.latitude.toFixed(6);
+      document.getElementById('d-info-lng').value = pos.coords.longitude.toFixed(6);
+      hint.textContent = '📍 ใช้ตำแหน่งปัจจุบันแล้ว (แก้ไขเลขได้ถ้าไม่ตรง)';
+    },
+    () => { hint.textContent = '⚠️ ดึงตำแหน่งไม่สำเร็จ ตรวจสอบสิทธิ์การใช้ตำแหน่ง'; },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+window.useCurrentLocationForDetail = useCurrentLocationForDetail;
 
 function generateAdhocReqNo() {
   const now = new Date();
