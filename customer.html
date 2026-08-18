@@ -756,7 +756,10 @@ function navigateToGoogleMaps() {
 // ======= TICKET (แจ้งเหตุ - จัดการเต็มรูปแบบอยู่ที่ incident.html) =======
 function createTicketFromModal() {
   if(!modalUser) return;
-  window.location.href = 'incident.html?ca=' + encodeURIComponent(modalUser.CA);
+  // ส่งข้อมูล record ที่กำลังดูอยู่ทั้งก้อนไปด้วย เพื่อกันปัญหา CA เดียวกันแต่มีหลายมิเตอร์ (PEANO ต่างกัน)
+  try { sessionStorage.setItem('ticketSourceRecord', JSON.stringify(modalUser)); } catch(e) {}
+  window.location.href = 'incident.html?ca=' + encodeURIComponent(modalUser.CA)
+    + '&peano=' + encodeURIComponent(modalUser.PEANO||'');
 }
 
 // ======= MAP =======

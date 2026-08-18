@@ -266,8 +266,8 @@ textarea.form-control { resize:vertical; min-height:70px; }
       <div id="ticket-form-normal">
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label">ค้นหาผู้แจ้ง (CA / ชื่อ)</label>
-            <input class="form-control" id="ticket-search" placeholder="พิมพ์เพื่อค้นหา..." oninput="ticketSearchUser()" autocomplete="off"/>
+            <label class="form-label">ค้นหาผู้แจ้ง (CA / ชื่อ / PEANO)</label>
+            <input class="form-control" id="ticket-search" placeholder="พิมพ์ CA, ชื่อ หรือเลขมิเตอร์ (PEANO) เพื่อค้นหา..." oninput="ticketSearchUser()" autocomplete="off"/>
             <div id="ticket-suggest" style="position:relative;"></div>
           </div>
           <div class="form-group">
@@ -523,7 +523,7 @@ function ticketSearchUser() {
     ${matches.map(r => `<div onclick='selectTicketUser(${JSON.stringify(r)})' style="padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background=''">
       <span style="font-family:var(--mono);color:var(--accent);font-size:13px;">${r.CA}</span>
       ${r.PREFIX||''} ${r.CUSTOMERNAME} ${r.CUSTOMERSIRNAME}
-      <span style="color:var(--text2);font-size:13px;"> · ${r.TUMBOL} ${r.AMPHOE}</span>
+      <span style="color:var(--text2);font-size:13px;"> · PEANO: ${r.PEANO||'—'} · ${r.TUMBOL} ${r.AMPHOE}</span>
     </div>`).join('')}
   </div>`;
 }
@@ -947,15 +947,27 @@ window.addEventListener('DOMContentLoaded', () => {
   updateTicketBadge();
   renderTicketDashboard();
 
-  // ถ้ามาจากปุ่ม "แจ้งเหตุไฟดับ" ในหน้าข้อมูลผู้ใช้ไฟฟ้า พร้อม CA มาด้วย ให้เปิดฟอร์มและเติมข้อมูลอัตโนมัติ
+  // ถ้ามาจากปุ่ม "แจ้งเหตุไฟดับ" ในหน้าข้อมูลผู้ใช้ไฟฟ้า ให้เปิดฟอร์มและเติมข้อมูลอัตโนมัติ
+  // ใช้ record ที่ส่งมาทาง sessionStorage ก่อน (แม่นยำสุด กันปัญหา CA เดียวกันมีหลายมิเตอร์)
+  // ถ้าไม่มี ค่อย fallback ไปค้นด้วย CA + PEANO จาก query string
   const params = new URLSearchParams(window.location.search);
   const ca = params.get('ca');
-  if(ca) {
-    const r = ALL_RECORDS.find(rec => (rec.CA+'') === ca);
-    if(r) {
-      switchTab('ticket');
-      selectTicketUser(r);
-    }
+  const peano = params.get('peano');
+
+  const stored = sessionStorage.getItem('ticketSourceRecord');
+  sessionStorage.removeItem('ticketSourceRecord');
+
+  let r = null;
+  if(stored) {
+    try { r = JSON.parse(stored); } catch(e) { r = null; }
+  }
+  if(!r && ca) {
+    r = ALL_RECORDS.find(rec => (rec.CA+'') === ca && peano && (rec.PEANO+'') === peano)
+      || ALL_RECORDS.find(rec => (rec.CA+'') === ca);
+  }
+  if(r) {
+    switchTab('ticket');
+    selectTicketUser(r);
   }
 });
 </script>
