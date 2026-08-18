@@ -611,9 +611,9 @@
   .ac-badge{background:rgba(46,204,113,0.15);color:#7be3a3;font-weight:700;font-size:12px;padding:2px 9px;border-radius:10px;white-space:nowrap}
   .ac-chevron{font-size:12px;color:var(--text2);transition:transform .2s}
   .ac-item.open .ac-chevron{transform:rotate(180deg)}
-  .ac-body{max-height:0;overflow:hidden;transition:max-height .25s ease}
-  .ac-item.open .ac-body{max-height:400px}
-  .ac-body-inner{padding:0 14px 12px;border-top:1px solid var(--border);padding-top:10px}
+  .ac-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .25s ease}
+  .ac-item.open .ac-body{grid-template-rows:1fr}
+  .ac-body-inner{overflow:hidden;min-height:0;padding:0 14px 12px;border-top:1px solid var(--border);padding-top:10px}
   .ac-row{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;margin-bottom:6px;color:var(--text2)}
   .ac-row span:last-child{color:var(--text);text-align:right}
   .ac-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
