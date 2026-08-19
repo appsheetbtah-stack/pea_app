@@ -468,9 +468,9 @@ function toggleEquipPick(tp, id) {
 
 function cancelPickSelection() {
   try { sessionStorage.removeItem('equipmentPickerInit:' + PICK_TICKET); } catch (e) {}
-  if (PICK_RETURN) { window.location.href = decodeURIComponent(PICK_RETURN); }
-  else if (document.referrer) { window.location.href = document.referrer; }
-  else { window.location.href = 'update.html'; }
+  if (PICK_RETURN) { window.location.replace(decodeURIComponent(PICK_RETURN)); }
+  else if (document.referrer) { window.location.replace(document.referrer); }
+  else { window.location.replace('update.html'); }
 }
 
 function confirmPickSelection() {
@@ -479,9 +479,9 @@ function confirmPickSelection() {
     sessionStorage.setItem('equipmentPickerResult:' + PICK_TICKET, JSON.stringify(arr));
     sessionStorage.removeItem('equipmentPickerInit:' + PICK_TICKET);
   } catch (e) {}
-  if (PICK_RETURN) { window.location.href = decodeURIComponent(PICK_RETURN); }
-  else if (document.referrer) { window.location.href = document.referrer; }
-  else { window.location.href = 'update.html'; }
+  if (PICK_RETURN) { window.location.replace(decodeURIComponent(PICK_RETURN)); }
+  else if (document.referrer) { window.location.replace(document.referrer); }
+  else { window.location.replace('update.html'); }
 }
 
 // ── HELPERS ───────────────────────────────────
