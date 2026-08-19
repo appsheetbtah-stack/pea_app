@@ -1340,27 +1340,55 @@ function computeFixedMonthly(acc, refDate){
     }
   });
 
-  // จุดเริ่มจำลอง: ถ้ามีการตั้ง "ยอดยกมาตั้งต้น" ไว้สำหรับปี/เดือนนี้ ให้เริ่มจำลองจากเดือนนั้นด้วยค่าที่กรอกเอง
-  // (แทนที่จะย้อนไปสมมติว่าตั้งแต่ ม.ค. ไม่มีการใช้งบเลย ซึ่งจะทำให้ยอดยกมาพองผิดจริง)
-  let simStartMonth = 0;
-  let carryIn = 0;
+  let seedMonth = null, carrySeedVal = 0;
   if(acc.carrySeedYM){
     const [sy, sm] = acc.carrySeedYM.split('-').map(Number);
-    if(sy === refYear){
-      simStartMonth = sm - 1;
-      carryIn = acc.carrySeed || 0;
-    }
+    if(sy === refYear){ seedMonth = sm - 1; carrySeedVal = acc.carrySeed || 0; }
   }
 
-  let monthBudget = monthlyBase + carryIn, monthUsed = 0, monthRemain = monthBudget;
-  for(let m=simStartMonth; m<=refMonth; m++){
-    monthBudget = monthlyBase + carryIn;
-    monthUsed   = usedByMonth[m] || 0;
-    monthRemain = monthBudget - monthUsed;
-    carryIn     = monthRemain; // ยกไปเป็นยอดยกมาของเดือนถัดไป
+  let carryIn, monthBudget, monthUsed, monthRemain;
+
+  if(seedMonth !== null && refMonth >= seedMonth){
+    // ยอดที่ใช้จริง "ตั้งแต่เดือนถัดจาก seed" จนถึงเดือนอ้างอิง เชื่อถือได้ เพราะเป็นรายการที่บันทึกสดในระบบเอง
+    let usedAfterSeedMonth = 0;
+    for(let m=seedMonth+1; m<=refMonth; m++) usedAfterSeedMonth += usedByMonth[m] || 0;
+
+    // ยอดใช้จ่ายสะสม "ถึงสิ้นเดือน seed" หาได้แม่นยำเสมอ โดยหักยอดหลังเดือน seed ออกจากยอดรวมสะสมปัจจุบัน (acc.used)
+    // วิธีนี้ไม่ต้องพึ่งวันที่ของรายการเก่าที่อาจถูกยัดรวมไว้ในเดือนเดียว (เช่น ตอนนำเข้า/ทดสอบระบบ)
+    const usedThroughSeedMonth = acc.used - usedAfterSeedMonth;
+    const remainAtSeedMonthEnd = monthlyBase*(seedMonth+1) - usedThroughSeedMonth;
+
+    if(refMonth === seedMonth){
+      carryIn     = carrySeedVal;
+      monthBudget = monthlyBase + carrySeedVal;
+      monthRemain = remainAtSeedMonthEnd;
+      monthUsed   = monthBudget - monthRemain;
+    } else {
+      // จำลองต่อจากเดือนถัดจาก seed ด้วยรายการจริงตามปกติ
+      let ci = remainAtSeedMonthEnd, mb = monthlyBase + ci, mu = 0, mr = mb;
+      for(let m=seedMonth+1; m<=refMonth; m++){
+        mb = monthlyBase + ci;
+        mu = usedByMonth[m] || 0;
+        mr = mb - mu;
+        ci = mr;
+      }
+      monthBudget = mb; monthUsed = mu; monthRemain = mr;
+      carryIn = monthBudget - monthlyBase;
+    }
+  } else {
+    // ไม่มีการตั้งยอดยกมาเริ่มต้น (หรือยังไม่ถึงเดือน seed) → จำลองปกติตั้งแต่ ม.ค.
+    let ci = 0, mb = monthlyBase, mu = 0, mr = monthlyBase;
+    for(let m=0; m<=refMonth; m++){
+      mb = monthlyBase + ci;
+      mu = usedByMonth[m] || 0;
+      mr = mb - mu;
+      ci = mr;
+    }
+    carryIn = mb - monthlyBase;
+    monthBudget = mb; monthUsed = mu; monthRemain = mr;
   }
-  const carryIntoThisMonth = monthBudget - monthlyBase; // ยอดยกมาที่ใช้ในเดือนนี้ (ก่อนหักใช้เดือนนี้)
-  return { monthlyBase, carryIn: carryIntoThisMonth, monthBudget, monthUsed, monthRemain, refMonth };
+
+  return { monthlyBase, carryIn, monthBudget, monthUsed, monthRemain, refMonth };
 }
 
 function updateMonthlyCard(acc, rem){
