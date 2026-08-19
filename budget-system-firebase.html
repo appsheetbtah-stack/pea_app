@@ -62,8 +62,9 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 .table-row:hover .td-arrow{opacity:1}
 .td-code{font-size:11px;color:#38bdf8;font-family:monospace;font-weight:700}
 .td-name{font-size:13px;color:#e2e8f0;padding-right:10px;line-height:1.4}
-.mini-bar-wrap{margin-top:4px;height:3px;background:#1e293b;border-radius:2px;overflow:hidden}
-.mini-bar-fill{height:100%;border-radius:2px;transition:width .4s}
+.mini-bar-wrap{margin-top:7px;height:7px;background:#1e293b;border-radius:4px;overflow:hidden}
+.mini-bar-fill{height:100%;border-radius:4px;transition:width .4s}
+.mini-bar-pct{margin-top:4px;font-size:10.5px;font-weight:700}
 .td-num{text-align:right;font-size:13px;color:#94a3b8}
 .td-used{text-align:right;font-size:13px;color:#475569}
 .td-used.active{color:#fb923c;font-weight:600}
@@ -476,6 +477,13 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
           <div class="settings-item-sub">กรอกงบทำการทีละบัญชีด้วยตนเอง</div>
         </div>
       </button>
+      <button class="settings-item" onclick="closeSettings();openEditAccountsGate()">
+        <div class="settings-item-icon">✏️</div>
+        <div class="settings-item-text">
+          <div class="settings-item-title">แก้ไขบัญชี</div>
+          <div class="settings-item-sub">แก้ไขงบทำการ/ชื่อรายบัญชี (ต้องยืนยันตัวตน)</div>
+        </div>
+      </button>
       <button class="settings-item" onclick="exportData()">
         <div class="settings-item-icon">⬇️</div>
         <div class="settings-item-text">
@@ -665,24 +673,27 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
       <div class="monthly-card" id="d-monthly-card">
         <div class="monthly-top">
           <div class="monthly-icon">📅</div>
-          <div class="monthly-label">งบต่อเดือนคงเหลือ</div>
+          <div class="monthly-label">งบต่อเดือน (แบบยอดยกมา)</div>
           <div class="monthly-months" id="d-monthly-months"></div>
         </div>
         <div class="monthly-row">
           <div class="monthly-item">
-            <div class="monthly-sub">งบเฉลี่ย/เดือน (ตั้งต้น)</div>
+            <div class="monthly-sub">งบต่อเดือน (คงที่)</div>
             <div class="monthly-val gray" id="d-avg-base"></div>
           </div>
           <div class="monthly-divider"></div>
           <div class="monthly-item">
-            <div class="monthly-sub">ควรใช้ได้อีก/เดือน</div>
+            <div class="monthly-sub">ยอดยกมา</div>
             <div class="monthly-val" id="d-avg-now"></div>
           </div>
           <div class="monthly-divider"></div>
           <div class="monthly-item">
-            <div class="monthly-sub">ต่างจากฐาน</div>
+            <div class="monthly-sub">คงเหลือเดือนนี้</div>
             <div class="monthly-val" id="d-avg-diff"></div>
           </div>
+        </div>
+        <div style="text-align:right;margin-top:8px">
+          <button onclick="openCarrySeedModal()" style="background:none;border:none;color:#94a3b8;font-size:11px;text-decoration:underline;cursor:pointer;padding:2px 0">⚙️ ตั้งยอดยกมาเริ่มต้น (สำหรับปีที่เริ่มใช้ระบบกลางปี)</button>
         </div>
       </div>
     </div>
@@ -798,6 +809,78 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
   </div>
 </div>
 
+<!-- ===== EDIT ACCOUNTS - PASSWORD GATE ===== -->
+<div class="ny-overlay" id="edit-gate-overlay" style="display:none">
+  <div class="ny-modal" style="width:min(360px,92vw)">
+    <div class="ny-head">
+      <div class="ny-head-title">🔒 ยืนยันตัวตน</div>
+      <button class="btn-close-modal" onclick="closeEditAccountsGate()">✕</button>
+    </div>
+    <div class="ny-body">
+      <div class="field">
+        <label>มนุษโซซิ</label>
+        <input id="edit-gate-answer" type="text" autocomplete="off" placeholder="พิมพ์คำตอบ..." onkeydown="if(event.key==='Enter')confirmEditAccountsGate()">
+      </div>
+    </div>
+    <div class="ny-foot">
+      <button class="btn-ny-cancel" onclick="closeEditAccountsGate()">ยกเลิก</button>
+      <button class="btn-ny-confirm" onclick="confirmEditAccountsGate()">✅ ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== EDIT ACCOUNTS MODAL ===== -->
+<div class="ny-overlay" id="edit-acc-overlay" style="display:none">
+  <div class="ny-modal">
+    <div class="ny-head">
+      <div class="ny-head-title">✏️ แก้ไขบัญชี</div>
+      <button class="btn-close-modal" onclick="closeEditAccounts()">✕</button>
+    </div>
+    <div class="ny-body">
+      <div class="ny-table-head">
+        <div>รหัสบัญชี</div>
+        <div>ชื่อบัญชี</div>
+        <div style="text-align:right">งบทำการ (บาท)</div>
+      </div>
+      <div id="edit-acc-rows"></div>
+    </div>
+    <div class="ny-foot">
+      <button class="btn-ny-cancel" onclick="closeEditAccounts()">ยกเลิก</button>
+      <button class="btn-ny-confirm" onclick="confirmEditAccounts()">✅ บันทึกการแก้ไข</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ===== ตั้งยอดยกมาเริ่มต้น (สำหรับปีที่เริ่มใช้ระบบกลางปี) ===== -->
+<div class="ny-overlay" id="carry-seed-overlay" style="display:none">
+  <div class="ny-modal" style="width:min(400px,92vw)">
+    <div class="ny-head">
+      <div class="ny-head-title">⚙️ ตั้งยอดยกมาเริ่มต้น</div>
+      <button class="btn-close-modal" onclick="closeCarrySeedModal()">✕</button>
+    </div>
+    <div class="ny-body">
+      <p style="font-size:12px;color:#94a3b8;margin:0 0 14px;line-height:1.6">
+        ใช้ครั้งเดียวตอนเริ่มใช้ระบบกลางปี เพื่อให้ตัวเลข "ยอดยกมา" ในเดือนที่เริ่มใช้ระบบตรงกับใบตัดงบกระดาษ
+        เดือนถัดจากนี้ไปจะคำนวณจากรายการตัดงบจริงในระบบเองอัตโนมัติ ไม่ต้องกรอกซ้ำอีก
+        (เมื่อขึ้นปีงบใหม่ ค่านี้จะถูกล้างให้อัตโนมัติ)
+      </p>
+      <div class="field">
+        <label>เดือน-ปี ที่เริ่มใช้ระบบ</label>
+        <input id="cs-month" type="month">
+      </div>
+      <div class="field">
+        <label>ยอดยกมาตั้งต้น (บาท) — ดูจากใบตัดงบกระดาษเดือนนั้น</label>
+        <input id="cs-amount" type="number" step="0.01" placeholder="0.00">
+      </div>
+    </div>
+    <div class="ny-foot">
+      <button class="btn-ny-cancel" onclick="closeCarrySeedModal()">ยกเลิก</button>
+      <button class="btn-ny-confirm" onclick="confirmCarrySeed()">✅ บันทึก</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== BOTTOM NAV ===== -->
 <div class="bottom-nav" id="bottom-nav">
   <button class="nav-btn active" id="nav-dashboard" onclick="showDashboard()">
@@ -869,10 +952,12 @@ function buildDataFromPayload(payload){
         budget:    saved.budget ?? base?.budget ?? 0,
         used:      saved.used ?? 0,
         carryOver: saved.carryOver ?? 0,
-        entries:   saved.entries ?? []
+        entries:   saved.entries ?? [],
+        carrySeed:   saved.carrySeed ?? 0,
+        carrySeedYM: saved.carrySeedYM ?? null
       };
     }
-    return { code, name: base.name, budget: base.budget, used:0, carryOver:0, entries:[] };
+    return { code, name: base.name, budget: base.budget, used:0, carryOver:0, entries:[], carrySeed:0, carrySeedYM:null };
   });
   list.sort((a,b)=>a.code.localeCompare(b.code));
   return list;
@@ -890,7 +975,9 @@ async function saveData(){
         budget:    a.budget,
         used:      a.used,
         carryOver: a.carryOver ?? 0,
-        entries:   a.entries
+        entries:   a.entries,
+        carrySeed:   a.carrySeed ?? 0,
+        carrySeedYM: a.carrySeedYM ?? null
       };
     });
     await setDoc(budgetDocRef(currentYear), payload);
@@ -1065,7 +1152,9 @@ function renderList(){
     const pct=acc.budget>0?(acc.used/acc.budget)*100:0;
     const rc=pct>90?'td-rem danger':pct>70?'td-rem warn':'td-rem';
     const uc=acc.used>0?'td-used active':'td-used';
-    const bar=acc.used>0?`<div class="mini-bar-wrap"><div class="mini-bar-fill" style="width:${Math.min(pct,100)}%;background:${pct>90?'#ef4444':'#38bdf8'}"></div></div>`:'';
+    const remainPct = Math.max(0,100-pct);
+    const barColor = pct>90?'#ef4444':pct>70?'#f59e0b':'#22c55e';
+    const bar=`<div class="mini-bar-wrap"><div class="mini-bar-fill" style="width:${remainPct}%;background:${barColor}"></div></div><div class="mini-bar-pct" style="color:${barColor}">เหลือ ${remainPct.toFixed(1)}%</div>`;
     return `<div class="table-row" onclick="showDetail('${acc.code}')">
       <div class="td-code">${acc.code}</div>
       <div class="td-name">${acc.name}${bar}</div>
@@ -1236,42 +1325,74 @@ function renderDetail(){
   renderDetailHist();
 }
 
+function computeFixedMonthly(acc, refDate){
+  // แบบเดียวกับกระดาษ: งบต่อเดือนคงที่ (budget/12) + ยอดยกมาสะสมจากเดือนก่อนหน้า
+  // รองรับ "ยอดยกมาตั้งต้น" (carrySeed) สำหรับปีที่เริ่มใช้ระบบกลางปี โดยไม่มีประวัติรายเดือนย้อนหลังในระบบ
+  const monthlyBase = acc.budget / 12;
+  const refYear  = refDate.getFullYear();
+  const refMonth = refDate.getMonth(); // 0=ม.ค. .. 11=ธ.ค.
+
+  const usedByMonth = new Array(12).fill(0);
+  (acc.entries||[]).forEach(e=>{
+    const d = new Date(e.date);
+    if(!isNaN(d) && d.getFullYear()===refYear){
+      usedByMonth[d.getMonth()] += (e.amount||0);
+    }
+  });
+
+  // จุดเริ่มจำลอง: ถ้ามีการตั้ง "ยอดยกมาตั้งต้น" ไว้สำหรับปี/เดือนนี้ ให้เริ่มจำลองจากเดือนนั้นด้วยค่าที่กรอกเอง
+  // (แทนที่จะย้อนไปสมมติว่าตั้งแต่ ม.ค. ไม่มีการใช้งบเลย ซึ่งจะทำให้ยอดยกมาพองผิดจริง)
+  let simStartMonth = 0;
+  let carryIn = 0;
+  if(acc.carrySeedYM){
+    const [sy, sm] = acc.carrySeedYM.split('-').map(Number);
+    if(sy === refYear){
+      simStartMonth = sm - 1;
+      carryIn = acc.carrySeed || 0;
+    }
+  }
+
+  let monthBudget = monthlyBase + carryIn, monthUsed = 0, monthRemain = monthBudget;
+  for(let m=simStartMonth; m<=refMonth; m++){
+    monthBudget = monthlyBase + carryIn;
+    monthUsed   = usedByMonth[m] || 0;
+    monthRemain = monthBudget - monthUsed;
+    carryIn     = monthRemain; // ยกไปเป็นยอดยกมาของเดือนถัดไป
+  }
+  const carryIntoThisMonth = monthBudget - monthlyBase; // ยอดยกมาที่ใช้ในเดือนนี้ (ก่อนหักใช้เดือนนี้)
+  return { monthlyBase, carryIn: carryIntoThisMonth, monthBudget, monthUsed, monthRemain, refMonth };
+}
+
 function updateMonthlyCard(acc, rem){
   const now = new Date();
-  const currentMonth = now.getMonth(); // 0=ม.ค., 11=ธ.ค.
-  const monthsLeft = 12 - currentMonth; // เดือนนี้รวมถึงสิ้นปี
   const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 
-  const avgBase = acc.budget / 12;           // งบเฉลี่ยฐานต่อเดือน
-  const avgNow  = rem / monthsLeft;          // ควรใช้ได้อีกต่อเดือน
-  const diff    = avgNow - avgBase;          // ต่างจากฐาน
+  const { monthlyBase, carryIn, monthRemain, refMonth } = computeFixedMonthly(acc, now);
 
   document.getElementById('d-monthly-months').textContent =
-    `${monthNames[currentMonth]}–ธ.ค. (${monthsLeft} เดือน)`;
-  document.getElementById('d-avg-base').textContent = fmt(avgBase);
-  document.getElementById('d-avg-now').textContent  = fmt(avgNow);
+    `${monthNames[refMonth]} ${currentYear}`;
+  document.getElementById('d-avg-base').textContent = fmt(monthlyBase);
+  document.getElementById('d-avg-now').textContent  = fmt(carryIn);
 
   const diffEl = document.getElementById('d-avg-diff');
-  if(Math.abs(diff) < 1){
-    diffEl.textContent = 'เท่าเดิม';
-    diffEl.className = 'monthly-val ok';
-  } else if(diff > 0){
-    diffEl.textContent = '+' + fmt(diff);
-    diffEl.className = 'monthly-val under';  // ใช้น้อยไป → เหลือเพิ่ม → ฟ้า
+  diffEl.textContent = fmt(monthRemain);
+  if(monthRemain < 0){
+    diffEl.className = 'monthly-val over';
+  } else if(monthRemain < monthlyBase*0.2){
+    diffEl.className = 'monthly-val under';
   } else {
-    diffEl.textContent = fmt(diff);
-    diffEl.className = 'monthly-val over';   // ใช้มากไป → เหลือน้อย → แดง
+    diffEl.className = 'monthly-val ok';
   }
 
   // สีการ์ดตามสถานะ (โทนมืด)
   const card = document.getElementById('d-monthly-card');
-  if(diff < -avgBase*0.2){
+  if(monthRemain < 0){
     card.style.background='linear-gradient(135deg,#2c0f0f,#3a1414)';
     card.style.borderColor='#5c1f1f';
     document.querySelector('#d-monthly-card .monthly-label').style.color='#f87171';
     document.querySelector('#d-monthly-card .monthly-months').style.background='#5c1f1f';
     document.querySelector('#d-monthly-card .monthly-months').style.color='#f87171';
-  } else if(diff < 0){
+  } else if(monthRemain < monthlyBase*0.2){
     card.style.background='linear-gradient(135deg,#2c1a0a,#3a2210)';
     card.style.borderColor='#7c4a1e';
     document.querySelector('#d-monthly-card .monthly-label').style.color='#fbbf24';
@@ -1549,19 +1670,15 @@ function buildSlipHTML(acc, entry, slipNo){
   const nowStr = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
   const docNo = entry.doc ? entry.doc : ('AUTO-'+entry.id.slice(-6));
 
-  // monthly calc
+  // monthly calc (แบบเดียวกับกระดาษ: งบต่อเดือนคงที่ + ยอดยกมา)
   const now = new Date();
-  const currentMonth = now.getMonth();
-  const monthsLeft = 12 - currentMonth;
   const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-  const avgBase = acc.budget / 12;
-  const avgNow  = rem / monthsLeft;
-  const diff    = avgNow - avgBase;
-  const diffStr = Math.abs(diff)<1 ? 'เท่าเดิม' : (diff>0?'+':'')+fmt(diff);
-  const diffColor = Math.abs(diff)<1?'#15803d':diff>0?'#0284c7':'#dc2626';
-  const monthlyBgColor = diff < -avgBase*0.2 ? '#fef2f2' : diff < 0 ? '#fffbeb' : '#f0fdf4';
-  const monthlyBdColor = diff < -avgBase*0.2 ? '#fca5a5' : diff < 0 ? '#fcd34d' : '#86efac';
-  const monthlyTxtColor = diff < -avgBase*0.2 ? '#dc2626' : diff < 0 ? '#d97706' : '#15803d';
+  const { monthlyBase: avgBase, carryIn, monthRemain, refMonth } = computeFixedMonthly(acc, now);
+  const diffStr = fmt(monthRemain);
+  const diffColor = monthRemain<0?'#dc2626':monthRemain<avgBase*0.2?'#d97706':'#15803d';
+  const monthlyBgColor = monthRemain < 0 ? '#fef2f2' : monthRemain < avgBase*0.2 ? '#fffbeb' : '#f0fdf4';
+  const monthlyBdColor = monthRemain < 0 ? '#fca5a5' : monthRemain < avgBase*0.2 ? '#fcd34d' : '#86efac';
+  const monthlyTxtColor = monthRemain < 0 ? '#dc2626' : monthRemain < avgBase*0.2 ? '#d97706' : '#15803d';
 
   return `<div class="slip-wrap">
 
@@ -1623,25 +1740,25 @@ function buildSlipHTML(acc, entry, slipNo){
       </div>
     </div>
 
-    <!-- ชั้น 6: งบต่อเดือนคงเหลือ -->
+    <!-- ชั้น 6: งบต่อเดือนคงเหลือ (แบบยอดยกมา) -->
     <div style="background:${monthlyBgColor};border:1.5px solid ${monthlyBdColor};border-radius:10px;padding:10px 16px;margin-bottom:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <span style="font-size:12px;font-weight:800;color:${monthlyTxtColor}">📅 งบต่อเดือนคงเหลือ</span>
-        <span style="font-size:10px;color:${monthlyTxtColor};background:rgba(0,0,0,0.06);padding:2px 8px;border-radius:5px;font-weight:700">${monthNames[currentMonth]}–ธ.ค. (${monthsLeft} เดือน)</span>
+        <span style="font-size:12px;font-weight:800;color:${monthlyTxtColor}">📅 งบต่อเดือน (แบบยอดยกมา)</span>
+        <span style="font-size:10px;color:${monthlyTxtColor};background:rgba(0,0,0,0.06);padding:2px 8px;border-radius:5px;font-weight:700">${monthNames[refMonth]} ${currentYear}</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1px 1fr 1px 1fr;gap:8px;align-items:center">
         <div style="text-align:center">
-          <div style="font-size:9px;color:#64748b;font-weight:700;margin-bottom:3px">เฉลี่ย/เดือน (ฐาน)</div>
+          <div style="font-size:9px;color:#64748b;font-weight:700;margin-bottom:3px">งบต่อเดือน (คงที่)</div>
           <div style="font-size:14px;font-weight:800;color:#475569">${fmt(avgBase)}</div>
         </div>
         <div style="background:${monthlyBdColor};height:32px"></div>
         <div style="text-align:center">
-          <div style="font-size:9px;color:#64748b;font-weight:700;margin-bottom:3px">ใช้ได้อีก/เดือน</div>
-          <div style="font-size:14px;font-weight:800;color:${monthlyTxtColor}">${fmt(avgNow)}</div>
+          <div style="font-size:9px;color:#64748b;font-weight:700;margin-bottom:3px">ยอดยกมา</div>
+          <div style="font-size:14px;font-weight:800;color:${monthlyTxtColor}">${fmt(carryIn)}</div>
         </div>
         <div style="background:${monthlyBdColor};height:32px"></div>
         <div style="text-align:center">
-          <div style="font-size:9px;color:#64748b;font-weight:700;margin-bottom:3px">ต่างจากฐาน</div>
+          <div style="font-size:9px;color:#64748b;font-weight:700;margin-bottom:3px">คงเหลือเดือนนี้</div>
           <div style="font-size:14px;font-weight:800;color:${diffColor}">${diffStr}</div>
         </div>
       </div>
@@ -2300,6 +2417,91 @@ function closeNewYear(){
   document.getElementById('ny-overlay').style.display='none';
 }
 
+/* ---- แก้ไขบัญชี: ยืนยันตัวตนก่อนเข้าใช้งาน ---- */
+function openEditAccountsGate(){
+  document.getElementById('edit-gate-answer').value='';
+  document.getElementById('edit-gate-overlay').style.display='flex';
+  setTimeout(()=>document.getElementById('edit-gate-answer').focus(),50);
+}
+
+function closeEditAccountsGate(){
+  document.getElementById('edit-gate-overlay').style.display='none';
+}
+
+/* ---- ตั้งยอดยกมาเริ่มต้น (สำหรับปีที่เริ่มใช้ระบบกลางปี) ---- */
+function openCarrySeedModal(){
+  const acc = data.find(a=>a.code===currentCode);
+  if(!acc) return;
+  const now = new Date();
+  const defaultYM = acc.carrySeedYM || `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  document.getElementById('cs-month').value  = defaultYM;
+  document.getElementById('cs-amount').value = acc.carrySeed ?? '';
+  document.getElementById('carry-seed-overlay').style.display='flex';
+}
+
+function closeCarrySeedModal(){
+  document.getElementById('carry-seed-overlay').style.display='none';
+}
+
+function confirmCarrySeed(){
+  const ym  = document.getElementById('cs-month').value;
+  const amt = parseFloat(document.getElementById('cs-amount').value);
+  if(!ym){ alert('กรุณาเลือกเดือน-ปี'); return; }
+  if(isNaN(amt)){ alert('กรุณากรอกยอดยกมาตั้งต้นให้ถูกต้อง'); return; }
+
+  data = data.map(a => a.code===currentCode ? {...a, carrySeedYM: ym, carrySeed: amt} : a);
+  window.saveData();
+  closeCarrySeedModal();
+  renderDetail();
+  alert('✅ บันทึกยอดยกมาเริ่มต้นเรียบร้อย!');
+}
+
+function confirmEditAccountsGate(){
+  const ans = document.getElementById('edit-gate-answer').value.trim();
+  if(ans !== 'อามะภัญเต'){
+    alert('❌ คำตอบไม่ถูกต้อง ไม่อนุญาตให้เข้าแก้ไขบัญชี');
+    return;
+  }
+  closeEditAccountsGate();
+  openEditAccounts();
+}
+
+/* ---- แก้ไขบัญชี: ฟอร์มแก้ไขงบ/ชื่อรายบัญชี ---- */
+function openEditAccounts(){
+  const rows = document.getElementById('edit-acc-rows');
+  rows.innerHTML = data.map(a=>`
+    <div class="ny-row">
+      <div class="ny-code">${a.code}</div>
+      <input class="ny-input" id="edit-acc-name-${a.code}" type="text" style="text-align:left" value="${a.name}">
+      <input class="ny-input" id="edit-acc-budget-${a.code}" type="number" min="0" step="0.01" value="${a.budget}" placeholder="0.00">
+    </div>
+  `).join('');
+  document.getElementById('edit-acc-overlay').style.display='flex';
+}
+
+function closeEditAccounts(){
+  document.getElementById('edit-acc-overlay').style.display='none';
+}
+
+function confirmEditAccounts(){
+  if(!confirm('ยืนยันบันทึกการแก้ไขบัญชี?\nงบทำการและชื่อบัญชีจะถูกอัปเดต (ประวัติการตัดงบเดิมจะยังคงอยู่)')) return;
+
+  data = data.map(a=>{
+    const nameInput   = document.getElementById('edit-acc-name-'+a.code);
+    const budgetInput = document.getElementById('edit-acc-budget-'+a.code);
+    const newName   = (nameInput?.value || a.name).trim();
+    const newBudget = parseFloat(budgetInput?.value);
+    return {...a, name: newName || a.name, budget: isNaN(newBudget) ? a.budget : newBudget};
+  });
+
+  window.saveData();
+  updateSummary();
+  renderList();
+  renderDashboard();
+  closeEditAccounts();
+  alert('✅ บันทึกการแก้ไขบัญชีเรียบร้อย!');
+}
+
 function confirmNewYear(){
   const yearVal = parseInt(document.getElementById('ny-year').value);
   if(!yearVal || yearVal < 2500 || yearVal > 2700){
@@ -2311,7 +2513,7 @@ function confirmNewYear(){
   data = data.map(a=>{
     const input = document.getElementById('ny-'+a.code);
     const newBudget = parseFloat(input?.value) || 0;
-    return {...a, budget:newBudget, used:0, entries:[]};
+    return {...a, budget:newBudget, used:0, entries:[], carrySeed:0, carrySeedYM:null};
   });
   currentYear = yearVal;
   window.saveData();
