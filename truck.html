@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
 <title>ระบบตรวจรถแก้กระแสไฟฟ้าขัดข้อง</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
@@ -241,10 +241,11 @@
 </script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{max-width:100%;overflow-x:hidden}
+  html{max-width:100%}
+  body{max-width:100%;overflow-x:hidden}
   body{font-family:'Sarabun',sans-serif;background:#f0f2f5;color:#1a1a2e;font-size:14px}
   
-  .header{background:linear-gradient(135deg,#1a237e,#283593);color:#fff;padding:14px 20px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
+  .header{background:linear-gradient(135deg,#1a237e,#283593);color:#fff;padding:14px 20px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.3);transform:translateZ(0);will-change:transform}
   .header-spacer{height:0;display:none}
   .header-left{grid-column:2;justify-self:center}
   .header-left h1{font-size:16px;font-weight:700;letter-spacing:0.3px}
@@ -1524,6 +1525,13 @@ async function loadDayData(dateStr) {
 // FIX 3.1: เปลี่ยนชื่อตัวแปรและ callback ให้ถูกต้องตาม Backend จริง (GAS ไม่ใช่ Firebase)
 let _gasLoaded = false;
 window._onGASReady = function() {
+  // เผื่อบั๊ก sticky-header หายบนบางเบราว์เซอร์: บังคับ reflow ทุกครั้งที่ผู้ใช้เปลี่ยนช่องกรอก (กด → บนคีย์บอร์ด)
+  document.addEventListener('focusin', function(e){
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) {
+      const h = document.querySelector('.header');
+      if (h) requestAnimationFrame(()=>{ void h.offsetHeight; });
+    }
+  }, true);
   if (_gasLoaded) return;
   _gasLoaded = true;
   setCurrentDate();
