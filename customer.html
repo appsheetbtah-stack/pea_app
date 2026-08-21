@@ -347,6 +347,7 @@ textarea.form-control { resize:vertical; min-height:70px; }
             <th>ตำบล / อำเภอ</th>
             <th>เบอร์โทร</th>
             <th>มิเตอร์</th>
+            <th>ขนาดมิเตอร์</th>
             <th></th>
           </tr>
         </thead>
@@ -673,6 +674,7 @@ function renderTable() {
       <td style="color:var(--text2)">${hl(loc,q)}</td>
       <td><span style="font-family:var(--mono);font-size:13px">${hl(r.MOBILE_NO||'—',q)}</span></td>
       <td>${meterBadge(r.METERTYPE)}</td>
+      <td><span style="font-family:var(--mono);font-size:13px;color:var(--text2)">${r.AMPFROMCIS ? r.AMPFROMCIS + 'A' + (r.METERTYPE ? ' (' + r.METERTYPE + ')' : '') : '—'}</span></td>
       <td><button class="action-btn" onclick='openUserModal(${JSON.stringify(r)})'>ดูข้อมูล</button></td>
     </tr>`;
   }).join('');
@@ -714,7 +716,7 @@ function openUserModal(r) {
     <div class="info-item"><div class="info-key">เบอร์โทร</div><div class="info-val mono">${r.MOBILE_NO||'—'}</div></div>
     <div class="info-item col-span-2"><div class="info-key">ที่อยู่</div><div class="info-val">${addr}</div></div>
     <div class="info-item"><div class="info-key">ประเภทมิเตอร์</div><div class="info-val">${r.METERTYPE||'—'}</div></div>
-    <div class="info-item"><div class="info-key">ขนาดมิเตอร์ (พิกัดฐาน)</div><div class="info-val">${r.AMPFROMCIS ? r.AMPFROMCIS + 'A' + (r.METERTYPE ? ' (' + r.METERTYPE + ')' : '') : '—'}</div></div>
+    <div class="info-item"><div class="info-key">ขนาดมิเตอร์</div><div class="info-val">${r.AMPFROMCIS ? r.AMPFROMCIS + 'A' + (r.METERTYPE ? ' (' + r.METERTYPE + ')' : '') : '—'}</div></div>
     <div class="info-item"><div class="info-key">พิกัด</div><div class="info-val mono" style="font-size:13px">${r.LATITUDE?.toFixed(6)||'—'}, ${r.LONGITUDE?.toFixed(6)||'—'}</div></div>
   `;
   document.getElementById('modal-map-btn').onclick = () => { closeModal('modal-user'); switchTab('map'); setTimeout(()=>{ if(mapFull) mapFull.invalidateSize(); focusMapUser(r); },350); };
