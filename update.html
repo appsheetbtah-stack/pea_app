@@ -218,6 +218,17 @@ body {
 }
 .save-btn:active { transform: scale(0.98); }
 .save-btn:disabled { opacity: 0.6; }
+
+.job-btn { background: var(--green); margin-top: 10px; }
+.job-link-btn {
+  width: 100%; background: var(--surface2); color: var(--accent); border: 1px solid var(--accent);
+  font-family: var(--sans); font-size:14.5px; font-weight: 600; padding: 13px;
+  border-radius: 10px; margin-top: 10px; text-decoration: none; display: block; text-align: center;
+}
+.job-link-btn:active { transform: scale(0.98); }
+.job-hint {
+  font-size:12.5px; color: var(--text2); margin-top: 9px; text-align: center; line-height: 1.5;
+}
 </style>
 </head>
 <body>
@@ -253,7 +264,7 @@ body {
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, query, where, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, collection, query, where, getDocs, updateDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyC7bzImCV7c89fLGhIq8OycWKQWRYdvZvE",
@@ -398,6 +409,7 @@ body {
       }
     });
     updateEquipmentSummary();
+    renderJobActionArea();
   }
 
   // ===== อุปกรณ์ที่ทำให้ไฟฟ้าขัดข้อง (เปิด equipment.html โหมดเลือก) =====
@@ -558,6 +570,112 @@ body {
     }
   });
 
+  // ===== สร้างใบงานสับเปลี่ยนมิเตอร์ใน U-cube (จากงานแจ้งเหตุที่จบด้วยการเปลี่ยนมิเตอร์) =====
+  const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+
+  // ครอบคลุมทั้ง preset "เปลี่ยนมิเตอร์" และข้อความที่ช่างพิมพ์เอง เช่น "สับเปลี่ยนมิเตอร์"
+  function isMeterSwapFix(text) {
+    if (!text) return false;
+    return (text.includes('เปลี่ยน') || text.includes('สับเปลี่ยน')) && text.includes('มิเตอร์');
+  }
+
+  function hasMeterSwapFix(list) {
+    return (list || []).some(isMeterSwapFix);
+  }
+
+  function generateAdhocReqNo() {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const ymd = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+    const rand = Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
+    return `ADHOC-${ymd}-${rand}`;
+  }
+
+  function formatNowDateTimeTH() {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    return `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()+543} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  }
+
+  // แสดงพื้นที่ปุ่ม 3 สถานะ: (1) ยังไม่เข้าเงื่อนไข → ไม่แสดงอะไร (2) เข้าเงื่อนไขแล้วแต่ยังไม่บันทึก → คำใบ้ให้บันทึกก่อน
+  // (3) บันทึกแล้วและยังไม่เคยสร้างใบงาน → ปุ่มสร้าง (4) สร้างไปแล้ว → ลิงก์ดูใบงาน (กันสร้างซ้ำ)
+  // หมายเหตุ: ขนาดมิเตอร์ (meterSizeCode) ปล่อยว่างไว้เสมอ เพราะหน้างานจริงมักไม่ทราบขนาดมิเตอร์ลูกที่จะเปลี่ยนตอนสร้าง ticket
+  // ให้ช่างที่ไปเปิดใบงานใน U-cube กรอกเองหน้างานแทน
+  function renderJobActionArea() {
+    const area = document.getElementById('job-action-area');
+    if (!area || !currentData) return;
+
+    if (currentData.ucubeReqNo) {
+      area.innerHTML = `<a class="job-link-btn" href="ucube.html?open=${encodeURIComponent(currentData.ucubeReqNo)}" target="_blank" rel="noopener">📋 ดูใบงานสับเปลี่ยนมิเตอร์ใน U-cube (${escapeHtml(currentData.ucubeReqNo)})</a>`;
+      return;
+    }
+
+    const savedHasSwap = hasMeterSwapFix(currentData.fixes) || hasMeterSwapFix(currentData.customFixes);
+    const pendingHasSwap = hasMeterSwapFix(selectedFixes) || hasMeterSwapFix(customFixes);
+
+    if (savedHasSwap) {
+      area.innerHTML = `<button class="save-btn job-btn" id="create-job-btn">🔁 สร้างใบงานสับเปลี่ยนมิเตอร์ใน U-cube</button>`;
+      document.getElementById('create-job-btn').addEventListener('click', createSwapJob);
+    } else if (pendingHasSwap) {
+      area.innerHTML = `<div class="job-hint">💡 เลือก "เปลี่ยนมิเตอร์" ไว้ในวิธีแก้ไข — กดบันทึกรายละเอียดการซ่อมก่อน เพื่อเปิดใช้ปุ่มสร้างใบงานสับเปลี่ยนมิเตอร์</div>`;
+    } else {
+      area.innerHTML = '';
+    }
+  }
+
+  async function createSwapJob() {
+    const btn = document.getElementById('create-job-btn');
+    if (!btn || !currentData) return;
+    btn.disabled = true;
+    btn.textContent = 'กำลังสร้างใบงาน...';
+
+    const now = new Date();
+    const batchMonth = now.getMonth() + 1;
+    const batchYear = now.getFullYear() + 543;
+    const batchKey = `${batchYear}-${String(batchMonth).padStart(2, '0')}`;
+    const batchLabel = `${THAI_MONTHS[batchMonth - 1]} ${batchYear}`;
+    const reqNo = generateAdhocReqNo();
+
+    const oldMeterSizeRef = currentData.ampfromcis
+      ? currentData.ampfromcis + 'A' + (currentData.metertype && currentData.metertype !== '—' ? ' (' + currentData.metertype + ')' : '')
+      : '';
+
+    const detailParts = [
+      currentData.note,
+      (currentData.causes || []).length ? 'สาเหตุ: ' + currentData.causes.join(', ') : '',
+      (currentData.fixes || []).length ? 'วิธีแก้ไขหน้างานเดิม: ' + currentData.fixes.join(', ') : '',
+      oldMeterSizeRef ? 'ขนาดมิเตอร์เดิม (พิกัดฐาน ไม่ใช่ค่าที่ยืนยันแล้ว): ' + oldMeterSizeRef : ''
+    ].filter(Boolean);
+
+    const ticket = {
+      reqNo, jobDate: formatNowDateTimeTH(), mru: '', userno: '',
+      peanoMeter: currentData.peano && currentData.peano !== '—' ? currentData.peano : '',
+      meterSizeCode: '', oldMeterSizeRef, referenceUnit: '',
+      customerName: currentData.name || '', locationAddress: currentData.addr || '',
+      anotherDetail: detailParts.join(' - '),
+      lat: currentData.lat || 0, lng: currentData.lng || 0,
+      batchMonth, batchYear, batchKey, batchLabel,
+      status: 'broken', reasons: currentData.causes || [],
+      checkDate: '', unitRead: '', newMeterNo: '', newUnitRead: '',
+      photoLink: '', photoThumb: '',
+      source: 'incident', fromIncidentId: currentData.id || '',
+      createdAt: Date.now(), updatedAt: Date.now()
+    };
+
+    try {
+      await setDoc(doc(db, 'ucube_tickets', reqNo), ticket);
+      await updateDoc(doc(db, 'tickets', currentDocId), { ucubeReqNo: reqNo });
+      currentData.ucubeReqNo = reqNo;
+      showToast('สร้างใบงานสับเปลี่ยนมิเตอร์ใน U-cube สำเร็จ ✓', 'success');
+      renderJobActionArea();
+    } catch (e) {
+      console.error(e);
+      showToast('สร้างใบงานไม่สำเร็จ กรุณาลองใหม่', 'error');
+      btn.disabled = false;
+      btn.textContent = '🔁 สร้างใบงานสับเปลี่ยนมิเตอร์ใน U-cube';
+    }
+  }
+
   async function saveRepairDetails() {
     const saveBtn = document.getElementById('save-repair-btn');
     saveBtn.disabled = true;
@@ -571,6 +689,11 @@ body {
         materials: selectedMaterials,
         equipment: selectedEquipment
       });
+      currentData.causes = [...selectedCauses];
+      currentData.customCauses = [...customCauses];
+      currentData.fixes = [...selectedFixes];
+      currentData.customFixes = [...customFixes];
+      renderJobActionArea();
       showToast('บันทึกรายละเอียดการซ่อมเรียบร้อย ✓', 'success');
     } catch(e) {
       console.error(e);
@@ -695,11 +818,13 @@ body {
         </div>
 
         <button class="save-btn" id="save-repair-btn">💾 บันทึกรายละเอียดการซ่อม</button>
+        <div id="job-action-area"></div>
       </div>
     `;
     attachButtonHandlers();
     updateAllSummaries();
     document.getElementById('save-repair-btn').addEventListener('click', saveRepairDetails);
+    renderJobActionArea();
   }
 
   function escapeAttr(s) {

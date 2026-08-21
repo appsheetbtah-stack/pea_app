@@ -714,6 +714,7 @@ function openUserModal(r) {
     <div class="info-item"><div class="info-key">เบอร์โทร</div><div class="info-val mono">${r.MOBILE_NO||'—'}</div></div>
     <div class="info-item col-span-2"><div class="info-key">ที่อยู่</div><div class="info-val">${addr}</div></div>
     <div class="info-item"><div class="info-key">ประเภทมิเตอร์</div><div class="info-val">${r.METERTYPE||'—'}</div></div>
+    <div class="info-item"><div class="info-key">ขนาดมิเตอร์ (พิกัดฐาน)</div><div class="info-val">${r.AMPFROMCIS ? r.AMPFROMCIS + 'A' + (r.METERTYPE ? ' (' + r.METERTYPE + ')' : '') + ' — ยืนยันพิกัดจริงหน้างานอีกครั้ง' : '—'}</div></div>
     <div class="info-item"><div class="info-key">พิกัด</div><div class="info-val mono" style="font-size:13px">${r.LATITUDE?.toFixed(6)||'—'}, ${r.LONGITUDE?.toFixed(6)||'—'}</div></div>
   `;
   document.getElementById('modal-map-btn').onclick = () => { closeModal('modal-user'); switchTab('map'); setTimeout(()=>{ if(mapFull) mapFull.invalidateSize(); focusMapUser(r); },350); };

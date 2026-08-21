@@ -299,6 +299,12 @@ textarea.form-control { resize:vertical; min-height:70px; }
             <input class="form-control" id="ticket-metertype" placeholder="—" readonly style="opacity:0.7;"/>
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">ขนาดมิเตอร์ (พิกัดฐาน — ยืนยันจริงหน้างานอีกครั้ง)</label>
+            <input class="form-control" id="ticket-ampsize" placeholder="—" readonly style="opacity:0.7;"/>
+          </div>
+        </div>
         <div class="form-group" style="margin-bottom:10px;">
           <label class="form-label">ที่อยู่</label>
           <input class="form-control" id="ticket-addr" placeholder="—" readonly style="opacity:0.7;"/>
@@ -543,6 +549,7 @@ function selectTicketUser(r) {
   document.getElementById('ticket-addr').value = addr;
   document.getElementById('ticket-peano').value = r.PEANO||'—';
   document.getElementById('ticket-metertype').value = r.METERTYPE||'—';
+  document.getElementById('ticket-ampsize').value = r.AMPFROMCIS ? (r.AMPFROMCIS + 'A' + (r.METERTYPE ? ' (' + r.METERTYPE + ')' : '')) : '—';
   document.getElementById('ticket-suggest').innerHTML = '';
 }
 
@@ -637,7 +644,7 @@ function createTicket() {
       token: genTicketToken(),
       mode: 'normal',
       ca: r.CA, name, addr, tel: r.MOBILE_NO||'—',
-      peano: r.PEANO||'—', metertype: r.METERTYPE||'—',
+      peano: r.PEANO||'—', metertype: r.METERTYPE||'—', ampfromcis: r.AMPFROMCIS||'',
       amphoe: r.AMPHOE||'ไม่ระบุ', changwat: r.CHANGWAT||'ไม่ระบุ',
       lat: r.LATITUDE||null, lng: r.LONGITUDE||null,
       note, status: 'open',
@@ -683,7 +690,7 @@ function createTicket() {
   document.getElementById('ticket-addr').value='';
   document.getElementById('ticket-peano').value='';
   document.getElementById('ticket-metertype').value='';
-  document.getElementById('emg-name').value='';
+  document.getElementById('ticket-ampsize').value='';
   document.getElementById('emg-tel').value='';
   document.getElementById('emg-addr').value='';
   document.getElementById('emg-lat-input').value='';

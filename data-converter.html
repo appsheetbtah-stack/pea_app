@@ -292,7 +292,7 @@ function looksNumeric(str) {
   return !isNaN(parseFloat(str)) && isFinite(str);
 }
 
-const CUSTOMER_FIELDS = ['CA','PEANO','PREFIX','CUSTOMERNAME','CUSTOMERSIRNAME','ADDRESSNO','MOO','TUMBOL','AMPHOE','CHANGWAT','MOBILE_NO','METERTYPE'];
+const CUSTOMER_FIELDS = ['CA','PEANO','PREFIX','CUSTOMERNAME','CUSTOMERSIRNAME','ADDRESSNO','MOO','TUMBOL','AMPHOE','CHANGWAT','MOBILE_NO','METERTYPE','AMPFROMCIS'];
 
 function extractCustomers(rows, map, stats, fileName) {
   for (const row of rows) {
