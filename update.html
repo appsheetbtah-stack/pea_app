@@ -763,6 +763,10 @@ body {
           <div class="info-val mono">${t.ca} / ${t.peano}</div>
         </div>
         <div class="info-item">
+          <div class="info-key">ขนาดมิเตอร์</div>
+          <div class="info-val mono">${t.ampfromcis ? t.ampfromcis + 'A' + (t.metertype && t.metertype !== '—' ? ' (' + t.metertype + ')' : '') : '—'}</div>
+        </div>
+        <div class="info-item">
           <div class="info-key">ที่อยู่</div>
           <div class="info-val">${t.addr}${mapLink}</div>
         </div>
