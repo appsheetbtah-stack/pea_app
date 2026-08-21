@@ -116,6 +116,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   font-family:var(--mono); font-size:12.5px; color:var(--text); margin-top:4px;
 }
 .tc-reason { font-size:13px; color:var(--text2); margin-top:4px; }
+.tc-oldmeter-chip {
+  background:rgba(243,156,18,.12); border:1px solid rgba(243,156,18,.35); border-radius:8px; padding:7px 10px;
+  font-family:var(--mono); font-size:12.5px; color:var(--yellow); margin-top:4px;
+}
 .ticket-detail-row { font-size:13px; color:var(--text2); display:flex; gap:6px; }
 .ticket-reqno { font-family:var(--mono); font-size:12px; color:var(--text2); }
 .ticket-latlng { font-family:var(--mono); font-size:12px; color:var(--text2); }
@@ -1264,6 +1268,7 @@ function renderList() {
         <div class="ticket-detail-row">📍 ${esc(t.locationAddress || '-')}</div>
         ${parsed.meterSpec ? `<div class="tc-meter-chip">มิเตอร์ ${esc(parsed.meterSpec)}${parsed.noteNum ? ' · Note ' + esc(parsed.noteNum) : ''}</div>` : ''}
         ${parsed.reasonText ? `<div class="tc-reason">สาเหตุ: ${esc(parsed.reasonText)}</div>` : ''}
+        ${t.oldMeterSizeRef && t.meterSizeCode && t.oldMeterSizeRef !== t.meterSizeCode ? `<div class="tc-oldmeter-chip">🔺 เพิ่มขนาดจากเดิม ${esc(t.oldMeterSizeRef)} → ${esc(t.meterSizeCode)}</div>` : ''}
         <div class="ticket-latlng">${t.lat && t.lng ? esc(t.lat) + ', ' + esc(t.lng) : 'ไม่มีพิกัด GPS'}</div>
         <div class="ticket-actions">
           <button class="ticket-action-btn" ${t.lat && t.lng ? '' : 'disabled'} onclick="event.stopPropagation(); viewOnMap('${escAttr(t.reqNo)}')">🗺️ ดูแผนที่</button>
@@ -1402,6 +1407,7 @@ function renderMapMarkers() {
       <b>${esc(t.customerName || '-')}</b><br>
       PEANO: ${esc(t.peanoMeter || '-')}<br>
       ${t.anotherDetail ? `<span class="popup-detail">📝 ${esc(t.anotherDetail)}</span><br>` : ''}
+      ${t.oldMeterSizeRef && t.meterSizeCode && t.oldMeterSizeRef !== t.meterSizeCode ? `<span class="popup-detail" style="color:#b8860b;">🔺 เพิ่มขนาดจากเดิม ${esc(t.oldMeterSizeRef)} → ${esc(t.meterSizeCode)}</span><br>` : ''}
       ${meta.label}
       <div class="popup-actions">
         <button class="popup-btn detail" onclick="openDetail('${escAttr(t.reqNo)}')">รายละเอียด</button>
@@ -1426,7 +1432,8 @@ function openDetail(reqNo) {
     <div class="info-row"><span class="info-label">MRU</span><input class="info-edit-input" id="d-info-mru" placeholder="ไม่บังคับ" value="${escAttr(t.mru)}"></div>
     <div class="info-row"><span class="info-label">Userno</span><input class="info-edit-input" id="d-info-userno" placeholder="ไม่บังคับ" value="${escAttr(t.userno)}"></div>
     <div class="info-row"><span class="info-label">PEANO</span><input class="info-edit-input" id="d-info-peano" placeholder="ไม่บังคับ" value="${escAttr(t.peanoMeter)}"></div>
-    <div class="info-row"><span class="info-label">ขนาดมิเตอร์</span><input class="info-edit-input" id="d-info-metersize" placeholder="ไม่บังคับ" value="${escAttr(t.meterSizeCode)}"></div>
+    <div class="info-row"><span class="info-label">ขนาดมิเตอร์</span><input class="info-edit-input" id="d-info-metersize" placeholder="ไม่บังคับ" value="${escAttr(t.meterSizeCode)}" oninput="document.getElementById('d-metersize-hint').textContent = (window.currentOldMeterSizeRef && this.value !== window.currentOldMeterSizeRef) ? '🔺 ต่างจากขนาดเดิม (' + window.currentOldMeterSizeRef + ') — เพิ่มขนาดมิเตอร์' : '';"></div>
+    <div class="info-row"><span class="info-label"></span><span class="field-hint" id="d-metersize-hint" style="color:var(--yellow);">${t.oldMeterSizeRef && t.meterSizeCode && t.oldMeterSizeRef !== t.meterSizeCode ? '🔺 ต่างจากขนาดเดิม (' + esc(t.oldMeterSizeRef) + ') — เพิ่มขนาดมิเตอร์' : ''}</span></div>
     <div class="info-row"><span class="info-label">หน่วยอ้างอิง</span><input class="info-edit-input" id="d-info-refunit" type="number" inputmode="decimal" placeholder="ไม่บังคับ" value="${escAttr(t.referenceUnit)}" oninput="document.getElementById('d-unit-refhint').textContent = this.value ? 'หน่วยอ้างอิงในระบบ: ' + this.value : '';"></div>
     <div class="info-row"><span class="info-label">ที่อยู่</span><input class="info-edit-input" id="d-info-address" placeholder="ไม่บังคับ" value="${escAttr(t.locationAddress)}"></div>
     <div class="info-row"><span class="info-label">พิกัด (Lat/Long)</span>
@@ -1437,6 +1444,7 @@ function openDetail(reqNo) {
     <div class="info-row"><span class="info-label">สาเหตุที่ต้องตรวจสอบ</span><input class="info-edit-input" id="d-info-detail" placeholder="ไม่บังคับ" value="${escAttr(t.anotherDetail)}"></div>
     <div class="info-row"><span class="info-label">วันที่ออกใบงาน</span><span class="info-value">${esc(t.jobDate)}</span></div>
   `;
+  window.currentOldMeterSizeRef = t.oldMeterSizeRef || '';
 
   document.getElementById('d-checkdate').value = t.checkDate || formatNowDateTime();
   document.getElementById('d-location-hint').textContent = '';

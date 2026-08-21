@@ -599,8 +599,8 @@ body {
 
   // แสดงพื้นที่ปุ่ม 3 สถานะ: (1) ยังไม่เข้าเงื่อนไข → ไม่แสดงอะไร (2) เข้าเงื่อนไขแล้วแต่ยังไม่บันทึก → คำใบ้ให้บันทึกก่อน
   // (3) บันทึกแล้วและยังไม่เคยสร้างใบงาน → ปุ่มสร้าง (4) สร้างไปแล้ว → ลิงก์ดูใบงาน (กันสร้างซ้ำ)
-  // หมายเหตุ: ขนาดมิเตอร์ (meterSizeCode) ปล่อยว่างไว้เสมอ เพราะหน้างานจริงมักไม่ทราบขนาดมิเตอร์ลูกที่จะเปลี่ยนตอนสร้าง ticket
-  // ให้ช่างที่ไปเปิดใบงานใน U-cube กรอกเองหน้างานแทน
+  // หมายเหตุ: ขนาดมิเตอร์ (meterSizeCode) ตอนสร้าง ticket จะ auto-fill ด้วยขนาดมิเตอร์เดิมจาก CIS (ampfromcis + metertype)
+  // เพราะงานสับเปลี่ยนปกติต้องใช้มิเตอร์ตัวใหม่ขนาดเท่าเดิม — ถ้าเป็นงาน "เพิ่มขนาดมิเตอร์" (เช่น 5A → 15A/30A) ช่างต้องแก้ไขค่านี้เองหน้างานแทน
   function renderJobActionArea() {
     const area = document.getElementById('job-action-area');
     if (!area || !currentData) return;
@@ -643,14 +643,13 @@ body {
     const detailParts = [
       currentData.note,
       (currentData.causes || []).length ? 'สาเหตุ: ' + currentData.causes.join(', ') : '',
-      (currentData.fixes || []).length ? 'วิธีแก้ไขหน้างานเดิม: ' + currentData.fixes.join(', ') : '',
-      oldMeterSizeRef ? 'ขนาดมิเตอร์เดิม (พิกัดฐาน ไม่ใช่ค่าที่ยืนยันแล้ว): ' + oldMeterSizeRef : ''
+      (currentData.fixes || []).length ? 'วิธีแก้ไขหน้างานเดิม: ' + currentData.fixes.join(', ') : ''
     ].filter(Boolean);
 
     const ticket = {
       reqNo, jobDate: formatNowDateTimeTH(), mru: '', userno: '',
       peanoMeter: currentData.peano && currentData.peano !== '—' ? currentData.peano : '',
-      meterSizeCode: '', oldMeterSizeRef, referenceUnit: '',
+      meterSizeCode: oldMeterSizeRef, oldMeterSizeRef, referenceUnit: '',
       customerName: currentData.name || '', locationAddress: currentData.addr || '',
       anotherDetail: detailParts.join(' - '),
       lat: currentData.lat || 0, lng: currentData.lng || 0,
