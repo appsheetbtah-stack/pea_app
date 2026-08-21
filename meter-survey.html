@@ -903,7 +903,9 @@ function openPointForm(planId, pointNo) {
   }
   document.getElementById('pt-wire-length').value = pt ? pt.equipment.copperWire.lengthM : 7;
   const wireQtyEl = document.getElementById('pt-wire-qty');
-  wireQtyEl.dataset.manuallyEdited = pt ? '1' : '';
+  // ไม่ล็อกฟิลด์นี้ตอนโหลดข้อมูลเดิมอีกต่อไป ให้ยึดจำนวนมิเตอร์ (ด้าน A+B) เป็นค่าอ้างอิงเสมอ
+  // เว้นแต่ผู้ใช้จะพิมพ์แก้เองในฟอร์มนี้จริง ๆ (ซึ่งจะไปตั้ง manuallyEdited ผ่าน input listener ด้านล่าง)
+  delete wireQtyEl.dataset.manuallyEdited;
   wireQtyEl.value = pt ? pt.equipment.copperWire.qty : 0;
 
   const latlngEl = document.getElementById('pt-latlng');
