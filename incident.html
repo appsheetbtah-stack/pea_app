@@ -830,7 +830,7 @@ const ORG_NAME = 'กฟส.บ้านทุ่งอ้ายโห้';
 
 function buildOutageMessage(t) {
   const equipStr = (t.equipment && t.equipment.length)
-    ? t.equipment.map(eq => eq.label || eq.id).join(', ')
+    ? t.equipment.map(eq => eq.id).join(', ')
     : '-';
   return `${ORG_NAME}
 ขอแจ้งเหตุไฟฟ้าขัดข้อง
@@ -845,7 +845,7 @@ function buildOutageMessage(t) {
 
 function buildRestoreMessage(t) {
   const equipStr = (t.equipment && t.equipment.length)
-    ? t.equipment.map(eq => eq.label || eq.id).join(', ')
+    ? t.equipment.map(eq => eq.id).join(', ')
     : '-';
   const matLines = (t.materials && t.materials.length)
     ? t.materials.map(m => `- ${m.name} : ${m.qty ?? 1} ${m.unit}`).join('\n')

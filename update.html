@@ -794,7 +794,7 @@ body {
   function buildOutageMessage() {
     const t = currentData || {};
     const equipStr = selectedEquipment.length
-      ? selectedEquipment.map(eq => eq.label || eq.id).join(', ')
+      ? selectedEquipment.map(eq => eq.id).join(', ')
       : '-';
     return `${ORG_NAME}
 ขอแจ้งเหตุไฟฟ้าขัดข้อง
@@ -811,7 +811,7 @@ body {
   function buildRestoreMessage() {
     const t = currentData || {};
     const equipStr = selectedEquipment.length
-      ? selectedEquipment.map(eq => eq.label || eq.id).join(', ')
+      ? selectedEquipment.map(eq => eq.id).join(', ')
       : '-';
     const matLines = selectedMaterials.length
       ? selectedMaterials.map(m => `- ${m.name} : ${m.qty ?? 1} ${m.unit}`).join('\n')
