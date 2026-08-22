@@ -31,16 +31,15 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   background: var(--bg); color: var(--text); font-family: var(--sans);
-  font-size:15px; min-height: 100vh; display: flex; align-items: flex-start;
-  justify-content: center; padding: 24px 16px;
+  font-size:15px; min-height: 100vh;
 }
 .card {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-  max-width: 460px; width: 100%; overflow: hidden;
+  background: var(--surface); width: 100%;
 }
 .card-header {
-  padding: 20px 22px; border-bottom: 1px solid var(--border);
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: 10px;
+  position: sticky; top: 0; z-index: 600; background: var(--surface);
 }
 .header-back {
   color: var(--text2); text-decoration: none; font-size:14px; font-weight: 600;
@@ -52,7 +51,7 @@ body {
   font-size:13px; padding: 4px 9px; border-radius: 4px; letter-spacing: 1px;
 }
 .card-title { font-size:15px; font-weight: 600; color: var(--text2); }
-.card-body { padding: 22px; }
+.card-body { padding: 20px 18px 40px; }
 
 .state-loading, .state-error {
   text-align: center; padding: 40px 20px; color: var(--text2);
