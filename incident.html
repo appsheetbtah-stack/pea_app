@@ -839,7 +839,7 @@ function buildOutageMessage(t) {
 ไฟดับเวลา : ${t.outageTime || '-'} น.
 คาดว่าใช้เวลาแก้ไขภายใน : ${t.estimatedMinutes || '-'} นาที
 คาดการณ์เวลาไฟติด : ${t.estimatedRestoreTime || '-'} น.
-สภาพอากาศ : ${t.weather || '-'}
+สภาพอากาศ : ${Array.isArray(t.weather) ? (t.weather.length ? t.weather.join(', ') : '-') : (t.weather || '-')}
 ชื่อช่างดำเนินการ : ${t.technician || '-'}`;
 }
 

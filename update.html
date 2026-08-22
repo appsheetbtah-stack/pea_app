@@ -385,25 +385,30 @@ body {
   let outageTime = '';          // ไฟดับเวลา (HH:MM)
   let estimatedMinutes = '';    // คาดว่าใช้เวลาแก้ไขภายใน (นาที)
   let estimatedRestoreTime = ''; // คาดการณ์เวลาไฟติด (HH:MM) — auto คำนวณ แก้ไขเองได้
-  let weather = '';             // สภาพอากาศ
+  let selectedWeather = [];     // สภาพอากาศ (เลือกได้หลายรายการ)
 
-  let currentPickerType = null; // 'cause' | 'fix' | 'material'
+  let currentPickerType = null; // 'cause' | 'fix' | 'material' | 'technician' | 'weather'
 
   const PICKER_CONFIG = {
     cause: { title: 'สาเหตุที่ทำให้ไฟฟ้าขัดข้อง', options: CAUSE_OPTIONS, hasQty: false },
     fix: { title: 'วิธีแก้ไข', options: FIX_OPTIONS, hasQty: false },
-    material: { title: 'วัสดุ/อุปกรณ์ที่ใช้', options: MATERIAL_OPTIONS.map(m=>m.name), hasQty: true }
+    material: { title: 'วัสดุ/อุปกรณ์ที่ใช้', options: MATERIAL_OPTIONS.map(m=>m.name), hasQty: true },
+    technician: { title: 'ชื่อช่างผู้ดำเนินการ', options: TECHNICIAN_OPTIONS, hasQty: false, single: true, noCustom: true },
+    weather: { title: 'สภาพอากาศ', options: WEATHER_OPTIONS, hasQty: false, single: false, noCustom: true }
   };
 
   function getSelectedList(type) {
     if(type === 'cause') return selectedCauses;
     if(type === 'fix') return selectedFixes;
+    if(type === 'technician') return selectedTechnician ? [selectedTechnician] : [];
+    if(type === 'weather') return selectedWeather;
     return selectedMaterials.map(m => m.name);
   }
 
   function getCustomList(type) {
     if(type === 'cause') return customCauses;
     if(type === 'fix') return customFixes;
+    if(type === 'technician' || type === 'weather') return [];
     // วัสดุ: รายการ custom คือชื่อใน selectedMaterials ที่ไม่ได้อยู่ใน preset
     return selectedMaterials.map(m => m.name);
   }
@@ -435,6 +440,15 @@ body {
       }
       return;
     }
+    if(type === 'technician') {
+      selectedTechnician = (selectedTechnician === name) ? '' : name;
+      return;
+    }
+    if(type === 'weather') {
+      const idx = selectedWeather.indexOf(name);
+      if(idx >= 0) selectedWeather.splice(idx, 1); else selectedWeather.push(name);
+      return;
+    }
     const list = type === 'cause' ? selectedCauses : selectedFixes;
     const idx = list.indexOf(name);
     if(idx >= 0) list.splice(idx, 1); else list.push(name);
@@ -456,7 +470,7 @@ body {
   }
 
   function updateAllSummaries() {
-    ['cause','fix','material'].forEach(type => {
+    ['cause','fix','material','technician','weather'].forEach(type => {
       const el = document.getElementById('summary-' + type);
       if(!el) return;
       const text = summaryText(type);
@@ -523,6 +537,8 @@ body {
     currentPickerType = type;
     document.getElementById('popup-title').textContent = PICKER_CONFIG[type].title;
     document.getElementById('popup-search').value = '';
+    const noCustom = !!PICKER_CONFIG[type].noCustom;
+    document.getElementById('popup-add-btn').style.display = noCustom ? 'none' : '';
     document.getElementById('popup-overlay').classList.add('show');
     document.getElementById('popup-sheet').classList.add('show');
     renderPickerList();
@@ -539,7 +555,9 @@ body {
     if(!currentPickerType) return;
     if(currentPickerType === 'material') selectedMaterials = [];
     else if(currentPickerType === 'cause') selectedCauses = [];
-    else selectedFixes = [];
+    else if(currentPickerType === 'fix') selectedFixes = [];
+    else if(currentPickerType === 'technician') selectedTechnician = '';
+    else if(currentPickerType === 'weather') selectedWeather = [];
     renderPickerList();
   }
 
@@ -585,7 +603,11 @@ body {
     listEl.querySelectorAll('.popup-item').forEach(row => {
       row.addEventListener('click', () => {
         toggleSelection(type, row.dataset.item);
-        renderPickerList();
+        if(PICKER_CONFIG[type].single) {
+          closePicker(); // เลือกได้รายการเดียว — เลือกแล้วปิดหน้าต่างทันที เหมือน dropdown
+        } else {
+          renderPickerList();
+        }
       });
     });
     listEl.querySelectorAll('[data-qty-for]').forEach(inp => {
@@ -598,6 +620,7 @@ body {
 
   function addCustomItem() {
     if(!currentPickerType) return;
+    if(PICKER_CONFIG[currentPickerType].noCustom) return; // รายการนี้เป็นรายชื่อ/หมวดที่กำหนดตายตัว ห้ามพิมพ์เพิ่มเอง
     const searchInput = document.getElementById('popup-search');
     const val = searchInput.value.trim();
     if(!val) return;
@@ -743,7 +766,7 @@ body {
         outageTime,
         estimatedMinutes,
         estimatedRestoreTime,
-        weather
+        weather: selectedWeather
       });
       currentData.causes = [...selectedCauses];
       currentData.customCauses = [...customCauses];
@@ -753,7 +776,7 @@ body {
       currentData.outageTime = outageTime;
       currentData.estimatedMinutes = estimatedMinutes;
       currentData.estimatedRestoreTime = estimatedRestoreTime;
-      currentData.weather = weather;
+      currentData.weather = [...selectedWeather];
       renderJobActionArea();
       showToast('บันทึกรายละเอียดการซ่อมเรียบร้อย ✓', 'success');
     } catch(e) {
@@ -816,7 +839,7 @@ body {
 ไฟดับเวลา : ${outageTime || '-'} น.
 คาดว่าใช้เวลาแก้ไขภายใน : ${estimatedMinutes || '-'} นาที
 คาดการณ์เวลาไฟติด : ${estimatedRestoreTime || '-'} น.
-สภาพอากาศ : ${weather || '-'}
+สภาพอากาศ : ${selectedWeather.length ? selectedWeather.join(', ') : '-'}
 ชื่อช่างดำเนินการ : ${selectedTechnician || '-'}`;
   }
 
@@ -953,7 +976,8 @@ ${matLines}`;
       outageTime = data.outageTime || extractTimeHHMM(data.time) || '';
       estimatedMinutes = (data.estimatedMinutes !== undefined && data.estimatedMinutes !== '') ? data.estimatedMinutes : 30;
       estimatedRestoreTime = data.estimatedRestoreTime || addMinutesToTimeStr(outageTime, estimatedMinutes) || '';
-      weather = data.weather || '';
+      // สภาพอากาศ: รองรับทั้งข้อมูลเก่า (string) และใหม่ (array, เลือกได้หลายรายการ)
+      selectedWeather = Array.isArray(data.weather) ? data.weather : (data.weather ? [data.weather] : []);
       checkEquipmentPickerResult(); // ถ้ากลับมาจาก equipment.html picker ให้ใช้ค่านั้นแทน (ใหม่กว่า)
       renderTicket(data);
     } catch(e) {
@@ -1039,10 +1063,10 @@ ${matLines}`;
 
         <div class="field-group">
           <div class="field-label">👷 ชื่อช่างผู้ดำเนินการ</div>
-          <select class="select-input" id="technician-select">
-            <option value="">-- เลือกช่างผู้ดำเนินการ --</option>
-            ${TECHNICIAN_OPTIONS.map(name => `<option value="${escapeAttr(name)}" ${name===selectedTechnician?'selected':''}>${escapeHtml(name)}</option>`).join('')}
-          </select>
+          <div class="picker-box" id="picker-technician" onclick="openPicker('technician')">
+            <div class="picker-text" id="summary-technician"></div>
+            <div class="picker-plus">+</div>
+          </div>
         </div>
 
         <div class="field-group">
@@ -1054,10 +1078,10 @@ ${matLines}`;
           <div class="mini-label">คาดการณ์เวลาไฟติด (คำนวณอัตโนมัติ แก้ไขได้)</div>
           <input type="time" class="custom-input" id="estimated-restore-input" value="${escapeAttr(estimatedRestoreTime)}">
           <div class="mini-label">สภาพอากาศ</div>
-          <select class="select-input" id="weather-select">
-            <option value="">-- เลือกสภาพอากาศ --</option>
-            ${WEATHER_OPTIONS.map(w => `<option value="${escapeAttr(w)}" ${w===weather?'selected':''}>${escapeHtml(w)}</option>`).join('')}
-          </select>
+          <div class="picker-box" id="picker-weather" onclick="openPicker('weather')">
+            <div class="picker-text" id="summary-weather"></div>
+            <div class="picker-plus">+</div>
+          </div>
           <button class="save-btn etr-btn" id="etr-outage-btn" type="button" style="margin-top:14px;">🔴 สร้างข้อความแจ้งเหตุไฟฟ้าขัดข้อง (ส่งกลุ่ม ETR)</button>
           <div class="etr-hint">ส่งได้ทันที ไม่ต้องรอซ่อมเสร็จ — ใช้แจ้งเหตุขัดข้องให้กลุ่ม ETR ทราบ</div>
         </div>
@@ -1073,9 +1097,6 @@ ${matLines}`;
     attachButtonHandlers();
     updateAllSummaries();
     document.getElementById('save-repair-btn').addEventListener('click', saveRepairDetails);
-    document.getElementById('technician-select').addEventListener('change', (e) => {
-      selectedTechnician = e.target.value;
-    });
     document.getElementById('outage-time-input').addEventListener('change', (e) => {
       outageTime = e.target.value;
       recalcEstimatedRestoreTime();
@@ -1086,9 +1107,6 @@ ${matLines}`;
     });
     document.getElementById('estimated-restore-input').addEventListener('change', (e) => {
       estimatedRestoreTime = e.target.value; // แก้ไขเองแล้ว ไม่ auto-overwrite ทับอีกจนกว่าจะเปลี่ยนเวลาไฟดับ/นาทีใหม่
-    });
-    document.getElementById('weather-select').addEventListener('change', (e) => {
-      weather = e.target.value;
     });
     document.getElementById('etr-outage-btn').addEventListener('click', openEtrOutagePreview);
     document.getElementById('etr-restore-btn').addEventListener('click', openEtrRestorePreview);
