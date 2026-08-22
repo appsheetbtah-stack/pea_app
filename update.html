@@ -229,6 +229,35 @@ body {
 .job-hint {
   font-size:12.5px; color: var(--text2); margin-top: 9px; text-align: center; line-height: 1.5;
 }
+
+/* ===== ETR message modal ===== */
+.etr-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 600;
+  align-items: flex-end; justify-content: center;
+}
+.etr-overlay.show { display: flex; }
+.etr-modal {
+  width: 100%; max-width: 460px; background: var(--surface); border-radius: 18px 18px 0 0;
+  padding: 20px 18px calc(20px + env(safe-area-inset-bottom, 0px));
+  max-height: 90vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+}
+.etr-modal-title { font-size:16px; font-weight: 700; margin-bottom: 16px; }
+.etr-field { margin-bottom: 14px; }
+.etr-field label { display: block; font-size:12.5px; color: var(--text2); margin-bottom: 6px; }
+.etr-field input, .etr-field select {
+  width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--sans); font-size:14.5px; padding: 11px 12px; border-radius: 10px; outline: none;
+  box-sizing: border-box;
+}
+.etr-field input:focus, .etr-field select:focus { border-color: var(--accent); }
+.etr-actions { display: flex; gap: 10px; margin-top: 6px; }
+.etr-actions button {
+  flex: 1; border: none; font-family: var(--sans); font-size:14.5px; font-weight: 600;
+  padding: 13px; border-radius: 10px; cursor: pointer;
+}
+.etr-actions .etr-cancel { background: var(--surface2); color: var(--text2); }
+.etr-actions .etr-copy { background: var(--accent); color: #000; }
+.etr-actions button:active { transform: scale(0.98); }
 </style>
 </head>
 <body>
@@ -245,6 +274,70 @@ body {
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div class="etr-overlay" id="etr-overlay">
+  <div class="etr-modal">
+    <div class="etr-modal-title">📢 สร้างข้อความแจ้งกลุ่ม ETR</div>
+    <div class="etr-field">
+      <label>เวลาไฟดับ</label>
+      <input type="time" id="etr-time-off">
+    </div>
+    <div class="etr-field">
+      <label>คาดว่าใช้เวลาแก้ไข (นาที)</label>
+      <input type="number" id="etr-minutes" min="1" value="30">
+    </div>
+    <div class="etr-field">
+      <label>สภาพอากาศ</label>
+      <select id="etr-weather">
+        <option value="ปกติ">ปกติ</option>
+        <option value="ฝนตก">ฝนตก</option>
+        <option value="ฟ้าคะนอง">ฟ้าคะนอง</option>
+        <option value="ลมกระโชก">ลมกระโชก</option>
+      </select>
+    </div>
+    <div class="etr-field">
+      <label>ชื่อช่างดำเนินการ</label>
+      <select id="etr-tech">
+        <option value="นายชาคริต บุญม่วง">นายชาคริต บุญม่วง</option>
+        <option value="นายอนลัส เลี่ยมสกุล">นายอนลัส เลี่ยมสกุล</option>
+        <option value="นายนิติพัฒน์ พุกสุข">นายนิติพัฒน์ พุกสุข</option>
+        <option value="นายสัตตยา นุเครือ">นายสัตตยา นุเครือ</option>
+      </select>
+    </div>
+    <div class="etr-actions">
+      <button class="etr-cancel" id="etr-cancel-btn">ยกเลิก</button>
+      <button class="etr-copy" id="etr-copy-btn">📋 คัดลอกข้อความ</button>
+    </div>
+  </div>
+</div>
+
+<div class="etr-overlay" id="etr-restored-overlay">
+  <div class="etr-modal">
+    <div class="etr-modal-title">🔌 แจ้งไฟติด (ETR)</div>
+    <div class="etr-field">
+      <label>ไฟติดเวลา</label>
+      <input type="time" id="etr-restored-time-on">
+    </div>
+    <div class="etr-field">
+      <label>วัสดุ/อุปกรณ์ที่ใช้</label>
+      <div id="etr-restored-materials-preview" style="background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:11px 12px; font-size:13.5px; color:var(--text2); line-height:1.6;"></div>
+    </div>
+    <div class="etr-field">
+      <label>ชื่อช่างดำเนินการ</label>
+      <select id="etr-restored-tech">
+        <option value="นายชาคริต บุญม่วง">นายชาคริต บุญม่วง</option>
+        <option value="นายอนลัส เลี่ยมสกุล">นายอนลัส เลี่ยมสกุล</option>
+        <option value="นายนิติพัฒน์ พุกสุข">นายนิติพัฒน์ พุกสุข</option>
+        <option value="นายสัตตยา นุเครือ">นายสัตตยา นุเครือ</option>
+      </select>
+    </div>
+    <div class="etr-actions">
+      <button class="etr-cancel" id="etr-restored-cancel-btn">ยกเลิก</button>
+      <button class="etr-copy" id="etr-restored-copy-btn">📋 คัดลอกข้อความ</button>
+    </div>
+  </div>
+</div>
+
 
 <div class="popup-overlay" id="popup-overlay" onclick="closePicker()"></div>
 <div class="popup-sheet" id="popup-sheet">
@@ -291,6 +384,180 @@ body {
     toastEl.className = 'toast show ' + type;
     setTimeout(() => { toastEl.className = 'toast'; }, 2800);
   }
+
+  // คัดลอกข้อความแบบกันเหนียว: ใช้ Clipboard API ก่อน (ต้องเป็น HTTPS/localhost)
+  // ถ้าใช้ไม่ได้ (เช่น เปิดไฟล์ผ่าน content://downloads/ ที่ไม่ใช่ secure context) ให้ fallback ไปใช้ execCommand('copy') แบบเก่าแทน
+  function copyTextRobust(text) {
+    return new Promise((resolve, reject) => {
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(resolve).catch(() => fallbackCopyText(text, resolve, reject));
+      } else {
+        fallbackCopyText(text, resolve, reject);
+      }
+    });
+  }
+  function fallbackCopyText(text, resolve, reject) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.top = '0';
+      ta.style.left = '0';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      ok ? resolve() : reject(new Error('execCommand copy failed'));
+    } catch (e) { reject(e); }
+  }
+
+  // สร้างข้อความรูปแบบเดียวกับที่ส่งเข้ากลุ่ม LINE "ETR Real Time" เพื่อขอเลขใบสั่งเบิกวัสดุคงคลังทดแทน
+  // ชื่อหน่วยงานตายตัว "กฟส.บ้านทุ่งอ้ายโห้" — เปิด modal ให้กรอกเวลา/นาที และเลือกสภาพอากาศ/ชื่อช่างจาก dropdown
+  let etrContext = null; // { addr, equipmentList }
+
+  function buildAndCopyETRMessage(addr, equipmentList) {
+    etrContext = { addr, equipmentList };
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    document.getElementById('etr-time-off').value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    document.getElementById('etr-minutes').value = localStorage.getItem('etr_last_minutes') || '30';
+    document.getElementById('etr-weather').value = localStorage.getItem('etr_last_weather') || 'ปกติ';
+    const savedTech = localStorage.getItem('etr_last_tech');
+    if (savedTech) document.getElementById('etr-tech').value = savedTech;
+    document.getElementById('etr-overlay').classList.add('show');
+  }
+  window.buildAndCopyETRMessage = buildAndCopyETRMessage;
+
+  function closeETRModal() {
+    document.getElementById('etr-overlay').classList.remove('show');
+    etrContext = null;
+  }
+
+  function confirmETRMessage() {
+    if (!etrContext) return;
+    const { addr, equipmentList } = etrContext;
+    const pad = n => String(n).padStart(2, '0');
+
+    const timeOffInput = document.getElementById('etr-time-off').value;
+    const minutesInput = document.getElementById('etr-minutes').value;
+    const weatherInput = document.getElementById('etr-weather').value;
+    const techInput = document.getElementById('etr-tech').value;
+
+    if (!timeOffInput) { showToast('กรุณาระบุเวลาไฟดับ', 'error'); return; }
+
+    localStorage.setItem('etr_last_minutes', minutesInput);
+    localStorage.setItem('etr_last_weather', weatherInput);
+    localStorage.setItem('etr_last_tech', techInput);
+
+    // เก็บเวลาไฟดับไว้กับ ticket เพื่อคำนวณ "เวลาไฟติด" อัตโนมัติ (+30 นาที) ตอนแจ้งไฟติดภายหลัง
+    if (currentDocId) {
+      currentData.etrTimeOff = timeOffInput;
+      updateDoc(doc(db, "tickets", currentDocId), { etrTimeOff: timeOffInput }).catch(e => console.error('save etrTimeOff error:', e));
+    }
+
+    const [hh, mm] = timeOffInput.split(':').map(s => parseInt(s, 10));
+    const minutes = parseInt(minutesInput, 10) || 30;
+    const offDate = new Date(); offDate.setHours(hh || 0, mm || 0, 0, 0);
+    const onDate = new Date(offDate.getTime() + minutes * 60000);
+    const timeOffStr = `${pad(offDate.getHours())}.${pad(offDate.getMinutes())} น.`;
+    const timeOnStr = `${pad(onDate.getHours())}.${pad(onDate.getMinutes())} น.`;
+    const eqText = (equipmentList && equipmentList.length) ? equipmentList.join(', ') : '—';
+
+    const msg = `กฟส.บ้านทุ่งอ้ายโห้
+ขอแจ้งเหตุไฟฟ้าขัดข้อง
+บริเวณ : ${addr || '—'}
+รหัสอุปกรณ์ : ${eqText}
+ไฟดับเวลา : ${timeOffStr}
+คาดว่าใช้เวลาแก้ไขภายใน : ${minutes} นาที
+คาดการณ์เวลาไฟติด : ${timeOnStr}
+สภาพอากาศ : ${weatherInput || 'ปกติ'}
+ชื่อช่างดำเนินการ : ${techInput || '—'}`;
+
+    copyTextRobust(msg).then(() => {
+      showToast('คัดลอกข้อความแจ้งกลุ่ม ETR แล้ว วางในไลน์ได้เลย ✓', 'success');
+    }).catch(() => {
+      showToast('คัดลอกไม่สำเร็จ ลองแตะค้างที่ข้อความเพื่อคัดลอกเอง', 'error');
+    });
+    closeETRModal();
+  }
+
+  document.getElementById('etr-cancel-btn').addEventListener('click', closeETRModal);
+  document.getElementById('etr-copy-btn').addEventListener('click', confirmETRMessage);
+  document.getElementById('etr-overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'etr-overlay') closeETRModal();
+  });
+
+  // สร้างข้อความ "แจ้งไฟติด" พร้อมรายการวัสดุ/อุปกรณ์ที่ใช้ — เวลาไฟติดตั้งต้น = เวลาไฟดับที่บันทึกไว้ + 30 นาที
+  let etrRestoredContext = null; // { addr, equipmentList, materials }
+
+  function buildAndCopyETRRestoredMessage(addr, equipmentList, materials, savedTimeOff) {
+    etrRestoredContext = { addr, equipmentList, materials };
+    const pad = n => String(n).padStart(2, '0');
+    let base;
+    if (savedTimeOff) {
+      const [hh, mm] = savedTimeOff.split(':').map(s => parseInt(s, 10));
+      base = new Date(); base.setHours(hh || 0, mm || 0, 0, 0);
+    } else {
+      base = new Date();
+    }
+    const onDate = new Date(base.getTime() + 30 * 60000);
+    document.getElementById('etr-restored-time-on').value = `${pad(onDate.getHours())}:${pad(onDate.getMinutes())}`;
+
+    const matText = (materials && materials.length)
+      ? materials.map(m => `• ${m.name} (${m.qty} ${m.unit})`).join('\n')
+      : 'ไม่มีการเบิกวัสดุ';
+    document.getElementById('etr-restored-materials-preview').textContent = matText;
+
+    const savedTech = localStorage.getItem('etr_last_tech');
+    if (savedTech) document.getElementById('etr-restored-tech').value = savedTech;
+    document.getElementById('etr-restored-overlay').classList.add('show');
+  }
+  window.buildAndCopyETRRestoredMessage = buildAndCopyETRRestoredMessage;
+
+  function closeETRRestoredModal() {
+    document.getElementById('etr-restored-overlay').classList.remove('show');
+    etrRestoredContext = null;
+  }
+
+  function confirmETRRestoredMessage() {
+    if (!etrRestoredContext) return;
+    const { addr, equipmentList, materials } = etrRestoredContext;
+    const pad = n => String(n).padStart(2, '0');
+
+    const timeOnInput = document.getElementById('etr-restored-time-on').value;
+    const techInput = document.getElementById('etr-restored-tech').value;
+    if (!timeOnInput) { showToast('กรุณาระบุเวลาไฟติด', 'error'); return; }
+
+    localStorage.setItem('etr_last_tech', techInput);
+
+    const [hh, mm] = timeOnInput.split(':').map(s => parseInt(s, 10));
+    const timeOnStr = `${pad(hh || 0)}.${pad(mm || 0)} น.`;
+    const eqText = (equipmentList && equipmentList.length) ? equipmentList.join(', ') : '—';
+    const matText = (materials && materials.length) ? materials.map(m => `${m.name} (${m.qty} ${m.unit})`).join(', ') : '—';
+
+    const msg = `กฟส.บ้านทุ่งอ้ายโห้
+แจ้งไฟติดแล้ว
+บริเวณ : ${addr || '—'}
+รหัสอุปกรณ์ : ${eqText}
+ไฟติดเวลา : ${timeOnStr}
+วัสดุ/อุปกรณ์ที่ใช้ : ${matText}
+ชื่อช่างดำเนินการ : ${techInput || '—'}`;
+
+    copyTextRobust(msg).then(() => {
+      showToast('คัดลอกข้อความแจ้งไฟติดแล้ว วางในไลน์ได้เลย ✓', 'success');
+    }).catch(() => {
+      showToast('คัดลอกไม่สำเร็จ ลองแตะค้างที่ข้อความเพื่อคัดลอกเอง', 'error');
+    });
+    closeETRRestoredModal();
+  }
+
+  document.getElementById('etr-restored-cancel-btn').addEventListener('click', closeETRRestoredModal);
+  document.getElementById('etr-restored-copy-btn').addEventListener('click', confirmETRRestoredMessage);
+  document.getElementById('etr-restored-overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'etr-restored-overlay') closeETRRestoredModal();
+  });
 
   function renderError(title, sub) {
     body.innerHTML = `
@@ -813,13 +1080,30 @@ body {
         </div>
 
         <button class="save-btn" id="save-repair-btn">💾 บันทึกรายละเอียดการซ่อม</button>
+        <button class="save-btn" id="etr-message-btn" style="background:var(--surface2); color:var(--accent); border:1px solid var(--accent);">📢 สร้างข้อความแจ้งกลุ่ม ETR (ไฟดับ)</button>
+        <div id="etr-restored-area"></div>
         <div id="job-action-area"></div>
       </div>
     `;
     attachButtonHandlers();
     updateAllSummaries();
     document.getElementById('save-repair-btn').addEventListener('click', saveRepairDetails);
+    document.getElementById('etr-message-btn').addEventListener('click', () => {
+      buildAndCopyETRMessage(currentData.addr, selectedEquipment.map(eq => eq.id));
+    });
     renderJobActionArea();
+    renderETRRestoredButton();
+  }
+
+  // ปุ่ม "แจ้งไฟติด" โผล่เฉพาะตอนสถานะ = แก้ไขแล้ว (done) เท่านั้น
+  function renderETRRestoredButton() {
+    const area = document.getElementById('etr-restored-area');
+    if(!area || !currentData) return;
+    if(currentData.status !== 'done') { area.innerHTML = ''; return; }
+    area.innerHTML = `<button class="save-btn" id="etr-restored-btn" style="background:var(--surface2); color:var(--green); border:1px solid var(--green);">🔌 แจ้งไฟติด (ETR)</button>`;
+    document.getElementById('etr-restored-btn').addEventListener('click', () => {
+      buildAndCopyETRRestoredMessage(currentData.addr, selectedEquipment.map(eq => eq.id), selectedMaterials, currentData.etrTimeOff);
+    });
   }
 
   function escapeAttr(s) {
@@ -857,6 +1141,7 @@ body {
           document.getElementById('status-buttons').innerHTML = renderStatusButtons(newStatus);
           document.getElementById('status-pill').textContent = statusLabel(newStatus);
           document.getElementById('status-pill').className = 'status-pill ' + (newStatus==='open'?'status-open':newStatus==='progress'?'status-progress':'status-done');
+          renderETRRestoredButton();
           attachButtonHandlers();
           showToast('อัปเดตสถานะเรียบร้อย ✓', 'success');
         } catch(e) {
