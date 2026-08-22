@@ -597,8 +597,8 @@ body {
     return `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()+543} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
   }
 
-  // แสดงพื้นที่ปุ่ม 3 สถานะ: (1) ยังไม่เข้าเงื่อนไข → ไม่แสดงอะไร (2) เข้าเงื่อนไขแล้วแต่ยังไม่บันทึก → คำใบ้ให้บันทึกก่อน
-  // (3) บันทึกแล้วและยังไม่เคยสร้างใบงาน → ปุ่มสร้าง (4) สร้างไปแล้ว → ลิงก์ดูใบงาน (กันสร้างซ้ำ)
+  // แสดงพื้นที่ปุ่ม 2 สถานะ: (1) ยังไม่เคยสร้างใบงาน → ปุ่มสร้าง (โชว์ตลอด ไม่พึ่งเงื่อนไขวิธีแก้ไข/บันทึกก่อน)
+  // (2) สร้างไปแล้ว → ลิงก์ดูใบงาน (กันสร้างซ้ำ)
   // หมายเหตุ: ขนาดมิเตอร์ (meterSizeCode) ตอนสร้าง ticket จะ auto-fill ด้วยขนาดมิเตอร์เดิมจาก CIS (ampfromcis + metertype)
   // เพราะงานสับเปลี่ยนปกติต้องใช้มิเตอร์ตัวใหม่ขนาดเท่าเดิม — ถ้าเป็นงาน "เพิ่มขนาดมิเตอร์" (เช่น 5A → 15A/30A) ช่างต้องแก้ไขค่านี้เองหน้างานแทน
   function renderJobActionArea() {
@@ -610,22 +610,14 @@ body {
       return;
     }
 
-    const savedHasSwap = hasMeterSwapFix(currentData.fixes) || hasMeterSwapFix(currentData.customFixes);
-    const pendingHasSwap = hasMeterSwapFix(selectedFixes) || hasMeterSwapFix(customFixes);
-
-    if (savedHasSwap) {
-      area.innerHTML = `<button class="save-btn job-btn" id="create-job-btn">🔁 สร้างใบงานสับเปลี่ยนมิเตอร์ใน U-cube</button>`;
-      document.getElementById('create-job-btn').addEventListener('click', createSwapJob);
-    } else if (pendingHasSwap) {
-      area.innerHTML = `<div class="job-hint">💡 เลือก "เปลี่ยนมิเตอร์" ไว้ในวิธีแก้ไข — กดบันทึกรายละเอียดการซ่อมก่อน เพื่อเปิดใช้ปุ่มสร้างใบงานสับเปลี่ยนมิเตอร์</div>`;
-    } else {
-      area.innerHTML = '';
-    }
+    area.innerHTML = `<button class="save-btn job-btn" id="create-job-btn">🔁 สร้างใบงานสับเปลี่ยนมิเตอร์ใน U-cube</button>`;
+    document.getElementById('create-job-btn').addEventListener('click', createSwapJob);
   }
 
   async function createSwapJob() {
     const btn = document.getElementById('create-job-btn');
     if (!btn || !currentData) return;
+    if (!confirm('แน่ใจนะว่าเป็นงานสับเปลี่ยนมิเตอร์')) return;
     btn.disabled = true;
     btn.textContent = 'กำลังสร้างใบงาน...';
 
