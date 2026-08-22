@@ -232,6 +232,21 @@ body {
 
 .job-btn { background: var(--green); margin-top: 10px; }
 .etr-btn { background: var(--accent2); margin-top: 10px; }
+.etr-btn-row { display:flex; gap:8px; margin-top:14px; }
+.etr-btn-row .etr-pill {
+  flex:1 1 0; min-width:0; border:none; border-radius:10px; padding:11px 8px;
+  font-family: var(--sans); font-size:13.5px; font-weight:700; color:#fff; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:5px; text-align:center;
+}
+.etr-btn-row .etr-pill:active { transform: scale(0.98); }
+.etr-btn-row .etr-pill:disabled { opacity:0.45; cursor:not-allowed; }
+.etr-pill-outage { background:#c0392b; }
+.etr-pill-restore { background:var(--accent2); }
+.autosave-indicator {
+  text-align:center; font-size:12px; color: var(--text2); min-height:16px; margin-top:8px; transition: opacity 0.3s;
+}
+.autosave-indicator.saving { color: var(--accent); }
+.autosave-indicator.saved { color: var(--green); }
 .etr-hint { font-size:12.5px; color: var(--text2); margin-top: 8px; line-height: 1.5; }
 .etr-preview-textarea {
   width:100%; min-height:280px; background: var(--surface2); border: 1px solid var(--border);
@@ -519,6 +534,7 @@ body {
     e.stopPropagation(); // กันไม่ให้ไปเปิด picker ซ้อน เพราะปุ่มนี้อยู่ใน picker-box ที่มี onclick เปิดหน้าเลือกอุปกรณ์
     selectedEquipment = selectedEquipment.filter(eq => (eq.tp + ':' + eq.id) !== key);
     updateEquipmentSummary();
+    scheduleAutoSave();
   }
 
   function checkEquipmentPickerResult() {
@@ -529,6 +545,7 @@ body {
         selectedEquipment = JSON.parse(raw);
         sessionStorage.removeItem('equipmentPickerResult:' + ticketId);
         updateEquipmentSummary();
+        scheduleAutoSave();
       }
     } catch(e) {}
   }
@@ -549,6 +566,7 @@ body {
     document.getElementById('popup-sheet').classList.remove('show');
     currentPickerType = null;
     updateAllSummaries();
+    scheduleAutoSave();
   }
 
   function clearPicker() {
@@ -750,10 +768,28 @@ body {
     }
   }
 
-  async function saveRepairDetails() {
-    const saveBtn = document.getElementById('save-repair-btn');
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'กำลังบันทึก...';
+  let autoSaveTimer = null;
+
+  function setAutoSaveIndicator(state) {
+    const el = document.getElementById('autosave-indicator');
+    if (!el) return;
+    el.classList.remove('saving', 'saved');
+    if (state === 'saving') {
+      el.textContent = 'กำลังบันทึก...';
+      el.classList.add('saving');
+    } else if (state === 'saved') {
+      el.textContent = 'บันทึกแล้ว ✓';
+      el.classList.add('saved');
+      setTimeout(() => { if (el.textContent === 'บันทึกแล้ว ✓') el.textContent = ''; }, 2000);
+    } else if (state === 'error') {
+      el.textContent = 'บันทึกไม่สำเร็จ — ลองอีกครั้ง';
+    } else {
+      el.textContent = '';
+    }
+  }
+
+  async function performSave() {
+    if (!currentDocId) return;
     try {
       await updateDoc(doc(db, "tickets", currentDocId), {
         causes: selectedCauses,
@@ -777,15 +813,23 @@ body {
       currentData.estimatedMinutes = estimatedMinutes;
       currentData.estimatedRestoreTime = estimatedRestoreTime;
       currentData.weather = [...selectedWeather];
+      currentData.equipment = [...selectedEquipment];
       renderJobActionArea();
-      showToast('บันทึกรายละเอียดการซ่อมเรียบร้อย ✓', 'success');
+      setAutoSaveIndicator('saved');
     } catch(e) {
       console.error(e);
+      setAutoSaveIndicator('error');
       showToast('บันทึกไม่สำเร็จ กรุณาลองใหม่', 'error');
     }
-    saveBtn.disabled = false;
-    saveBtn.textContent = '💾 บันทึกรายละเอียดการซ่อม';
   }
+
+  // เรียกทุกครั้งที่มีการแก้ไขฟอร์ม — หน่วงเวลาไว้สั้นๆ (debounce) แล้วบันทึกอัตโนมัติ ไม่ต้องกดปุ่มบันทึกเอง
+  function scheduleAutoSave() {
+    setAutoSaveIndicator('saving');
+    if (autoSaveTimer) clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(performSave, 700);
+  }
+  window.scheduleAutoSave = scheduleAutoSave;
 
   // ===== helper: ดึงเวลา HH:MM ออกจากสตริงเวลาสร้าง ticket (เช่น "22/8/2569 09:14:12") =====
   function extractTimeHHMM(str) {
@@ -817,13 +861,8 @@ body {
 
   function updateEtrRestoreButtonState() {
     const btn = document.getElementById('etr-restore-btn');
-    const hint = document.getElementById('etr-restore-hint');
     if (!btn || !currentData) return;
-    const isDone = currentData.status === 'done';
-    btn.disabled = !isDone;
-    if (hint) hint.textContent = isDone
-      ? 'รวมรายการวัสดุที่ใช้ไป แสดงตัวอย่างก่อนส่งกลุ่ม ETR รอบที่ 2'
-      : 'ปุ่มนี้จะกดได้เมื่อเปลี่ยนสถานะเป็น "แก้ไขแล้ว"';
+    btn.disabled = currentData.status !== 'done';
   }
 
   // ===== ข้อความรอบที่ 1: แจ้งเหตุไฟฟ้าขัดข้อง =====
@@ -1082,31 +1121,32 @@ ${matLines}`;
             <div class="picker-text" id="summary-weather"></div>
             <div class="picker-plus">+</div>
           </div>
-          <button class="save-btn etr-btn" id="etr-outage-btn" type="button" style="margin-top:14px;">🔴 สร้างข้อความแจ้งเหตุไฟฟ้าขัดข้อง (ส่งกลุ่ม ETR)</button>
-          <div class="etr-hint">ส่งได้ทันที ไม่ต้องรอซ่อมเสร็จ — ใช้แจ้งเหตุขัดข้องให้กลุ่ม ETR ทราบ</div>
         </div>
 
-        <button class="save-btn" id="save-repair-btn">💾 บันทึกรายละเอียดการซ่อม</button>
-
-        <button class="save-btn etr-btn" id="etr-restore-btn" type="button" ${t.status !== 'done' ? 'disabled' : ''}>🟢 สร้างข้อความแจ้งไฟติด + วัสดุที่ใช้ (ส่งกลุ่ม ETR)</button>
-        <div class="etr-hint" id="etr-restore-hint">${t.status !== 'done' ? 'ปุ่มนี้จะกดได้เมื่อเปลี่ยนสถานะเป็น "แก้ไขแล้ว"' : 'รวมรายการวัสดุที่ใช้ไป แสดงตัวอย่างก่อนส่งกลุ่ม ETR รอบที่ 2'}</div>
+        <div class="etr-btn-row">
+          <button class="etr-pill etr-pill-outage" id="etr-outage-btn" type="button">🔴 แจ้งเหตุ (ETR)</button>
+          <button class="etr-pill etr-pill-restore" id="etr-restore-btn" type="button" ${t.status !== 'done' ? 'disabled' : ''}>🟢 แจ้งไฟติด+วัสดุ (ETR)</button>
+        </div>
+        <div class="autosave-indicator" id="autosave-indicator"></div>
 
         <div id="job-action-area"></div>
       </div>
     `;
     attachButtonHandlers();
     updateAllSummaries();
-    document.getElementById('save-repair-btn').addEventListener('click', saveRepairDetails);
     document.getElementById('outage-time-input').addEventListener('change', (e) => {
       outageTime = e.target.value;
       recalcEstimatedRestoreTime();
+      scheduleAutoSave();
     });
     document.getElementById('estimated-minutes-input').addEventListener('input', (e) => {
       estimatedMinutes = e.target.value;
       recalcEstimatedRestoreTime();
+      scheduleAutoSave();
     });
     document.getElementById('estimated-restore-input').addEventListener('change', (e) => {
       estimatedRestoreTime = e.target.value; // แก้ไขเองแล้ว ไม่ auto-overwrite ทับอีกจนกว่าจะเปลี่ยนเวลาไฟดับ/นาทีใหม่
+      scheduleAutoSave();
     });
     document.getElementById('etr-outage-btn').addEventListener('click', openEtrOutagePreview);
     document.getElementById('etr-restore-btn').addEventListener('click', openEtrRestorePreview);
