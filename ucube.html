@@ -818,6 +818,8 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   window._fsLib = { collection, doc, setDoc, getDoc, deleteDoc, writeBatch };
 
   const q = query(collection(db, COLLECTION), orderBy("jobDate", "desc"));
+  const _openReqNo = new URLSearchParams(window.location.search).get('open');
+  let _autoOpenedFromLink = false;
   onSnapshot(q, (snap) => {
     window.TICKETS = snap.docs.map(d => d.data());
     renderBatchOptions();
@@ -825,6 +827,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     renderDashboard();
     if (window.mapReady) renderMapMarkers();
     renderLegacyMigrationBox();
+    if (_openReqNo && !_autoOpenedFromLink && window.TICKETS.some(t => t.reqNo === _openReqNo)) {
+      _autoOpenedFromLink = true;
+      window.openDetail(_openReqNo);
+    }
   }, (err) => {
     console.error("Firestore listen error:", err);
   });
