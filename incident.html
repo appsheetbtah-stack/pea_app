@@ -245,10 +245,7 @@ textarea.form-control { resize:vertical; min-height:70px; }
         <div id="chart-mode"></div>
       </div>
       <div class="chart-card full">
-        <div class="chart-title" style="display:flex; justify-content:space-between; align-items:center;">
-          <span>ตำบลที่แจ้งเหตุบ่อย</span>
-          <button onclick="migrateTumbolBackfill()" style="text-transform:none; font-weight:500; font-size:12px; padding:4px 10px; border-radius:6px; border:1px solid var(--border,#334); background:transparent; color:var(--accent,#4da3ff); cursor:pointer;">🔄 อัปเดตตำบลย้อนหลัง</button>
-        </div>
+        <div class="chart-title">ตำบลที่แจ้งเหตุบ่อย</div>
         <div id="chart-amphoe"></div>
       </div>
       <div class="chart-card full">
@@ -509,28 +506,6 @@ async function fsDeleteTicket(docId) {
   const db = window._db;
   try { await deleteDoc(doc(db, "tickets", docId)); } catch(e) { console.error("Firestore delete error:", e); }
 }
-
-// อัปเดตตำบลย้อนหลังให้ ticket เก่าที่สร้างก่อนมี field tumbol — จับคู่ด้วย CA จาก data.js (ALL_RECORDS)
-async function migrateTumbolBackfill() {
-  if(!window._firebaseReady) { showToast('⚠️ Firestore ยังไม่พร้อม ลองใหม่อีกครั้ง', 'error'); return; }
-  const { doc, updateDoc } = window._fsLib;
-  const db = window._db;
-  const targets = tickets.filter(t => !t.tumbol && t.ca && t.ca !== '—');
-  if(!targets.length) { showToast('✅ ทุก ticket มีข้อมูลตำบลอยู่แล้ว ไม่ต้องอัปเดต', 'success'); return; }
-  if(!confirm(`พบ ${targets.length} ใบงานที่ยังไม่มีข้อมูลตำบล ต้องการอัปเดตย้อนหลังตอนนี้หรือไม่?`)) return;
-  let updated = 0, notFound = 0;
-  for(const t of targets) {
-    const rec = (typeof ALL_RECORDS !== 'undefined' ? ALL_RECORDS : []).find(r => r.CA === t.ca);
-    if(rec && rec.TUMBOL) {
-      try { await updateDoc(doc(db, "tickets", t._docId), { tumbol: rec.TUMBOL }); updated++; }
-      catch(e) { console.error("Migrate tumbol error:", e); notFound++; }
-    } else {
-      notFound++;
-    }
-  }
-  showToast(`อัปเดตตำบลสำเร็จ ${updated} รายการ${notFound ? ' · ไม่พบข้อมูลอ้างอิง ' + notFound + ' รายการ' : ''}`, 'success');
-}
-window.migrateTumbolBackfill = migrateTumbolBackfill;
 
 // ======= TAB SWITCH =======
 function switchTab(tab) {
