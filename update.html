@@ -711,7 +711,7 @@ body {
     if (!area || !currentData) return;
 
     if (currentData.ucubeReqNo) {
-      area.innerHTML = `<a class="job-link-btn" href="${BASE_URL}ucube.html?open=${encodeURIComponent(currentData.ucubeReqNo)}" target="_blank" rel="noopener">📋 ดูใบงานสับเปลี่ยนมิเตอร์ใน U-cube (${escapeHtml(currentData.ucubeReqNo)})</a>`;
+      area.innerHTML = `<a class="job-link-btn" href="${BASE_URL}ucube.html?open=${encodeURIComponent(currentData.ucubeReqNo)}">📋 ดูใบงานสับเปลี่ยนมิเตอร์ใน U-cube (${escapeHtml(currentData.ucubeReqNo)})</a>`;
       return;
     }
 
@@ -1216,14 +1216,14 @@ ${matLines}`;
   window.openEquipmentPicker = openEquipmentPicker;
   window.removeEquipmentTag = removeEquipmentTag;
 
-  // ปุ่ม "← กลับ" ที่หัวการ์ด — หน้านี้มักถูกเปิดด้วย target="_blank" จาก incident.html (แท็บ/หน้าใหม่)
-  // ทำให้ไม่มี history ให้กดถอยกลับ (ติดอยู่ในหน้านี้แบบไม่มีทางออก) จึงต้อง fallback ไป incident.html โดยตรง
+  // ปุ่ม "← กลับ" ที่หัวการ์ด — ถ้ามี history (มาจาก incident.html ในแท็บเดิม) ให้กดถอยกลับตามปกติ
+  // ถ้าไม่มี history เลย (เช่น เปิดลิงก์ตรงๆ จาก LINE/SMS ครั้งแรก) จึง fallback ไป incident.html โดยตรง
   window.goBackSmart = function(e) {
     e.preventDefault();
     if (window.history.length > 1) {
       window.history.back();
     } else {
-      window.location.href = 'incident.html';
+      window.location.href = BASE_URL + 'incident.html';
     }
   };
 
