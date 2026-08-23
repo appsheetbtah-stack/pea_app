@@ -398,6 +398,10 @@ textarea.form-control { resize:vertical; min-height:70px; }
         <label class="form-label">รายละเอียดเหตุการณ์</label>
         <textarea class="form-control" id="ticket-note" placeholder="เช่น ไฟดับทั้งซอย, สายไฟขาด, หม้อแปลงระเบิด..."></textarea>
       </div>
+      <div class="form-group" style="margin-bottom:10px;">
+        <label class="form-label">เบอร์โทรผู้แจ้ง</label>
+        <input class="form-control" id="ticket-caller-tel" placeholder="เบอร์ติดต่อผู้ที่แจ้งเหตุ (ถ้าต่างจากเบอร์ทะเบียน)" inputmode="tel"/>
+      </div>
       <button class="btn btn-danger" style="width:100%;" onclick="createTicket()">⚡ สร้าง Ticket</button>
     </div>
   </div>
@@ -595,6 +599,7 @@ function selectTicketUser(r) {
   document.getElementById('ticket-ca').value = r.CA;
   document.getElementById('ticket-name').value = name;
   document.getElementById('ticket-tel').value = r.MOBILE_NO||'—';
+  document.getElementById('ticket-caller-tel').value = r.MOBILE_NO||'';
   document.getElementById('ticket-addr').value = addr;
   document.getElementById('ticket-peano').value = r.PEANO||'—';
   document.getElementById('ticket-metertype').value = r.METERTYPE||'—';
@@ -688,11 +693,12 @@ function createTicket() {
     const r = ticketSelectedUser;
     const name = `${r.PREFIX||''} ${r.CUSTOMERNAME||''} ${r.CUSTOMERSIRNAME||''}`.trim();
     const addr = [r.ADDRESSNO, r.MOO?'ม.'+r.MOO:'', r.TUMBOL, r.AMPHOE, r.CHANGWAT].filter(Boolean).join(' ');
+    const callerTel = document.getElementById('ticket-caller-tel').value.trim() || r.MOBILE_NO || '—';
     ticket = {
       id: nextTicketId(),
       token: genTicketToken(),
       mode: 'normal',
-      ca: r.CA, name, addr, tel: r.MOBILE_NO||'—',
+      ca: r.CA, name, addr, tel: r.MOBILE_NO||'—', callerTel,
       peano: r.PEANO||'—', metertype: r.METERTYPE||'—', ampfromcis: r.AMPFROMCIS||'',
       amphoe: r.AMPHOE||'ไม่ระบุ', tumbol: r.TUMBOL||'ไม่ระบุ', changwat: r.CHANGWAT||'ไม่ระบุ',
       lat: r.LATITUDE||null, lng: r.LONGITUDE||null,
@@ -720,7 +726,7 @@ function createTicket() {
       id: nextTicketId(),
       token: genTicketToken(),
       mode: 'emergency',
-      ca: '—', name, addr, tel,
+      ca: '—', name, addr, tel, callerTel: tel,
       peano: '—', metertype: '—',
       amphoe: 'ไม่ระบุ', tumbol: 'ไม่ระบุ', changwat: 'ไม่ระบุ',
       lat, lng,
@@ -736,6 +742,7 @@ function createTicket() {
   document.getElementById('ticket-ca').value='';
   document.getElementById('ticket-name').value='';
   document.getElementById('ticket-tel').value='';
+  document.getElementById('ticket-caller-tel').value='';
   document.getElementById('ticket-addr').value='';
   document.getElementById('ticket-peano').value='';
   document.getElementById('ticket-metertype').value='';
@@ -780,6 +787,7 @@ function renderTickets() {
           <div class="ticket-note">${t.note}</div>
           <div class="ticket-meta">
             <span>📞 ${t.tel}</span>
+            ${(t.callerTel && t.callerTel!=='—' && t.callerTel!==t.tel)?`<span>📱 ผู้แจ้ง: ${t.callerTel}</span>`:''}
             <span>CA: ${t.ca}</span>
             <span>🔢 PEANO: ${t.peano}</span>
             ${t.lat?`<span>📡 ${t.lat?.toFixed(4)}, ${t.lng?.toFixed(4)}</span>`:'<span style="color:var(--red)">⚠️ ไม่มีพิกัด</span>'}
@@ -790,6 +798,7 @@ function renderTickets() {
         <div class="ticket-actions-row">
           ${t.token?`<a href="${BASE_URL}update.html?id=${t.id}&token=${t.token}" class="btn btn-ghost" style="font-size:13px;padding:6px 10px;text-decoration:none;">📝 รายละเอียดงาน</a>`:''}
           ${t.lat?`<button class="btn btn-blue" style="font-size:13px;padding:6px 10px;" onclick="shareLocation('${t.id}')">📍 แชร์พิกัดช่าง</button>`:''}
+          ${(t.callerTel && t.callerTel!=='—')?`<a href="tel:${t.callerTel.replace(/[^0-9+]/g,'')}" class="btn" style="font-size:13px;padding:6px 10px;text-decoration:none;background:var(--green);color:#000;flex:0 0 auto;">📞 โทรผู้แจ้ง</a>`:''}
           <button class="btn btn-ghost" style="font-size:13px;padding:6px 10px;flex:0 0 auto;" onclick="deleteTicket('${t.id}')">🗑️</button>
         </div>
         <div class="ticket-actions-row">
