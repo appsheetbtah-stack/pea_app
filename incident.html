@@ -788,7 +788,7 @@ function renderTickets() {
       </div>
       <div class="ticket-actions">
         <div class="ticket-actions-row">
-          ${t.token?`<a href="update.html?id=${t.id}&token=${t.token}" target="_blank" rel="noopener" class="btn btn-ghost" style="font-size:13px;padding:6px 10px;text-decoration:none;">📝 รายละเอียดงาน</a>`:''}
+          ${t.token?`<a href="${BASE_URL}update.html?id=${t.id}&token=${t.token}" target="_blank" rel="noopener" class="btn btn-ghost" style="font-size:13px;padding:6px 10px;text-decoration:none;">📝 รายละเอียดงาน</a>`:''}
           ${t.lat?`<button class="btn btn-blue" style="font-size:13px;padding:6px 10px;" onclick="shareLocation('${t.id}')">📍 แชร์พิกัดช่าง</button>`:''}
           <button class="btn btn-ghost" style="font-size:13px;padding:6px 10px;flex:0 0 auto;" onclick="deleteTicket('${t.id}')">🗑️</button>
         </div>
@@ -818,13 +818,28 @@ function deleteTicket(id) {
   if(mapFull) renderTicketMarkers();
 }
 
-function shareLocation(id) {
+// URL จริงที่ใช้งานเว็บนี้ — ตายตัว ไม่คำนวณจาก window.location เพราะถ้าเปิดไฟล์จาก Downloads ในเครื่อง
+// (เช่น content://downloads/...) window.location จะไม่ใช่ URL จริง ทำให้ลิงก์ที่แชร์ออกไปใช้งานไม่ได้
+const BASE_URL = 'https://appsheetbtah-stack.github.io/pea_app/';
+
+async function shareLocation(id) {
   const t = tickets.find(x=>x.id===id);
   if(!t) return;
   const gmaps = `https://www.google.com/maps?q=${t.lat},${t.lng}`;
-  const updateLink = `${window.location.origin}${window.location.pathname.replace('incident.html','')}update.html?id=${t.id}&token=${t.token||''}`;
-  const msg = `[PEA แจ้งเหตุ] ${t.id}%0aผู้แจ้ง: ${t.name}%0aCA: ${t.ca}%0aPEANO: ${t.peano}%0aที่อยู่: ${t.addr}%0aเหตุการณ์: ${t.note}%0aพิกัด: ${gmaps}%0a%0aอัปเดตสถานะ: ${updateLink}`;
-  navigator.clipboard.writeText(decodeURIComponent(msg.replace(/%0a/g,'\n')));
+  const updateLink = `${BASE_URL}update.html?id=${t.id}&token=${t.token||''}`;
+  const msg = `[PEA แจ้งเหตุ] ${t.id}\nผู้แจ้ง: ${t.name}\nCA: ${t.ca}\nPEANO: ${t.peano}\nที่อยู่: ${t.addr}\nเหตุการณ์: ${t.note}\nพิกัด: ${gmaps}\n\nอัปเดตสถานะ: ${updateLink}`;
+
+  // ใช้หน้าต่างแชร์ของระบบโดยตรง (เลือกแอปปลายทางได้เลย เช่น LINE, SMS) ถ้าอุปกรณ์รองรับ
+  if (navigator.share) {
+    try {
+      await navigator.share({ text: msg });
+      return;
+    } catch (e) {
+      if (e && e.name === 'AbortError') return; // ผู้ใช้กดยกเลิกหน้าต่างแชร์เอง ไม่ต้องทำอะไรต่อ
+      // แชร์ไม่สำเร็จด้วยเหตุอื่น (ไม่รองรับ ฯลฯ) ให้ตกไปใช้วิธี copy คลิปบอร์ดแทน
+    }
+  }
+  navigator.clipboard.writeText(msg);
   showToast('คัดลอกข้อความแล้ว สามารถวางใน LINE ได้เลย ✓', 'success');
 }
 
@@ -1053,7 +1068,7 @@ function renderTicketMarkers() {
     const color = ticketStatusColor(t.status);
     const icon = L.divIcon({className:'', html:`<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 8px ${color}"></div>`, iconSize:[14,14], iconAnchor:[7,7]});
     const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${t.lat},${t.lng}`;
-    const updateUrl = t.token ? `update.html?id=${encodeURIComponent(t.id)}&token=${encodeURIComponent(t.token)}` : null;
+    const updateUrl = t.token ? `${BASE_URL}update.html?id=${encodeURIComponent(t.id)}&token=${encodeURIComponent(t.token)}` : null;
     const popupHtml = `
       <div style="min-width:190px;">
         <b>${t.id}</b><br>

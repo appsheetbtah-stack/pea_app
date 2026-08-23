@@ -362,6 +362,8 @@ body {
   }
 
   // ===== ตัวเลือกสำเร็จรูป =====
+  // URL จริงที่ใช้งานเว็บนี้ — ตายตัว กันปัญหาลิงก์พังถ้าเปิดไฟล์จาก Downloads ในเครื่องแทนที่จะเป็น URL จริง
+  const BASE_URL = 'https://appsheetbtah-stack.github.io/pea_app/';
   const ORG_NAME = 'กฟส.บ้านทุ่งอ้ายโห้';
   const TECHNICIAN_OPTIONS = ['นายชาคริต บุญมวง', 'นายอนลัส เลี่ยมสกุล', 'นายนิติพัฒน์ พุกสุข', 'นายสัตตยา นุเครือ'];
   const WEATHER_OPTIONS = ['ปกติ', 'ฝนตก', 'พายุ/ฟ้าผ่า', 'ลมแรง', 'อื่นๆ'];
@@ -709,7 +711,7 @@ body {
     if (!area || !currentData) return;
 
     if (currentData.ucubeReqNo) {
-      area.innerHTML = `<a class="job-link-btn" href="ucube.html?open=${encodeURIComponent(currentData.ucubeReqNo)}" target="_blank" rel="noopener">📋 ดูใบงานสับเปลี่ยนมิเตอร์ใน U-cube (${escapeHtml(currentData.ucubeReqNo)})</a>`;
+      area.innerHTML = `<a class="job-link-btn" href="${BASE_URL}ucube.html?open=${encodeURIComponent(currentData.ucubeReqNo)}" target="_blank" rel="noopener">📋 ดูใบงานสับเปลี่ยนมิเตอร์ใน U-cube (${escapeHtml(currentData.ucubeReqNo)})</a>`;
       return;
     }
 
