@@ -185,7 +185,18 @@ textarea.form-control { resize:vertical; min-height:70px; }
 .tab-pane.map-pane { display:none; overflow:hidden; flex-direction:column; }
 .tab-pane.map-pane.active { display:flex; }
 .map-topbar-controls { padding:10px 14px 6px; }
-#map-full { flex:1; }
+#map-full { width:100%; height:100%; }
+#map-full-wrap { position:relative; flex:1; }
+.map-float-btn {
+  position:absolute; left:10px; top:80px; z-index:500;
+  width:30px; height:30px; border-radius:4px;
+  background:#1b2432; border:1px solid var(--border);
+  color:#e74c3c; font-size:15px; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; box-shadow:0 1px 5px rgba(0,0,0,0.4);
+  padding:0;
+}
+.map-float-btn:active { background:#242f42; }
 .map-controls { display:flex; gap:8px; margin-bottom:10px; align-items:center; flex-wrap:wrap; }
 .map-controls .btn { padding:8px 12px; font-size:13px; }
 .btn-ghost.active-filter { border-color:var(--green); background:rgba(46,204,113,0.12); color:var(--green); }
@@ -427,7 +438,6 @@ textarea.form-control { resize:vertical; min-height:70px; }
     <div class="map-controls">
       <button class="btn btn-ghost" onclick="toggleHideDoneTickets()" id="btn-hide-done">🟢 งานเสร็จสิ้น (แสดง)</button>
       <button class="btn btn-primary" onclick="fitMapBounds()">🎯 ดูภาพรวม</button>
-      <button class="btn btn-ghost" onclick="locateMe()" id="btn-locate">📍 ตำแหน่งของฉัน</button>
     </div>
     <div class="map-legend">
       <span class="legend-item"><span class="legend-dot" style="background:#e74c3c;"></span>รอดำเนินการ</span>
@@ -435,7 +445,10 @@ textarea.form-control { resize:vertical; min-height:70px; }
       <span class="legend-item"><span class="legend-dot" style="background:#2ecc71;"></span>แก้ไขแล้ว</span>
     </div>
   </div>
-  <div id="map-full"></div>
+  <div id="map-full-wrap">
+    <div id="map-full"></div>
+    <button id="btn-locate" class="map-float-btn" onclick="locateMe()" title="ตำแหน่งของฉัน">📍</button>
+  </div>
 </div>
 
 <!-- BOTTOM NAV -->
