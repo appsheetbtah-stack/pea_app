@@ -1078,16 +1078,18 @@ function renderTicketMarkers() {
     const icon = L.divIcon({className:'', html:`<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 8px ${color}"></div>`, iconSize:[14,14], iconAnchor:[7,7]});
     const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${t.lat},${t.lng}`;
     const updateUrl = t.token ? `${BASE_URL}update.html?id=${encodeURIComponent(t.id)}&token=${encodeURIComponent(t.token)}` : null;
+    const callHref = (t.callerTel && t.callerTel!=='—') ? `tel:${t.callerTel.replace(/[^0-9+]/g,'')}` : null;
     const popupHtml = `
-      <div style="min-width:190px;">
+      <div style="min-width:280px;">
         <b>${t.id}</b><br>
         ${t.name}<br>
         ${t.note}<br>
         ${ticketStatusLabel(t.status)}<br>
         <small>${t.time}</small>
-        <div style="display:flex;gap:6px;margin-top:8px;">
-          <a href="${navUrl}" target="_blank" rel="noopener" style="flex:1;text-align:center;background:#3b9ede;color:#fff;padding:6px 4px;border-radius:6px;font-size:13px;text-decoration:none;font-weight:600;">🧭 นำทาง</a>
-          ${updateUrl ? `<a href="${updateUrl}" style="flex:1;text-align:center;background:#f5a623;color:#000;padding:6px 4px;border-radius:6px;font-size:13px;text-decoration:none;font-weight:600;">📝 รายละเอียดงาน</a>` : ''}
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+          <a href="${navUrl}" target="_blank" rel="noopener" style="flex:1;text-align:center;background:#3b9ede;color:#fff;padding:6px 8px;border-radius:6px;font-size:12px;text-decoration:none;font-weight:600;white-space:nowrap;">🧭 นำทาง</a>
+          ${updateUrl ? `<a href="${updateUrl}" style="flex:1;text-align:center;background:#f5a623;color:#000;padding:6px 8px;border-radius:6px;font-size:12px;text-decoration:none;font-weight:600;white-space:nowrap;">📝 รายละเอียดงาน</a>` : ''}
+          ${callHref ? `<a href="${callHref}" style="flex:1;text-align:center;background:#2ecc71;color:#000;padding:6px 8px;border-radius:6px;font-size:12px;text-decoration:none;font-weight:600;white-space:nowrap;">📞 โทรผู้แจ้ง</a>` : ''}
         </div>
       </div>
     `;
