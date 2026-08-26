@@ -30,6 +30,9 @@
     --tab-active: #fff;
     --tab-bg: #1e2d3d;
     --input-bg: #0f1923;
+  --input-focus-bg: #0d1018;
+  --header-grad-1: #162030;
+  --header-grad-2: #0f1923;
     --shadow: 0 4px 24px rgba(0,0,0,0.4);
   }
 html[data-theme="light"] {
@@ -43,7 +46,15 @@ html[data-theme="light"] {
   --tab-active:#131f2b;
   --tab-bg:#e3e8f0;
   --input-bg:#eef2f7;
+  --input-focus-bg:#ffffff;
+  --header-grad-1:#ffffff;
+  --header-grad-2:#eef1f6;
   --shadow:0 4px 24px rgba(20,32,48,0.12);
+}
+
+html[data-theme="light"] input[type="date"],
+html[data-theme="light"] input[type="time"] {
+  color-scheme: light;
 }
 
 
@@ -59,7 +70,7 @@ html[data-theme="light"] {
 
   /* Header */
   .header {
-    background: linear-gradient(135deg, #162030 0%, #0f1923 100%);
+    background: linear-gradient(135deg, var(--header-grad-1) 0%, var(--header-grad-2) 100%);
     border-bottom: 1px solid var(--border);
     padding: 20px 16px 16px;
     position: sticky;
@@ -196,7 +207,7 @@ html[data-theme="light"] {
   }
   input[type="text"]:focus, input[type="number"]:focus {
     border-color: #4da6ff66;
-    background: #0d1018;
+    background: var(--input-focus-bg);
     box-shadow: 0 0 0 3px #4da6ff15;
   }
   input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
@@ -498,7 +509,7 @@ html[data-theme="light"] {
   }
   input[type="date"]:focus, input[type="time"]:focus {
     border-color: #4da6ff66;
-    background: #0d1018;
+    background: var(--input-focus-bg);
     box-shadow: 0 0 0 3px #4da6ff15;
   }
 
