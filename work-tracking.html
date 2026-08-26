@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
+<script>
+(function(){
+  var saved = localStorage.getItem('pea-theme');
+  var theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  document.documentElement.setAttribute('data-theme', theme);
+})();
+</script>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>งานขยายเขต & ปรับปรุงระบบจำหน่าย - PEA</title>
@@ -21,6 +29,16 @@
   --text:#e8f0f8; --text2:#a9bdd1;
   --mono:'IBM Plex Mono',monospace; --sans:'Sarabun',sans-serif;
 }
+html[data-theme="light"] {
+  --bg:#e7ebf1;
+  --surface:#ffffff;
+  --surface2:#e3e8f0;
+  --border:#d2dae4;
+  --accent:#d97f0a;
+  --text:#131f2b;
+  --text2:#5b6b7d;
+}
+
 * { box-sizing:border-box; margin:0; padding:0; }
 body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:15px; min-height:100vh; }
 

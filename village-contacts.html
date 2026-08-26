@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
+<script>
+(function(){
+  var saved = localStorage.getItem('pea-theme');
+  var theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  document.documentElement.setAttribute('data-theme', theme);
+})();
+</script>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>เบอร์โทรกำนัน-ผู้ใหญ่บ้าน - PEA บ้านทุ่งอ้ายโห้</title>
@@ -14,6 +22,16 @@
   --accent: #f5a623; --blue: #3b9ede; --green: #2ecc71; --text: #e8f0f8; --text2: #a9bdd1;
   --sans: 'Sarabun', sans-serif; --mono: 'IBM Plex Mono', monospace;
 }
+html[data-theme="light"] {
+  --bg:#e7ebf1;
+  --surface:#ffffff;
+  --surface2:#e3e8f0;
+  --border:#d2dae4;
+  --accent:#d97f0a;
+  --text:#131f2b;
+  --text2:#5b6b7d;
+}
+
 * { box-sizing: border-box; margin:0; padding:0; }
 body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
 
