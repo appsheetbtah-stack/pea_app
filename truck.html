@@ -1186,12 +1186,24 @@ function updateDefects(){
   const list=[];
   const secNames={vehicle:'ยานพาหนะ',tools:'เครื่องมือ/อุปกรณ์',materials:'วัสดุ/อุปกรณ์'};
 
+  // แสดงข้อมูลเฉพาะ "วันที่ + เวร" ที่กำลังเลือกอยู่เท่านั้น (ตามหลักการเดียวกับ 3 แท็บแรก)
+  // ถ้ายังไม่เลือกเวร ให้ถือว่ายังไม่มีข้อมูลให้แสดง ไม่ใช่ไปรวมข้อมูลจากทุกเวร/ทุกวันมาปนกัน
+  const sh = getSelectedShift();
+  const el0 = document.getElementById('defects-list');
+  if(!sh){
+    document.getElementById('defect-count').textContent = 0;
+    el0.innerHTML = `<div style="text-align:center;padding:28px 16px;color:#f57f17;font-size:14px;font-weight:600;background:#fff8e1;border-radius:8px">
+      ⚠️ กรุณาเลือก <strong>ช่วงเวลา (เวร)</strong> ก่อนดูข้อบกพร่อง<br>
+      <span style="font-size:12px;font-weight:400;color:#9e9e9e;margin-top:4px;display:block">แสดงเฉพาะรายการของวันที่และเวรที่เลือกไว้เท่านั้น</span>
+    </div>`;
+    return;
+  }
+
   // vehicle: state-based (toggle)
   // key format: "${i}_${YYYY-MM-DD}_${sh}" e.g. "0_2026-05-14_am"
-  // FIX 1.2: split('_') ได้ ["0","2026-05-14","am"] → parts[1] คือ dateStr ทั้งหมด
   ITEMS.vehicle.forEach((item,i)=>{
     Object.keys(states.vehicle).forEach(key=>{
-      if(key.startsWith(`${i}_`) && states.vehicle[key]==='o'){
+      if(key.startsWith(`${i}_`) && key.endsWith(`_${sh}`) && states.vehicle[key]==='o'){
         count++;
         const parts=key.split('_');
         const dateStr=parts[1]; // ถูกต้อง: "2026-05-14" (ไม่ต้อง join อีก)
@@ -1202,11 +1214,10 @@ function updateDefects(){
 
   // tools: count-based
   // key format: "${i}_tools_${YYYY-MM-DD}_${sh}"
-  // FIX 1.2: split('_') ได้ ["i","tools","2026-05-14","am"] → parts[2] คือ dateStr ทั้งหมด
   ['tools'].forEach(section=>{
     ITEMS[section].forEach((item,i)=>{
       Object.keys(toolCounts).forEach(key=>{
-        if(key.startsWith(`${i}_${section}_`)){
+        if(key.startsWith(`${i}_${section}_`) && key.endsWith(`_${sh}`)){
           const val=toolCounts[key];
           const status=getToolStatus(val,item.qty);
           if(status==='missing'){
@@ -1225,7 +1236,7 @@ function updateDefects(){
   // key format: "${i}_mat_recv_${YYYY-MM-DD}_${sh}"
   ITEMS.materials.forEach((item,i)=>{
     Object.keys(matData).forEach(key=>{
-      if(key.startsWith(`${i}_mat_recv_`)){
+      if(key.startsWith(`${i}_mat_recv_`) && key.endsWith(`_${sh}`)){
         // extract suffix after "${i}_mat_recv_" → "YYYY-MM-DD_sh"
         const suffix=key.replace(`${i}_mat_recv_`,'');
         const addKey=`${i}_mat_add_${suffix}`;
@@ -1233,7 +1244,6 @@ function updateDefects(){
         if(remain!==null && remain<item.qty){
           count++;
           const short=item.qty-remain;
-          // FIX 1.2: suffix = "YYYY-MM-DD_sh" → split('_')[0] = "YYYY-MM-DD" ถูกต้องทันที
           const datePart=suffix.split('_')[0];
           list.push({section:'materials',name:item.name,dateStr:datePart,detail:`ขาด ${short} (คงเหลือ ${remain}/${item.qty})`});
         }
@@ -1284,7 +1294,7 @@ const LEGENDS = {
     <span class="legend-hint">กรอกจำนวนรับและเติม · คงเหลือคำนวณอัตโนมัติ · บันทึกอัตโนมัติ</span>`,
   defects: `
     <div class="legend-item"><div class="legend-dot dot-o">✗</div><span>รายการที่ต้องซ่อมหรือขาด</span></div>
-    <span class="legend-hint">รวบรวมจากทุกแท็บอัตโนมัติ</span>`
+    <span class="legend-hint">แสดงเฉพาะวันที่และเวรที่เลือกไว้ · รวบรวมจากทุกแท็บอัตโนมัติ</span>`
 };
 
 function switchTab(tab,el){
