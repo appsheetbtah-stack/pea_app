@@ -577,6 +577,11 @@
     --bg:#0f1923; --surface:#162030; --surface2:#1e2d3d; --border:#2a3f55;
     --accent:#f5a623; --blue:#3b9ede; --green:#2ecc71; --red:#e74c3c;
     --text:#e8f0f8; --text2:#a9bdd1;
+    --header-grad-1:#1a2536; --header-grad-2:#0f1923; --header-text:#ffffff;
+    --save-idle-bg:rgba(255,255,255,0.1); --save-idle-text:#cfd8dc;
+    --save-ok-bg:rgba(255,255,255,0.1); --save-ok-text:#a5d6a7;
+    --save-busy-bg:rgba(255,255,255,0.1); --save-busy-text:#90caf9;
+    --save-error-bg:rgba(244,67,54,0.18); --save-error-text:#ffcdd2;
   }
 html[data-theme="light"] {
   --bg:#e7ebf1;
@@ -586,10 +591,28 @@ html[data-theme="light"] {
   --accent:#d97f0a;
   --text:#131f2b;
   --text2:#5b6b7d;
+  --header-grad-1:#ffffff;
+  --header-grad-2:#eef1f6;
+  --header-text:#131f2b;
+  --save-idle-bg:#e3e8f0; --save-idle-text:#5b6b7d;
+  --save-ok-bg:#e3f7ea; --save-ok-text:#1b7a3d;
+  --save-busy-bg:#e3f0fc; --save-busy-text:#1565c0;
+  --save-error-bg:#fdeceb; --save-error-text:#b71c1c;
 }
 
   body:not(.print-monthly){background:var(--bg) !important;color:var(--text) !important;padding-bottom:64px}
-  .header{background:linear-gradient(135deg,#1a2536,#0f1923) !important;border-bottom:1px solid var(--border)}
+  .header{background:linear-gradient(135deg,var(--header-grad-1),var(--header-grad-2)) !important;color:var(--header-text) !important;border-bottom:1px solid var(--border)}
+  .header .back-btn{color:var(--header-text) !important;border-color:currentColor !important;opacity:0.85}
+  .header .back-btn:hover{opacity:1}
+  .auto-save{background:var(--save-idle-bg) !important;color:var(--save-idle-text) !important}
+  .auto-save .status-dot{background:var(--save-idle-text) !important}
+  .auto-save.st-busy{background:var(--save-busy-bg) !important;color:var(--save-busy-text) !important}
+  .auto-save.st-busy .status-dot{background:var(--save-busy-text) !important}
+  .auto-save.st-ok{background:var(--save-ok-bg) !important;color:var(--save-ok-text) !important}
+  .auto-save.st-ok .status-dot{background:var(--save-ok-text) !important}
+  .auto-save.st-error{background:var(--save-error-bg) !important;color:var(--save-error-text) !important}
+  .auto-save.st-error .status-dot{background:var(--save-error-text) !important}
+  .auto-save.st-idle .status-dot{background:var(--save-idle-text) !important}
   .btn-ghost{background:rgba(255,255,255,0.06) !important;color:var(--text) !important;border:1px solid var(--border) !important}
   .btn-ghost:hover{background:rgba(255,255,255,0.12) !important}
   .btn-primary{background:var(--accent) !important;color:#1a1a2e !important}
