@@ -307,6 +307,14 @@
   .report-btn-sub{display:block;font-size:12px;font-weight:400;color:#8a8a8a;margin-top:2px}
   
   .field{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .purpose-chip-row{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 2px}
+  .purpose-chip{
+    font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:16px;
+    border:1px solid #e0e0e0;background:#fafafa;color:#3949ab;
+    cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s;
+    font-family:'Sarabun',sans-serif;
+  }
+  .purpose-chip:active{transform:scale(0.96)}
   .field label{font-size:12px;color:#5c6bc0;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
   .field input,.field select{width:100%;max-width:100%;border:1px solid #e0e0e0;border-radius:6px;padding:8px 10px;font-family:'Sarabun',sans-serif;font-size:14px;color:#1a1a2e;transition:border 0.15s;background:#fafafa}
   .field input:focus,.field select:focus{outline:none;border-color:#3949ab;background:#fff}
@@ -624,6 +632,8 @@ html[data-theme="light"] {
   .field input,.field select{background:var(--bg) !important;color:var(--text) !important;border:1px solid var(--border) !important}
   .field input:focus,.field select:focus{border-color:var(--accent) !important}
   .field input[readonly]{background:var(--surface2) !important;color:var(--accent) !important}
+  .purpose-chip{background:var(--surface2) !important;border:1px solid var(--border) !important;color:var(--accent) !important}
+  .purpose-chip:active{background:var(--surface) !important}
   #day-status-box{background:var(--bg) !important;border:1px solid var(--border) !important;color:var(--text2)}
   .legend{background:var(--surface2) !important;border-bottom:1px solid var(--border) !important;color:var(--text2)}
   .tabs{border-bottom:2px solid var(--border) !important}
@@ -1704,6 +1714,14 @@ function printWithTitle(){
           </select>
         </div>
         <div class="field"><label>รายการใช้รถ / วัตถุประสงค์</label>
+          <div class="purpose-chip-row" id="purpose-chip-row">
+            <button type="button" class="purpose-chip" data-t="ออกแก้กระแสไฟฟ้าขัดข้อง บ้าน">แก้ไฟขัดข้อง</button>
+            <button type="button" class="purpose-chip" data-t="ต่อกลับมิเตอร์ PEA เลขที่">ต่อกลับมิเตอร์</button>
+            <button type="button" class="purpose-chip" data-t="ทำสวิตชิ่ง ที่อุปกรณ์">ทำสวิตชิ่ง</button>
+            <button type="button" class="purpose-chip" data-t="สับเปลี่ยนมิเตอร์ บ้าน">สับเปลี่ยนมิเตอร์</button>
+            <button type="button" class="purpose-chip" data-t="ตรวจสอบระบบไฟฟ้า บ้าน">ตรวจสอบระบบ</button>
+            <button type="button" class="purpose-chip" data-t="ตัดกิ่งไม้ใกล้แนวสายไฟฟ้า บ้าน">ตัดกิ่งไม้</button>
+          </div>
           <input type="text" id="u-purpose" placeholder="เช่น ออกแก้กระแสไฟฟ้าขัดข้อง หมู่ 3 ต.ทุ่งอ้ายโห้">
         </div>
         <div class="field"><label>เลขไมล์ออก (กม.)</label><input type="number" id="u-start" min="0" step="1"></div>
@@ -2455,6 +2473,19 @@ async function loadUsageHistory(){
 document.getElementById('u-start').addEventListener('input', calcUsageDistance);
 document.getElementById('u-end').addEventListener('input', calcUsageDistance);
 document.getElementById('u-date').value = new Date().toISOString().slice(0,10);
+
+// ===== ปุ่มชิปวลีลัด: แทรกข้อความสำเร็จรูปแล้ววางเคอร์เซอร์ตรงจุดที่ต้องเติมต่อ =====
+document.getElementById('purpose-chip-row').addEventListener('click', function(e){
+  const btn = e.target.closest('.purpose-chip');
+  if(!btn) return;
+  const input = document.getElementById('u-purpose');
+  const prefix = btn.dataset.t;
+  const blank = '...';
+  input.value = prefix + ' ' + blank;
+  input.focus();
+  const start = prefix.length + 1;
+  input.setSelectionRange(start, start + blank.length);
+});
 
 // ===== PRINT SPECIFIC DAY/SHIFT REPORT (สำหรับส่งหัวหน้าช่างเวร) =====
 function openPrintReportPanel(){
