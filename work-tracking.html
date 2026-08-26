@@ -17,7 +17,6 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f1923">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -106,6 +105,22 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .chart-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
 .chart-card.full { grid-column:1 / -1; }
 .chart-title { font-size:13px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:12px; }
+.dash-pie-wrap { display:flex; flex-direction:column; align-items:center; gap:16px; }
+.dash-pie-box { position:relative; width:132px; height:132px; flex-shrink:0; }
+.dash-pie { width:132px; height:132px; border-radius:50%; background:var(--surface2); }
+.dash-pie-hole {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:78px; height:78px; border-radius:50%; background:var(--surface);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+}
+.dash-pie-hole span { font-family:var(--mono); font-size:20px; font-weight:800; line-height:1.1; }
+.dash-pie-hole small { font-size:10px; color:var(--text2); margin-top:2px; }
+.dash-pie-legend { display:flex; flex-direction:column; align-items:center; gap:9px; }
+.dash-pie-legend-row { display:flex; align-items:center; justify-content:center; gap:8px; font-size:12.5px; }
+.dash-pie-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.dash-pie-name { color:var(--text2); }
+.dash-pie-val { font-family:var(--mono); font-weight:700; white-space:nowrap; }
+.dash-pie-pct { color:var(--text2); font-weight:400; }
 .bar-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 .bar-row:last-child { margin-bottom:0; }
 .bar-label { font-size:13px; color:var(--text2); white-space:nowrap; flex-shrink:0; }
@@ -319,11 +334,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     <div class="charts-row">
       <div class="chart-card full">
         <div class="chart-title">สถานะงาน</div>
-        <div style="max-width:280px;margin:0 auto;"><canvas id="chart-status"></canvas></div>
+        <div id="chart-status"></div>
       </div>
       <div class="chart-card full">
         <div class="chart-title">ประเภทงาน</div>
-        <div style="max-width:280px;margin:0 auto;"><canvas id="chart-category"></canvas></div>
+        <div id="chart-category"></div>
       </div>
     </div>
   </div>
@@ -587,118 +602,55 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     const statusColors = { survey: '#3b9ede', estimate: '#f39c12', approval: '#e74c3c', done: '#2ecc71' };
     const statusCount = { survey: 0, estimate: 0, approval: 0, done: 0 };
     allWorks.forEach(w => { if (statusCount[w.status] !== undefined) statusCount[w.status]++; });
-    renderPieChart('chart-status', Object.keys(statusCount).map(k => statusLabels[k]),
+    renderDashPieChart('chart-status', Object.keys(statusCount).map(k => statusLabels[k]),
       Object.values(statusCount), Object.keys(statusCount).map(k => statusColors[k]));
 
     const catLabels = { expansion: 'ขยายเขต', improvement: 'ปรับปรุงระบบ' };
     const catColors = { expansion: '#3b9ede', improvement: '#f5a623' };
     const catCount = { expansion, improvement };
-    renderPieChart('chart-category', Object.keys(catCount).map(k => catLabels[k]),
+    renderDashPieChart('chart-category', Object.keys(catCount).map(k => catLabels[k]),
       Object.values(catCount), Object.keys(catCount).map(k => catColors[k]));
   }
 
-  // ปลั๊กอินวาดตัวเลขจำนวน + เปอร์เซ็นต์ลงบนชิ้นพาย
-  const pieLabelPlugin = {
-    id: 'pieLabels',
-    afterDatasetsDraw(chart) {
-      const { ctx } = chart;
-      chart.data.datasets.forEach((dataset, i) => {
-        const meta = chart.getDatasetMeta(i);
-        const total = dataset.data.reduce((a, b) => a + b, 0);
-        meta.data.forEach((arc, index) => {
-          const value = dataset.data[index];
-          if (!value) return;
-          const pct = total ? ((value / total) * 100).toFixed(1) : 0;
-          const pos = arc.tooltipPosition();
-          const label = value.toLocaleString() + ' (' + pct + '%)';
-          ctx.save();
-          ctx.font = 'bold 13px Sarabun, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillStyle = '#ffffff';
-          ctx.fillText(label, pos.x, pos.y);
-          ctx.restore();
-        });
-      });
-    }
-  };
-  if (window.Chart) Chart.register(pieLabelPlugin);
+  // วาดกราฟวงกลม (donut) แบบเดียวกับหน้า U-cube / ข้อมูลผู้ใช้ไฟฟ้า
+  // วงแหวนใช้ conic-gradient ล้วนๆ (ไม่พึ่ง Chart.js) + เลขรวมตรงกลาง + legend รายการอยู่ด้านข้าง
+  // ข้อดี: สีทั้งหมดอ้างอิงจาก CSS variables จึงสลับโหมดมืด/สว่างได้เองอัตโนมัติ
+  function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
 
-  // ปลั๊กอินวาดตัวเลขรวมไว้กลางวงโดนัท (เหมือนหน้าข้อมูลผู้ใช้ไฟฟ้า)
-  const centerTotalPlugin = {
-    id: 'centerTotal',
-    afterDraw(chart) {
-      if (chart.config.type !== 'doughnut') return;
-      const { ctx, chartArea: { left, right, top, bottom } } = chart;
-      const total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-      const x = (left + right) / 2;
-      const y = (top + bottom) / 2;
-      ctx.save();
-      ctx.font = 'bold 15px Sarabun, sans-serif';
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(total.toLocaleString(), x, y);
-      ctx.restore();
-    }
-  };
-  if (window.Chart) Chart.register(centerTotalPlugin);
-
-  const pieChartInstances = {};
-  function renderPieChart(canvasId, labels, data, colors) {
-    const ctx = document.getElementById(canvasId);
-    if (!ctx) return;
-    if (pieChartInstances[canvasId]) { pieChartInstances[canvasId].destroy(); }
+  function renderDashPieChart(containerId, labels, data, colors) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
     const total = data.reduce((a, b) => a + b, 0);
-    pieChartInstances[canvasId] = new Chart(ctx, {
-      type: 'doughnut',
-      data: {
-        labels: labels,
-        datasets: [{
-          data: data,
-          backgroundColor: colors,
-          borderColor: '#162030',
-          borderWidth: 2
-        }]
-      },
-      options: {
-        cutout: '60%',
-        plugins: {
-          legend: {
-            position: 'bottom',
-            labels: {
-              color: '#ffffff',
-              font: { family: 'Sarabun', size: 12, weight: '600' },
-              padding: 12,
-              generateLabels: function(chart) {
-                const ds = chart.data.datasets[0];
-                return chart.data.labels.map((label, i) => {
-                  const value = ds.data[i];
-                  const pct = total ? ((value / total) * 100).toFixed(1) : 0;
-                  return {
-                    text: label + ': ' + value.toLocaleString() + ' (' + pct + '%)',
-                    fillStyle: ds.backgroundColor[i],
-                    strokeStyle: ds.borderColor,
-                    lineWidth: ds.borderWidth,
-                    fontColor: '#ffffff',
-                    color: '#ffffff',
-                    index: i
-                  };
-                });
-              }
-            }
-          },
-          tooltip: {
-            callbacks: {
-              label: function(c) {
-                const pct = total ? ((c.parsed / total) * 100).toFixed(1) : 0;
-                return c.label + ': ' + c.parsed.toLocaleString() + ' (' + pct + '%)';
-              }
-            }
-          }
-        }
-      }
+
+    let acc = 0;
+    const stops = [];
+    data.forEach((val, i) => {
+      if (!val) return;
+      const start = (acc / (total || 1)) * 100;
+      acc += val;
+      const end = (acc / (total || 1)) * 100;
+      stops.push(`${colors[i]} ${start}% ${end}%`);
     });
+    const gradient = stops.length ? `conic-gradient(${stops.join(', ')})` : 'var(--surface2)';
+
+    const legend = labels.map((label, i) => {
+      const val = data[i] || 0;
+      const pct = total ? ((val / total) * 100).toFixed(1) : '0.0';
+      return `<div class="dash-pie-legend-row">` +
+        `<span class="dash-pie-dot" style="background:${colors[i]}"></span>` +
+        `<span class="dash-pie-name">${esc(label)}</span>` +
+        `<span class="dash-pie-val">${val.toLocaleString()} <span class="dash-pie-pct">(${pct}%)</span></span>` +
+      `</div>`;
+    }).join('');
+
+    container.innerHTML =
+      `<div class="dash-pie-wrap">` +
+        `<div class="dash-pie-box">` +
+          `<div class="dash-pie" style="background:${gradient}"></div>` +
+          `<div class="dash-pie-hole"><span>${total.toLocaleString()}</span><small>รายการ</small></div>` +
+        `</div>` +
+        `<div class="dash-pie-legend">${legend}</div>` +
+      `</div>`;
   }
   window.renderDashboard = renderDashboard;
 
