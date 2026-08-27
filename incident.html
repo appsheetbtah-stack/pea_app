@@ -228,15 +228,18 @@ textarea.form-control { resize:vertical; min-height:70px; }
 
 /* ── TOAST ── */
 .toast {
-  position:fixed; bottom:calc(var(--botnav) + 10px); left:50%; transform:translateX(-50%) translateY(80px);
+  position:fixed; bottom:calc(var(--botnav) + 14px); left:50%; transform:translateX(-50%) translateY(80px);
   background:var(--surface2); border:1px solid var(--border);
-  border-radius:10px; padding:11px 18px; font-size:13px;
+  border-radius:12px; padding:13px 18px; font-size:14px; line-height:1.5;
   opacity:0; transition:all .3s; z-index:9999;
-  white-space:nowrap; max-width:calc(100vw - 32px); text-align:center;
+  white-space:normal; width:calc(100vw - 32px); max-width:380px; text-align:center;
+  box-shadow:0 6px 20px rgba(0,0,0,0.35);
 }
 .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
-.toast.success { border-color:var(--green); background:rgba(46,204,113,0.15); }
-.toast.error { border-color:var(--red); background:rgba(231,76,60,0.15); }
+.toast.success { border-color:var(--green); background:#173a28; }
+.toast.error { border-color:var(--red); background:#3a1a17; }
+html[data-theme="light"] .toast.success { background:#e3f7ea; }
+html[data-theme="light"] .toast.error { background:#fdeceb; }
 
 /* ── ETR request preview modal ── */
 .btn-etr { background:var(--accent2); color:#fff; }
@@ -497,7 +500,7 @@ textarea.form-control { resize:vertical; min-height:70px; }
 
 <div class="etr-overlay" id="etr-overlay" onclick="closeEtrPreview()"></div>
 <div class="etr-sheet" id="etr-sheet">
-  <div class="etr-sheet-header">📦 ตัวอย่างข้อความ ส่งกลุ่ม ETR</div>
+  <div class="etr-sheet-header" id="etr-sheet-header">📦 ตัวอย่างข้อความ ส่งกลุ่ม ETR</div>
   <div class="etr-sheet-body">
     <textarea class="etr-textarea" id="etr-preview-text" placeholder="ข้อความจะแสดงที่นี่..."></textarea>
     <div class="etr-sheet-hint">แก้ไขข้อความก่อนส่งได้ตามต้องการ</div>
@@ -833,7 +836,7 @@ function renderTickets() {
       <div class="ticket-actions">
         <div class="ticket-actions-row">
           ${t.token?`<a href="${BASE_URL}update.html?id=${t.id}&token=${t.token}" class="btn btn-ghost" style="flex:1;font-size:13px;padding:6px 10px;text-decoration:none;">📝 รายละเอียดงาน</a>`:''}
-          ${t.lat?`<button class="btn btn-blue" style="flex:1;font-size:13px;padding:6px 10px;" onclick="shareLocation('${t.id}')">📍 แชร์พิกัดช่าง</button>`:''}
+          ${t.lat?`<button class="btn btn-blue" style="flex:1;font-size:13px;padding:6px 10px;" onclick="openLocationSharePreview('${t.id}')">📍 แชร์พิกัดช่าง</button>`:''}
         </div>
         <div class="ticket-actions-row">
           ${(t.callerTel && t.callerTel!=='—')?`<a href="tel:${t.callerTel.replace(/[^0-9+]/g,'')}" class="btn" style="flex:1;font-size:13px;padding:6px 10px;text-decoration:none;background:var(--green);color:#000;">📞 โทรผู้แจ้ง</a>`:'<div style="flex:1;"></div>'}
@@ -871,26 +874,15 @@ function deleteTicket(id) {
 // (เช่น content://downloads/...) window.location จะไม่ใช่ URL จริง ทำให้ลิงก์ที่แชร์ออกไปใช้งานไม่ได้
 const BASE_URL = 'https://appsheetbtah-stack.github.io/pea_app/';
 
-async function shareLocation(id) {
+function openLocationSharePreview(id) {
   const t = tickets.find(x=>x.id===id);
   if(!t) return;
-  const gmaps = `https://www.google.com/maps?q=${t.lat},${t.lng}`;
-  const updateLink = `${BASE_URL}update.html?id=${t.id}&token=${t.token||''}`;
-  const msg = `[PEA แจ้งเหตุ] ${t.id}\nผู้แจ้ง: ${t.name}\nCA: ${t.ca}\nPEANO: ${t.peano}\nที่อยู่: ${t.addr}\nเหตุการณ์: ${t.note}\nพิกัด: ${gmaps}\n\nอัปเดตสถานะ: ${updateLink}`;
-
-  // ใช้หน้าต่างแชร์ของระบบโดยตรง (เลือกแอปปลายทางได้เลย เช่น LINE, SMS) ถ้าอุปกรณ์รองรับ
-  if (navigator.share) {
-    try {
-      await navigator.share({ text: msg });
-      return;
-    } catch (e) {
-      if (e && e.name === 'AbortError') return; // ผู้ใช้กดยกเลิกหน้าต่างแชร์เอง ไม่ต้องทำอะไรต่อ
-      // แชร์ไม่สำเร็จด้วยเหตุอื่น (ไม่รองรับ ฯลฯ) ให้ตกไปใช้วิธี copy คลิปบอร์ดแทน
-    }
-  }
-  navigator.clipboard.writeText(msg);
-  showToast('คัดลอกข้อความแล้ว สามารถวางใน LINE ได้เลย ✓', 'success');
+  document.getElementById('etr-sheet-header').textContent = '📍 ตัวอย่างข้อความ แชร์พิกัดให้ช่าง';
+  document.getElementById('etr-preview-text').value = buildLocationMessage(t);
+  document.getElementById('etr-overlay').classList.add('show');
+  document.getElementById('etr-sheet').classList.add('show');
 }
+window.openLocationSharePreview = openLocationSharePreview;
 
 // ===== ข้อความ ETR: รอบที่ 1 แจ้งเหตุไฟฟ้าขัดข้อง / รอบที่ 2 แจ้งไฟติด+วัสดุ =====
 const ORG_NAME = 'กฟส.บ้านทุ่งอ้ายโห้';
@@ -909,6 +901,21 @@ function buildOutageMessage(t) {
 สภาพอากาศ : ${Array.isArray(t.weather) ? (t.weather.length ? t.weather.join(', ') : '-') : (t.weather || '-')}
 ชื่อช่างดำเนินการ : ${t.technician || '-'}`;
 }
+
+function buildLocationMessage(t) {
+  const gmaps = `https://www.google.com/maps?q=${t.lat},${t.lng}`;
+  const updateLink = `${BASE_URL}update.html?id=${t.id}&token=${t.token||''}`;
+  return `[PEA แจ้งเหตุ] ${t.id}
+ผู้แจ้ง: ${t.name}
+CA: ${t.ca}
+PEANO: ${t.peano}
+ที่อยู่: ${t.addr}
+เหตุการณ์: ${t.note}
+พิกัด: ${gmaps}
+
+อัปเดตสถานะ: ${updateLink}`;
+}
+
 
 function buildRestoreMessage(t) {
   const equipStr = (t.equipment && t.equipment.length)
@@ -942,6 +949,7 @@ function openEtrOutagePreview(id) {
     showToast('ยังไม่ได้ระบุไฟดับเวลา — กรุณากรอกในหน้า "รายละเอียดงาน" ก่อน', 'error');
     return;
   }
+  document.getElementById('etr-sheet-header').textContent = '📦 ตัวอย่างข้อความ ส่งกลุ่ม ETR';
   document.getElementById('etr-preview-text').value = buildOutageMessage(t);
   document.getElementById('etr-overlay').classList.add('show');
   document.getElementById('etr-sheet').classList.add('show');
@@ -963,6 +971,7 @@ function openEtrRestorePreview(id) {
     showToast('ยังไม่ได้เลือกชื่อช่างผู้ดำเนินการ — กรุณาเลือกในหน้า "รายละเอียดงาน" ก่อน', 'error');
     return;
   }
+  document.getElementById('etr-sheet-header').textContent = '📦 ตัวอย่างข้อความ ส่งกลุ่ม ETR';
   document.getElementById('etr-preview-text').value = buildRestoreMessage(t);
   document.getElementById('etr-overlay').classList.add('show');
   document.getElementById('etr-sheet').classList.add('show');
@@ -1215,7 +1224,8 @@ function showToast(msg, type='') {
   t.textContent = msg;
   t.className = 'toast show' + (type?' '+type:'');
   clearTimeout(t._timer);
-  t._timer = setTimeout(()=>t.classList.remove('show'), 3000);
+  const duration = Math.min(6000, Math.max(3000, msg.length * 60));
+  t._timer = setTimeout(()=>t.classList.remove('show'), duration);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
