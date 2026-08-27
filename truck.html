@@ -285,7 +285,7 @@
     .form-card-header h2{font-size:13.5px;line-height:1.35}
     .form-card-header span{font-size:11px !important}
     .field label{font-size:11px}
-    .field input,.field select{padding:7px 9px;font-size:13.5px}
+    .field input,.field select,.field textarea{padding:7px 9px;font-size:13.5px}
     .usage-save-btn,.usage-cancel-btn{width:100%;justify-content:center;text-align:center}
     #u-save-btn{margin-bottom:0}
   }
@@ -307,7 +307,7 @@
   .report-btn-sub{display:block;font-size:12px;font-weight:400;color:#8a8a8a;margin-top:2px}
   
   .field{display:flex;flex-direction:column;gap:4px;min-width:0}
-  .purpose-chip-row{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 2px}
+  .purpose-chip-row{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:2px 0 2px}
   .purpose-chip{
     font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:16px;
     border:1px solid #e0e0e0;background:#fafafa;color:#3949ab;
@@ -316,8 +316,8 @@
   }
   .purpose-chip:active{transform:scale(0.96)}
   .field label{font-size:12px;color:#5c6bc0;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
-  .field input,.field select{width:100%;max-width:100%;border:1px solid #e0e0e0;border-radius:6px;padding:8px 10px;font-family:'Sarabun',sans-serif;font-size:14px;color:#1a1a2e;transition:border 0.15s;background:#fafafa}
-  .field input:focus,.field select:focus{outline:none;border-color:#3949ab;background:#fff}
+  .field input,.field select,.field textarea{width:100%;max-width:100%;border:1px solid #e0e0e0;border-radius:6px;padding:8px 10px;font-family:'Sarabun',sans-serif;font-size:14px;color:#1a1a2e;transition:border 0.15s;background:#fafafa}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:#3949ab;background:#fff}
 
   .tabs{display:flex;gap:0;border-bottom:2px solid #e0e0e0;margin-bottom:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .tabs::-webkit-scrollbar{display:none}
@@ -629,8 +629,8 @@ html[data-theme="light"] {
   .form-card-header{background:var(--surface2) !important;color:var(--text) !important;border-bottom:1px solid var(--border)}
   .form-card-body h3{color:var(--accent) !important}
   .field label{color:var(--text2) !important}
-  .field input,.field select{background:var(--bg) !important;color:var(--text) !important;border:1px solid var(--border) !important}
-  .field input:focus,.field select:focus{border-color:var(--accent) !important}
+  .field input,.field select,.field textarea{background:var(--bg) !important;color:var(--text) !important;border:1px solid var(--border) !important}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent) !important}
   .field input[readonly]{background:var(--surface2) !important;color:var(--accent) !important}
   .purpose-chip{background:var(--surface2) !important;border:1px solid var(--border) !important;color:var(--accent) !important}
   .purpose-chip:active{background:var(--surface) !important}
@@ -1722,7 +1722,7 @@ function printWithTitle(){
             <button type="button" class="purpose-chip" data-t="ตรวจสอบระบบไฟฟ้า บ้าน">ตรวจสอบระบบ</button>
             <button type="button" class="purpose-chip" data-t="ตัดกิ่งไม้ใกล้แนวสายไฟฟ้า บ้าน">ตัดกิ่งไม้</button>
           </div>
-          <input type="text" id="u-purpose" placeholder="เช่น ออกแก้กระแสไฟฟ้าขัดข้อง หมู่ 3 ต.ทุ่งอ้ายโห้">
+          <textarea id="u-purpose" rows="3" placeholder="เลือกข้อความด่วนด้านบน หรือจะพิมพ์ข้อความเองก็ได้นะ" style="resize:vertical"></textarea>
         </div>
         <div class="field"><label>เลขไมล์ออก (กม.)</label><input type="number" id="u-start" min="0" step="1"></div>
         <div class="field"><label>เลขไมล์กลับ (กม.)</label><input type="number" id="u-end" min="0" step="1"></div>
