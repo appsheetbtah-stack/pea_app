@@ -239,12 +239,27 @@ body {
   outline: none;
 }
 .popup-qty-row input[type="text"]:focus { border-color: var(--accent); }
-.popup-qty-row select {
+.size-dropdown { position: relative; flex: 1; min-width: 0; }
+.size-dropdown-btn {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 6px;
   background: var(--bg); border: 1px solid var(--border); color: var(--text);
   font-family: var(--sans); font-size:14px; padding: 7px 10px; border-radius: 6px;
-  outline: none; -webkit-appearance: none; appearance: none;
+  outline: none; cursor: pointer; text-align: left;
 }
-.popup-qty-row select:focus { border-color: var(--accent); }
+.size-dropdown-btn span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.size-dropdown-btn svg { flex-shrink:0; color: var(--text2); transition: transform .15s; }
+.size-dropdown.open .size-dropdown-btn { border-color: var(--accent); }
+.size-dropdown.open .size-dropdown-btn svg { transform: rotate(180deg); }
+.size-dropdown-menu {
+  position: fixed; z-index: 3000; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,0.35); overflow-y: auto; max-height: 260px;
+  padding: 4px;
+}
+.size-dropdown-option {
+  padding: 11px 14px; font-size:14px; color: var(--text); border-radius: 7px; cursor: pointer;
+}
+.size-dropdown-option:active { background: var(--surface2); }
+.size-dropdown-option.active { background: rgba(245,166,35,0.15); color: var(--accent); font-weight:600; }
 .popup-qty-row .qty-unit { font-size:13px; color: var(--text2); }
 .popup-qty-row .size-row-add {
   background: none; border: 1px dashed var(--border); color: var(--accent);
@@ -705,10 +720,15 @@ body {
           const sizeOpts = getMaterialSizes(opt);
           const rows = m.sizeBreakdown.map((b, idx) => `
             <div class="popup-qty-row">
-              <select data-size-for="${escapeAttr(opt)}" data-idx="${idx}" style="flex:1;min-width:0">
-                <option value="" ${!b.size?'selected':''}>เลือกขนาด</option>
-                ${sizeOpts.map(s => `<option value="${escapeAttr(s)}" ${b.size===s?'selected':''}>${escapeHtml(s)}</option>`).join('')}
-              </select>
+              <div class="size-dropdown" data-size-for="${escapeAttr(opt)}" data-idx="${idx}">
+                <button type="button" class="size-dropdown-btn">
+                  <span>${b.size ? escapeHtml(b.size) : 'เลือกขนาด'}</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div class="size-dropdown-menu" hidden>
+                  ${sizeOpts.map(s => `<div class="size-dropdown-option ${b.size===s?'active':''}" data-value="${escapeAttr(s)}">${escapeHtml(s)}</div>`).join('')}
+                </div>
+              </div>
               <input type="number" min="0" step="0.1" value="${b.qty}" data-qty-for="${escapeAttr(opt)}" data-idx="${idx}" style="width:70px;flex-shrink:0">
               <span class="qty-unit">${escapeHtml(m.unit)}</span>
               ${m.sizeBreakdown.length > 1 ? `<button type="button" class="size-row-remove" data-remove-for="${escapeAttr(opt)}" data-idx="${idx}">✕</button>` : ''}
@@ -751,10 +771,33 @@ body {
         }
       });
     });
-    listEl.querySelectorAll('[data-size-for]').forEach(inp => {
-      inp.addEventListener('click', e => e.stopPropagation());
-      inp.addEventListener('change', () => {
-        updateSizeRowSize(inp.dataset.sizeFor, parseInt(inp.dataset.idx,10), inp.value);
+    listEl.querySelectorAll('.size-dropdown').forEach(dd => {
+      const btn = dd.querySelector('.size-dropdown-btn');
+      const menu = dd.querySelector('.size-dropdown-menu');
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        closeAllSizeDropdowns();
+        const r = btn.getBoundingClientRect();
+        menu.style.left = r.left + 'px';
+        menu.style.top = (r.bottom + 4) + 'px';
+        menu.style.width = r.width + 'px';
+        // ถ้าเมนูจะล้นขอบล่างจอ ให้เปิดขึ้นด้านบนปุ่มแทน
+        const estHeight = Math.min(260, menu.children.length * 44 + 8);
+        if (r.bottom + 4 + estHeight > window.innerHeight) {
+          menu.style.top = (r.top - estHeight - 4) + 'px';
+        }
+        menu.hidden = false;
+        dd.classList.add('open');
+      });
+      menu.querySelectorAll('.size-dropdown-option').forEach(opt => {
+        opt.addEventListener('click', e => {
+          e.stopPropagation();
+          updateSizeRowSize(dd.dataset.sizeFor, parseInt(dd.dataset.idx,10), opt.dataset.value);
+          btn.querySelector('span').textContent = opt.dataset.value;
+          menu.querySelectorAll('.size-dropdown-option').forEach(o => o.classList.remove('active'));
+          opt.classList.add('active');
+          closeAllSizeDropdowns();
+        });
       });
     });
     listEl.querySelectorAll('[data-add-for]').forEach(btn => {
@@ -770,6 +813,13 @@ body {
       });
     });
   }
+
+  function closeAllSizeDropdowns() {
+    document.querySelectorAll('.size-dropdown-menu').forEach(m => m.hidden = true);
+    document.querySelectorAll('.size-dropdown.open').forEach(d => d.classList.remove('open'));
+  }
+  document.addEventListener('click', closeAllSizeDropdowns);
+  document.addEventListener('scroll', closeAllSizeDropdowns, true);
 
   function addCustomItem() {
     if(!currentPickerType) return;
