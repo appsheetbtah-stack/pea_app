@@ -918,24 +918,24 @@ PEANO: ${t.peano}
 
 
 function buildRestoreMessage(t) {
-  const equipStr = (t.equipment && t.equipment.length)
-    ? t.equipment.map(eq => eq.id).join(', ')
-    : '-';
-  const matLines = (t.materials && t.materials.length)
-    ? t.materials.map(m => `- ${m.name} : ${m.qty ?? 1} ${m.unit}`).join('\n')
-    : '- (ยังไม่ได้ระบุวัสดุ)';
-  const now = new Date();
-  const nowTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  // สรุปวัสดุ/อุปกรณ์แบบสั้น เช่น "ฟิวส์แรงสูง 15A 2 เส้น" — รวมขนาด (ถ้ามี) และจำนวน+หน่วยไว้ในบรรทัดเดียว
+  const matSummary = (t.materials && t.materials.length)
+    ? t.materials.map(m => `${m.name}${m.size?' '+m.size:''} ${m.qty ?? 1} ${m.unit}`).join(', ')
+    : '';
+  const fixSummary = (t.fixes && t.fixes.length) ? t.fixes.join(', ') : '';
+  const causeSummary = (t.causes && t.causes.length) ? t.causes.join(', ') : '';
 
-  return `${ORG_NAME}
-ขอแจ้งไฟติด (ซ่อมเสร็จเรียบร้อย)
-บริเวณ : ${t.addr || '-'}
-รหัสอุปกรณ์ : ${equipStr}
-ไฟติดเวลา : ${nowTime} น.
-ชื่อช่างดำเนินการ : ${t.technician || '-'}
+  // ประกอบเป็นประโยคสั้นๆ แบบเดียวกับที่ช่างพิมพ์ตอบกลับจริงใน LINE
+  // ไม่มีหัวข้อ/ที่อยู่/เวลาซ้ำ เพราะข้อความนี้ใช้ตอบกลับ (reply) แชทแจ้งไฟดับเดิมที่มีข้อมูลนั้นอยู่แล้ว
+  // เช่น "จ่ายไฟใช้ได้ปกติ ฟิวส์แรงสูง 15A 1 เส้นเคลียร์ ไม่พบสันนิษฐานว่าสัตว์"
+  const parts = [];
+  if (matSummary || fixSummary) {
+    parts.push([matSummary, fixSummary].filter(Boolean).join(' '));
+  }
+  if (causeSummary) parts.push(causeSummary);
+  const detail = parts.length ? ' ' + parts.join(' ') : '';
 
-รายการวัสดุที่ใช้ :
-${matLines}`;
+  return `จ่ายไฟใช้ได้ปกติ${detail}`;
 }
 
 function openEtrOutagePreview(id) {
@@ -971,7 +971,7 @@ function openEtrRestorePreview(id) {
     showToast('ยังไม่ได้เลือกชื่อช่างผู้ดำเนินการ — กรุณาเลือกในหน้า "รายละเอียดงาน" ก่อน', 'error');
     return;
   }
-  document.getElementById('etr-sheet-header').textContent = '📦 ตัวอย่างข้อความ ส่งกลุ่ม ETR';
+  document.getElementById('etr-sheet-header').textContent = '📦 ตัวอย่างข้อความ ตอบกลับแจ้งไฟติด';
   document.getElementById('etr-preview-text').value = buildRestoreMessage(t);
   document.getElementById('etr-overlay').classList.add('show');
   document.getElementById('etr-sheet').classList.add('show');

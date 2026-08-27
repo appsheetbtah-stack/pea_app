@@ -233,6 +233,12 @@ body {
   text-align: center; outline: none;
 }
 .popup-qty-row input[type="number"]:focus { border-color: var(--accent); }
+.popup-qty-row input[type="text"] {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--sans); font-size:14px; padding: 7px 10px; border-radius: 6px;
+  outline: none;
+}
+.popup-qty-row input[type="text"]:focus { border-color: var(--accent); }
 .popup-qty-row .qty-unit { font-size:13px; color: var(--text2); }
 
 .popup-footer {
@@ -387,11 +393,11 @@ body {
   const ORG_NAME = 'กฟส.บ้านทุ่งอ้ายโห้';
   const TECHNICIAN_OPTIONS = ['นายชาคริต บุญมวง', 'นายอนลัส เลี่ยมสกุล', 'นายนิติพัฒน์ พุกสุข', 'นายสัตตยา นุเครือ'];
   const WEATHER_OPTIONS = ['ปกติ', 'ฝนตก', 'พายุ/ฟ้าผ่า', 'ลมแรง', 'อื่นๆ'];
-  const CAUSE_OPTIONS = ['สายไฟขาด','ฟิวส์ขาด','หม้อแปลงเสีย/ระเบิด','ลูกถ้วยแตก/ชำรุด','ต้นไม้ทับสาย','อุปกรณ์ป้องกันทำงาน (Recloser/Cutout)','สายหลุดจากจุดต่อ','มิเตอร์ชำรุด','ภัยธรรมชาติ (พายุ/ฟ้าผ่า)'];
+  const CAUSE_OPTIONS = ['สายไฟขาด','ฟิวส์ขาด','หม้อแปลงเสีย/ระเบิด','ลูกถ้วยแตก/ชำรุด','ต้นไม้ทับสาย','อุปกรณ์ป้องกันทำงาน (Recloser/Cutout)','สายหลุดจากจุดต่อ','มิเตอร์ชำรุด','ภัยธรรมชาติ (พายุ/ฟ้าผ่า)','เคลียร์ไลน์ไม่พบสาเหตุ','สันนิษฐานว่าเกิดจากสัตว์','ช็อตนก','ช็อตงู','ช็อตกระรอก'];
   const FIX_OPTIONS = ['เปลี่ยนฟิวส์','ต่อสายใหม่/ซ่อมจุดต่อ','เปลี่ยนลูกถ้วย','ตัดกิ่งไม้/ต้นไม้','Reset อุปกรณ์ป้องกัน','เปลี่ยนหม้อแปลง','เปลี่ยนมิเตอร์','ปรับตั้งค่าใหม่'];
   const MATERIAL_OPTIONS = [
-    {name:'ฟิวส์แรงต่ำ', unit:'ตัว'},
-    {name:'ฟิวส์แรงสูง', unit:'เส้น'},
+    {name:'ฟิวส์แรงต่ำ', unit:'ตัว', hasSize:true},
+    {name:'ฟิวส์แรงสูง', unit:'เส้น', hasSize:true},
     {name:'สาย 50 AW', unit:'เมตร'},
     {name:'สาย 95 AW', unit:'เมตร'},
     {name:'สาย 50 SAC', unit:'เมตร'},
@@ -469,13 +475,20 @@ body {
     return existing ? existing.unit : 'หน่วย';
   }
 
+  function materialHasSize(name) {
+    const preset = MATERIAL_OPTIONS.find(m => m.name === name);
+    return !!(preset && preset.hasSize);
+  }
+
   function toggleSelection(type, name) {
     if(type === 'material') {
       const idx = selectedMaterials.findIndex(m => m.name === name);
       if(idx >= 0) {
         selectedMaterials.splice(idx, 1);
       } else {
-        selectedMaterials.push({ name, unit: getMaterialUnit(name), qty: 1 });
+        const item = { name, unit: getMaterialUnit(name), qty: 1 };
+        if(materialHasSize(name)) item.size = '';
+        selectedMaterials.push(item);
       }
       return;
     }
@@ -498,11 +511,16 @@ body {
     if(m) m.qty = isNaN(qty) ? 0 : qty;
   }
 
+  function updateMaterialSize(name, size) {
+    const m = selectedMaterials.find(x => x.name === name);
+    if(m) m.size = size;
+  }
+
   function summaryText(type) {
     const list = getSelectedList(type);
     if(type === 'material') {
       return selectedMaterials.length
-        ? selectedMaterials.map(m => `${m.name} (${m.qty} ${m.unit})`).join(', ')
+        ? selectedMaterials.map(m => `${m.name}${m.size?' '+m.size:''} (${m.qty} ${m.unit})`).join(', ')
         : '';
     }
     return list.join(', ');
@@ -626,8 +644,10 @@ body {
       const checked = isSelected(type, opt);
       const qtyRow = (hasQty && checked) ? (() => {
         const m = selectedMaterials.find(x => x.name === opt);
+        const sizeInput = materialHasSize(opt) ? `<input type="text" placeholder="ขนาด เช่น 15A" value="${escapeAttr(m.size||'')}" data-size-for="${escapeAttr(opt)}" style="flex:1;min-width:0">` : '';
         return `<div class="popup-qty-row">
-          <input type="number" min="0" step="0.1" value="${m.qty}" data-qty-for="${escapeAttr(opt)}">
+          ${sizeInput}
+          <input type="number" min="0" step="0.1" value="${m.qty}" data-qty-for="${escapeAttr(opt)}" style="${materialHasSize(opt)?'width:70px;flex-shrink:0':''}">
           <span class="qty-unit">${escapeHtml(m.unit)}</span>
         </div>`;
       })() : '';
@@ -656,6 +676,12 @@ body {
       inp.addEventListener('click', e => e.stopPropagation());
       inp.addEventListener('input', () => {
         updateMaterialQty(inp.dataset.qtyFor, parseFloat(inp.value));
+      });
+    });
+    listEl.querySelectorAll('[data-size-for]').forEach(inp => {
+      inp.addEventListener('click', e => e.stopPropagation());
+      inp.addEventListener('input', () => {
+        updateMaterialSize(inp.dataset.sizeFor, inp.value);
       });
     });
   }
