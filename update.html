@@ -239,7 +239,23 @@ body {
   outline: none;
 }
 .popup-qty-row input[type="text"]:focus { border-color: var(--accent); }
+.popup-qty-row select {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--sans); font-size:14px; padding: 7px 10px; border-radius: 6px;
+  outline: none; -webkit-appearance: none; appearance: none;
+}
+.popup-qty-row select:focus { border-color: var(--accent); }
 .popup-qty-row .qty-unit { font-size:13px; color: var(--text2); }
+.popup-qty-row .size-row-add {
+  background: none; border: 1px dashed var(--border); color: var(--accent);
+  font-family: var(--sans); font-size:13px; font-weight:600; padding: 7px 12px; border-radius: 6px;
+  cursor: pointer;
+}
+.popup-qty-row .size-row-remove {
+  background: none; border: 1px solid var(--border); color: var(--text2);
+  width:30px; height:30px; flex-shrink:0; border-radius: 6px; font-size:14px; cursor: pointer;
+}
+.popup-qty-row .size-row-remove:active { border-color: var(--red); color: var(--red); }
 
 .popup-footer {
   display: flex; justify-content: space-between; align-items: center;
@@ -327,7 +343,7 @@ body {
 <div class="popup-overlay" id="etr-overlay" onclick="closeEtrPreview()"></div>
 <div class="popup-sheet" id="etr-sheet">
   <div class="popup-header">
-    <div class="popup-title">📦 ตัวอย่างข้อความ ส่งกลุ่ม ETR</div>
+    <div class="popup-title" id="etr-sheet-title">📦 ตัวอย่างข้อความ ส่งกลุ่ม ETR</div>
   </div>
   <div style="padding:16px 18px; flex:1; overflow-y:auto;">
     <textarea class="etr-preview-textarea" id="etr-preview-text" placeholder="ข้อความจะแสดงที่นี่..."></textarea>
@@ -396,8 +412,8 @@ body {
   const CAUSE_OPTIONS = ['สายไฟขาด','ฟิวส์ขาด','หม้อแปลงเสีย/ระเบิด','ลูกถ้วยแตก/ชำรุด','ต้นไม้ทับสาย','อุปกรณ์ป้องกันทำงาน (Recloser/Cutout)','สายหลุดจากจุดต่อ','มิเตอร์ชำรุด','ภัยธรรมชาติ (พายุ/ฟ้าผ่า)','เคลียร์ไลน์ไม่พบสาเหตุ','สันนิษฐานว่าเกิดจากสัตว์','ช็อตนก','ช็อตงู','ช็อตกระรอก'];
   const FIX_OPTIONS = ['เปลี่ยนฟิวส์','ต่อสายใหม่/ซ่อมจุดต่อ','เปลี่ยนลูกถ้วย','ตัดกิ่งไม้/ต้นไม้','Reset อุปกรณ์ป้องกัน','เปลี่ยนหม้อแปลง','เปลี่ยนมิเตอร์','ปรับตั้งค่าใหม่'];
   const MATERIAL_OPTIONS = [
-    {name:'ฟิวส์แรงต่ำ', unit:'ตัว', hasSize:true},
-    {name:'ฟิวส์แรงสูง', unit:'เส้น', hasSize:true},
+    {name:'ฟิวส์แรงต่ำ', unit:'ตัว', sizes:['50 A','80 A','100 A','160 A','200 A','250 A']},
+    {name:'ฟิวส์แรงสูง', unit:'เส้น', sizes:['6 K','8 K','10 K','15 K','20 K','25 K','30 K','40 K']},
     {name:'สาย 50 AW', unit:'เมตร'},
     {name:'สาย 95 AW', unit:'เมตร'},
     {name:'สาย 50 SAC', unit:'เมตร'},
@@ -477,7 +493,12 @@ body {
 
   function materialHasSize(name) {
     const preset = MATERIAL_OPTIONS.find(m => m.name === name);
-    return !!(preset && preset.hasSize);
+    return !!(preset && preset.sizes);
+  }
+
+  function getMaterialSizes(name) {
+    const preset = MATERIAL_OPTIONS.find(m => m.name === name);
+    return (preset && preset.sizes) || [];
   }
 
   function toggleSelection(type, name) {
@@ -486,8 +507,12 @@ body {
       if(idx >= 0) {
         selectedMaterials.splice(idx, 1);
       } else {
-        const item = { name, unit: getMaterialUnit(name), qty: 1 };
-        if(materialHasSize(name)) item.size = '';
+        const item = { name, unit: getMaterialUnit(name) };
+        if(materialHasSize(name)) {
+          item.sizeBreakdown = [{ size:'', qty:1 }]; // รองรับหลายขนาดในวัสดุเดียวกัน (เช่น ฟิวส์แรงสูง 10K + 15K ในเหตุการณ์เดียว)
+        } else {
+          item.qty = 1;
+        }
         selectedMaterials.push(item);
       }
       return;
@@ -511,16 +536,48 @@ body {
     if(m) m.qty = isNaN(qty) ? 0 : qty;
   }
 
-  function updateMaterialSize(name, size) {
+  // ── จัดการรายการขนาดย่อยของวัสดุที่มีหลายขนาด (sizeBreakdown) ──
+  function updateSizeRowSize(name, idx, size) {
     const m = selectedMaterials.find(x => x.name === name);
-    if(m) m.size = size;
+    if(m && m.sizeBreakdown && m.sizeBreakdown[idx]) m.sizeBreakdown[idx].size = size;
+  }
+
+  function updateSizeRowQty(name, idx, qty) {
+    const m = selectedMaterials.find(x => x.name === name);
+    if(m && m.sizeBreakdown && m.sizeBreakdown[idx]) m.sizeBreakdown[idx].qty = isNaN(qty) ? 0 : qty;
+  }
+
+  function addSizeRow(name) {
+    const m = selectedMaterials.find(x => x.name === name);
+    if(m) {
+      if(!m.sizeBreakdown) m.sizeBreakdown = [];
+      m.sizeBreakdown.push({ size:'', qty:1 });
+    }
+    renderPickerList();
+  }
+
+  function removeSizeRow(name, idx) {
+    const m = selectedMaterials.find(x => x.name === name);
+    if(!m || !m.sizeBreakdown) return;
+    m.sizeBreakdown.splice(idx, 1);
+    if(m.sizeBreakdown.length === 0) {
+      // ลบขนาดสุดท้ายออก = ยกเลิกเลือกวัสดุนี้ไปเลย
+      const mi = selectedMaterials.findIndex(x => x.name === name);
+      if(mi >= 0) selectedMaterials.splice(mi, 1);
+    }
+    renderPickerList();
   }
 
   function summaryText(type) {
     const list = getSelectedList(type);
     if(type === 'material') {
       return selectedMaterials.length
-        ? selectedMaterials.map(m => `${m.name}${m.size?' '+m.size:''} (${m.qty} ${m.unit})`).join(', ')
+        ? selectedMaterials.map(m => {
+            if(m.sizeBreakdown) {
+              return m.sizeBreakdown.map(b => `${m.name}${b.size?' '+b.size:''} (${b.qty} ${m.unit})`).join(', ');
+            }
+            return `${m.name} (${m.qty} ${m.unit})`;
+          }).join(', ')
         : '';
     }
     return list.join(', ');
@@ -644,10 +701,22 @@ body {
       const checked = isSelected(type, opt);
       const qtyRow = (hasQty && checked) ? (() => {
         const m = selectedMaterials.find(x => x.name === opt);
-        const sizeInput = materialHasSize(opt) ? `<input type="text" placeholder="ขนาด เช่น 15A" value="${escapeAttr(m.size||'')}" data-size-for="${escapeAttr(opt)}" style="flex:1;min-width:0">` : '';
+        if(materialHasSize(opt)) {
+          const sizeOpts = getMaterialSizes(opt);
+          const rows = m.sizeBreakdown.map((b, idx) => `
+            <div class="popup-qty-row">
+              <select data-size-for="${escapeAttr(opt)}" data-idx="${idx}" style="flex:1;min-width:0">
+                <option value="" ${!b.size?'selected':''}>เลือกขนาด</option>
+                ${sizeOpts.map(s => `<option value="${escapeAttr(s)}" ${b.size===s?'selected':''}>${escapeHtml(s)}</option>`).join('')}
+              </select>
+              <input type="number" min="0" step="0.1" value="${b.qty}" data-qty-for="${escapeAttr(opt)}" data-idx="${idx}" style="width:70px;flex-shrink:0">
+              <span class="qty-unit">${escapeHtml(m.unit)}</span>
+              ${m.sizeBreakdown.length > 1 ? `<button type="button" class="size-row-remove" data-remove-for="${escapeAttr(opt)}" data-idx="${idx}">✕</button>` : ''}
+            </div>`).join('');
+          return rows + `<div class="popup-qty-row"><button type="button" class="size-row-add" data-add-for="${escapeAttr(opt)}">+ เพิ่มขนาด</button></div>`;
+        }
         return `<div class="popup-qty-row">
-          ${sizeInput}
-          <input type="number" min="0" step="0.1" value="${m.qty}" data-qty-for="${escapeAttr(opt)}" style="${materialHasSize(opt)?'width:70px;flex-shrink:0':''}">
+          <input type="number" min="0" step="0.1" value="${m.qty}" data-qty-for="${escapeAttr(opt)}">
           <span class="qty-unit">${escapeHtml(m.unit)}</span>
         </div>`;
       })() : '';
@@ -675,13 +744,29 @@ body {
     listEl.querySelectorAll('[data-qty-for]').forEach(inp => {
       inp.addEventListener('click', e => e.stopPropagation());
       inp.addEventListener('input', () => {
-        updateMaterialQty(inp.dataset.qtyFor, parseFloat(inp.value));
+        if(inp.dataset.idx !== undefined) {
+          updateSizeRowQty(inp.dataset.qtyFor, parseInt(inp.dataset.idx,10), parseFloat(inp.value));
+        } else {
+          updateMaterialQty(inp.dataset.qtyFor, parseFloat(inp.value));
+        }
       });
     });
     listEl.querySelectorAll('[data-size-for]').forEach(inp => {
       inp.addEventListener('click', e => e.stopPropagation());
-      inp.addEventListener('input', () => {
-        updateMaterialSize(inp.dataset.sizeFor, inp.value);
+      inp.addEventListener('change', () => {
+        updateSizeRowSize(inp.dataset.sizeFor, parseInt(inp.dataset.idx,10), inp.value);
+      });
+    });
+    listEl.querySelectorAll('[data-add-for]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        addSizeRow(btn.dataset.addFor);
+      });
+    });
+    listEl.querySelectorAll('[data-remove-for]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        removeSizeRow(btn.dataset.removeFor, parseInt(btn.dataset.idx,10));
       });
     });
   }
@@ -933,28 +1018,37 @@ body {
   }
 
   // ===== ข้อความรอบที่ 2: แจ้งไฟติด + วัสดุที่ใช้ =====
+  // สรุปวัสดุ/อุปกรณ์แบบสั้น รองรับวัสดุที่มีหลายขนาดในรายการเดียว (sizeBreakdown)
+  // เช่น "ฟิวส์แรงสูง 10 K 1 เส้น, ฟิวส์แรงสูง 15 K 1 เส้น"
+  function materialsShortSummary() {
+    if(!selectedMaterials.length) return '';
+    const parts = [];
+    selectedMaterials.forEach(m => {
+      if(m.sizeBreakdown) {
+        m.sizeBreakdown.forEach(b => {
+          parts.push(`${m.name}${b.size?' '+b.size:''} ${b.qty} ${m.unit}`);
+        });
+      } else {
+        parts.push(`${m.name} ${m.qty ?? 1} ${m.unit}`);
+      }
+    });
+    return parts.join(', ');
+  }
+
+  // ===== ข้อความรอบที่ 2: ตอบกลับแจ้งไฟติด (ใช้ reply แชทเดิมที่แจ้งไฟดับไว้ ไม่ต้องพิมพ์หัว/ที่อยู่ซ้ำ) =====
   function buildRestoreMessage() {
-    const t = currentData || {};
-    const equipStr = selectedEquipment.length
-      ? selectedEquipment.map(eq => eq.id).join(', ')
-      : '-';
-    const matLines = selectedMaterials.length
-      ? selectedMaterials.map(m => `- ${m.name} : ${m.qty ?? 1} ${m.unit}`).join('\n')
-      : '- (ยังไม่ได้ระบุวัสดุ)';
-    const nowTime = (() => {
-      const n = new Date();
-      return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
-    })();
+    const matSummary = materialsShortSummary();
+    const fixSummary = selectedFixes.length ? selectedFixes.join(', ') : '';
+    const causeSummary = selectedCauses.length ? selectedCauses.join(', ') : '';
 
-    return `${ORG_NAME}
-ขอแจ้งไฟติด (ซ่อมเสร็จเรียบร้อย)
-บริเวณ : ${t.addr || '-'}
-รหัสอุปกรณ์ : ${equipStr}
-ไฟติดเวลา : ${nowTime} น.
-ชื่อช่างดำเนินการ : ${selectedTechnician || '-'}
+    const parts = [];
+    if (matSummary || fixSummary) {
+      parts.push([matSummary, fixSummary].filter(Boolean).join(' '));
+    }
+    if (causeSummary) parts.push(causeSummary);
+    const detail = parts.length ? ' ' + parts.join(' ') : '';
 
-รายการวัสดุที่ใช้ :
-${matLines}`;
+    return `จ่ายไฟใช้ได้ปกติ${detail}`;
   }
 
   async function sendToEtrGroup(msg) {
@@ -978,6 +1072,7 @@ ${matLines}`;
       showToast('กรุณาระบุไฟดับเวลาก่อน', 'error');
       return;
     }
+    document.getElementById('etr-sheet-title').textContent = '📦 ตัวอย่างข้อความ ส่งกลุ่ม ETR';
     document.getElementById('etr-preview-text').value = buildOutageMessage();
     document.getElementById('etr-overlay').classList.add('show');
     document.getElementById('etr-sheet').classList.add('show');
@@ -997,6 +1092,7 @@ ${matLines}`;
       showToast('กรุณาเลือกชื่อช่างผู้ดำเนินการก่อน', 'error');
       return;
     }
+    document.getElementById('etr-sheet-title').textContent = '📦 ตัวอย่างข้อความ ตอบกลับแจ้งไฟติด';
     document.getElementById('etr-preview-text').value = buildRestoreMessage();
     document.getElementById('etr-overlay').classList.add('show');
     document.getElementById('etr-sheet').classList.add('show');
@@ -1058,7 +1154,14 @@ ${matLines}`;
       selectedFixes = data.fixes || [];
       customFixes = data.customFixes || (data.customFix ? [data.customFix] : []);
       if(data.customFix && !selectedFixes.includes(data.customFix)) selectedFixes.push(data.customFix);
-      selectedMaterials = data.materials || [];
+      // migrate ทิกเก็ตเก่า (รูปแบบ {name,unit,qty,size} เดี่ยว) ให้เข้ารูปแบบ sizeBreakdown ใหม่
+      // เพื่อให้แก้ไข/แสดงผลในตัวเลือกแบบหลายขนาดได้ถูกต้อง
+      selectedMaterials = (data.materials || []).map(m => {
+        if (materialHasSize(m.name) && !m.sizeBreakdown) {
+          return { name: m.name, unit: m.unit, sizeBreakdown: [{ size: m.size || '', qty: m.qty ?? 1 }] };
+        }
+        return m;
+      });
       selectedEquipment = data.equipment || [];
       selectedTechnician = data.technician || '';
       // ค่าเริ่มต้น: ไฟดับเวลา = เวลาที่สร้าง ticket, ใช้เวลาแก้ไข 30 นาที, เวลาไฟติด = ไฟดับ+30 (ทั้งหมดแก้ไขเองได้)

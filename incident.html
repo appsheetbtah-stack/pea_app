@@ -918,9 +918,16 @@ PEANO: ${t.peano}
 
 
 function buildRestoreMessage(t) {
-  // สรุปวัสดุ/อุปกรณ์แบบสั้น เช่น "ฟิวส์แรงสูง 15A 2 เส้น" — รวมขนาด (ถ้ามี) และจำนวน+หน่วยไว้ในบรรทัดเดียว
+  // สรุปวัสดุ/อุปกรณ์แบบสั้น รองรับวัสดุที่มีหลายขนาดในรายการเดียว (sizeBreakdown)
+  // เช่น "ฟิวส์แรงสูง 10 K 1 เส้น, ฟิวส์แรงสูง 15 K 1 เส้น"
+  // (รองรับทิกเก็ตเก่าที่ยังเป็นรูปแบบ size/qty แบบเดี่ยวด้วย เพื่อไม่ให้ข้อความพังกับข้อมูลเก่า)
   const matSummary = (t.materials && t.materials.length)
-    ? t.materials.map(m => `${m.name}${m.size?' '+m.size:''} ${m.qty ?? 1} ${m.unit}`).join(', ')
+    ? t.materials.map(m => {
+        if (m.sizeBreakdown && m.sizeBreakdown.length) {
+          return m.sizeBreakdown.map(b => `${m.name}${b.size?' '+b.size:''} ${b.qty ?? 1} ${m.unit}`).join(', ');
+        }
+        return `${m.name}${m.size?' '+m.size:''} ${m.qty ?? 1} ${m.unit}`;
+      }).join(', ')
     : '';
   const fixSummary = (t.fixes && t.fixes.length) ? t.fixes.join(', ') : '';
   const causeSummary = (t.causes && t.causes.length) ? t.causes.join(', ') : '';
