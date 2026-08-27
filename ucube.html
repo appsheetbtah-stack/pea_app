@@ -50,7 +50,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .topbar {
   position:fixed; top:0; left:0; right:0; height:var(--topbar); z-index:600;
   background:var(--surface); border-bottom:1px solid var(--border);
-  display:flex; align-items:center; gap:10px; padding:0 12px;
+  display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 12px;
 }
 .back-btn {
   color:var(--text2); text-decoration:none; font-size:13px;
@@ -59,7 +59,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   flex-shrink:0; transition:color .15s;
 }
 .back-btn:hover { color:var(--accent); border-color:var(--accent); }
-.topbar-title { font-size:15px; font-weight:700; flex:1; display:flex; align-items:center; gap:8px; }
+.topbar-title {
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px;
+  white-space:nowrap; pointer-events:none;
+}
 .meter-icon { flex-shrink:0; }
 .topbar-btn {
   background:var(--surface2); border:1px solid var(--border); color:var(--text);
@@ -164,7 +168,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .dash-month-select-row { display:flex; align-items:center; gap:10px; }
 .dash-month-select-row select { flex:1; }
 #dash-view-month, #dash-view-year { display:flex; flex-direction:column; gap:12px; }
-.dash-pie-wrap { display:flex; align-items:center; gap:20px; }
+.dash-pie-wrap { display:flex; flex-direction:column; align-items:center; gap:16px; }
 .dash-pie-box { position:relative; width:132px; height:132px; flex-shrink:0; }
 .dash-pie { width:132px; height:132px; border-radius:50%; background:var(--surface2); }
 .dash-pie-hole {
@@ -174,10 +178,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 }
 .dash-pie-hole span { font-family:var(--mono); font-size:20px; font-weight:800; line-height:1.1; }
 .dash-pie-hole small { font-size:10px; color:var(--text2); margin-top:2px; }
-.dash-pie-legend { flex:1; display:flex; flex-direction:column; gap:9px; min-width:0; }
-.dash-pie-legend-row { display:flex; align-items:center; gap:8px; font-size:12.5px; }
+.dash-pie-legend { display:flex; flex-direction:column; align-items:center; gap:10px; }
+.dash-pie-legend-row { display:flex; align-items:center; justify-content:center; gap:8px; font-size:12.5px; text-align:center; }
 .dash-pie-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
-.dash-pie-name { flex:1; color:var(--text2); min-width:0; }
+.dash-pie-name { color:var(--text2); }
 .dash-pie-val { font-family:var(--mono); font-weight:700; white-space:nowrap; }
 .dash-pie-pct { color:var(--text2); font-weight:400; }
 
@@ -1073,6 +1077,10 @@ function renderTrendChart(containerId, series, xAxisLabels) {
   // xAxisLabels: string[N] — ป้ายแกน x ให้ตรงความยาวของ values (ใส่ '' เพื่อข้ามป้ายบางจุดกันรก)
   const el = document.getElementById(containerId);
   if (!el) return;
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  const labelColor = isLight ? '#5b6b7d' : '#a9bdd1';
+  const axisColor = isLight ? '#d2dae4' : '#2a3f55';
+  const dotStroke = isLight ? '#ffffff' : '#0f1923';
   const n = series[0].values.length;
   const W = 320, H = 156, padL = 18, padR = 12, padT = 20, padB = 22;
   const maxVal = Math.max(1, ...series.flatMap(s => s.values));
@@ -1083,18 +1091,18 @@ function renderTrendChart(containerId, series, xAxisLabels) {
   const linesSvg = series.map(s => {
     const pts = toPts(s.values);
     const path = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
-    const dots = pts.map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${(s.width || 2) + 1}" fill="${s.color}" stroke="#0f1923" stroke-width="1.2"/>`).join('');
+    const dots = pts.map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${(s.width || 2) + 1}" fill="${s.color}" stroke="${dotStroke}" stroke-width="1.2"/>`).join('');
     return `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="${s.width || 2}" stroke-linejoin="round"/>${dots}`;
   }).join('');
 
   const axisPts = toPts(series[0].values);
   const xLabels = axisPts.map((p, i) => {
     const lbl = (xAxisLabels && xAxisLabels[i]) || '';
-    return lbl ? `<text x="${p.x.toFixed(1)}" y="${H - 6}" font-size="9.5" fill="#a9bdd1" text-anchor="middle" font-family="'Sarabun',sans-serif">${lbl}</text>` : '';
+    return lbl ? `<text x="${p.x.toFixed(1)}" y="${H - 6}" font-size="9.5" fill="${labelColor}" text-anchor="middle" font-family="'Sarabun',sans-serif">${lbl}</text>` : '';
   }).join('');
 
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
-    <line x1="${padL}" y1="${H - padB}" x2="${W - padR}" y2="${H - padB}" stroke="#2a3f55" stroke-width="1"/>
+    <line x1="${padL}" y1="${H - padB}" x2="${W - padR}" y2="${H - padB}" stroke="${axisColor}" stroke-width="1"/>
     ${linesSvg}
     ${xLabels}
   </svg>`;
@@ -1110,6 +1118,11 @@ function renderBarChart(containerId, bars) {
   // bars: [{ label, color, value, pct? }]
   const el = document.getElementById(containerId);
   if (!el) return;
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  const valueColor = isLight ? '#131f2b' : '#e8f0f8';
+  const pctColor = isLight ? '#5b6b7d' : '#ffffff';
+  const labelColor = isLight ? '#5b6b7d' : '#a9bdd1';
+  const axisColor = isLight ? '#d2dae4' : '#2a3f55';
   const W = 320, H = 164, padT = 34, padB = 32, gap = 20;
   const maxVal = Math.max(1, ...bars.map(b => b.value));
   const barW = (W - gap * (bars.length + 1)) / bars.length;
@@ -1122,13 +1135,13 @@ function renderBarChart(containerId, bars) {
     const pctText = (b.pct !== undefined) ? ` (${b.pct}%)` : '';
     return `
       <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(barH, 0).toFixed(1)}" rx="5" fill="${b.color}"/>
-      <text x="${(x + barW / 2).toFixed(1)}" y="${(y - 16).toFixed(1)}" font-size="14" font-weight="700" fill="#e8f0f8" text-anchor="middle" font-family="'IBM Plex Mono',monospace">${b.value}</text>
-      <text x="${(x + barW / 2).toFixed(1)}" y="${(y - 4).toFixed(1)}" font-size="10.5" fill="#ffffff" text-anchor="middle" font-family="'IBM Plex Mono',monospace">${pctText}</text>
-      <text x="${(x + barW / 2).toFixed(1)}" y="${H - 10}" font-size="11" fill="#a9bdd1" text-anchor="middle" font-family="'Sarabun',sans-serif">${b.label}</text>`;
+      <text x="${(x + barW / 2).toFixed(1)}" y="${(y - 16).toFixed(1)}" font-size="14" font-weight="700" fill="${valueColor}" text-anchor="middle" font-family="'IBM Plex Mono',monospace">${b.value}</text>
+      <text x="${(x + barW / 2).toFixed(1)}" y="${(y - 4).toFixed(1)}" font-size="10.5" fill="${pctColor}" text-anchor="middle" font-family="'IBM Plex Mono',monospace">${pctText}</text>
+      <text x="${(x + barW / 2).toFixed(1)}" y="${H - 10}" font-size="11" fill="${labelColor}" text-anchor="middle" font-family="'Sarabun',sans-serif">${b.label}</text>`;
   }).join('');
 
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
-    <line x1="8" y1="${H - padB}" x2="${W - 8}" y2="${H - padB}" stroke="#2a3f55" stroke-width="1"/>
+    <line x1="8" y1="${H - padB}" x2="${W - 8}" y2="${H - padB}" stroke="${axisColor}" stroke-width="1"/>
     ${barsSvg}
   </svg>`;
 }
