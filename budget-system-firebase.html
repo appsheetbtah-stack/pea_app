@@ -762,11 +762,10 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
       </div>
       <!-- กราฟส่วนต่างงบเฉลี่ยต่อเดือน 12 เดือน -->
       <div class="monthly-chart-card" id="d-monthly-chart-card">
-        <div class="monthly-chart-title">งบคงเหลือรายเดือน</div>
+        <div class="monthly-chart-title">งบคงเหลือสะสมทั้งปี</div>
         <div class="monthly-chart-legend">
-          <span><span class="dot" style="background:#1baf7a"></span>ใช้ช้ากว่าแผน</span>
-          <span><span class="dot" style="background:#e34948"></span>ใช้เร็วกว่าแผน</span>
-          <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;height:0;border-top:1.5px dashed #94a3b8;display:inline-block"></span>งบตามแผน</span>
+          <span><span class="dot" style="background:#1baf7a"></span>งบคงเหลือ</span>
+          <span><span class="dot" style="background:#e34948"></span>ติดลบ (ใช้เกินงบทั้งปี)</span>
         </div>
         <div id="d-monthly-chart"></div>
       </div>
@@ -1467,9 +1466,38 @@ function computeFixedMonthly(acc, refDate){
   return { monthlyBase, carryIn, monthBudget, monthUsed, monthRemain, refMonth };
 }
 
+// เลือกหน่วยแสดงผลแบบไดนามิค: ค่าต่ำกว่า 1,000 แสดงเป็นจำนวนเต็มบาท,
+// ตั้งแต่ 1,000 ขึ้นไปย่อเป็นหน่วย k (มีทศนิยม 1 ตำแหน่งถ้าจำเป็น เพื่อไม่ให้ปัดเหลือ 0k)
+function formatBarLabel(v){
+  const sign = v >= 0 ? '+' : '-';
+  const abs = Math.abs(v);
+  if(abs < 1000){
+    return sign + Math.round(abs);
+  }
+  const kVal = abs / 1000;
+  // ถ้าปัดเป็นจำนวนเต็มแล้วยังคูณกลับได้ใกล้เคียงพอ ให้แสดงเป็นจำนวนเต็ม k ไม่งั้นแสดงทศนิยม 1 ตำแหน่ง
+  const rounded = Math.round(kVal);
+  const text = Math.abs(kVal - rounded) < 0.05 ? String(rounded) : kVal.toFixed(1);
+  return sign + text + 'k';
+}
+
+// เหมือนตัว formatBarLabel แต่ไม่ใส่เครื่องหมาย + นำหน้าตัวเลขบวก (เพราะ "งบคงเหลือ" ที่เป็นบวกคือภาวะปกติ ไม่ใช่ส่วนเกิน)
+function formatRemainLabel(v){
+  const neg = v < 0;
+  const abs = Math.abs(v);
+  let text;
+  if(abs < 1000){
+    text = String(Math.round(abs));
+  } else {
+    const kVal = abs/1000;
+    const rounded = Math.round(kVal);
+    text = (Math.abs(kVal-rounded) < 0.05 ? String(rounded) : kVal.toFixed(1)) + 'k';
+  }
+  return (neg?'-':'') + text;
+}
+
 function buildMonthlyDiffChartSVG(acc, forceLight){
   const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-  const monthlyBase = acc.budget / 12;
   const now = new Date();
   const refYear = now.getFullYear();
   const refMonth = now.getMonth(); // เดือนปัจจุบัน (0=ม.ค.)
@@ -1480,59 +1508,66 @@ function buildMonthlyDiffChartSVG(acc, forceLight){
     if(!isNaN(d) && d.getFullYear()===refYear) usedByMonth[d.getMonth()] += (e.amount||0);
   });
 
-  // เส้นสะสม: ยอดใช้จริงสะสม (ถึงเดือนปัจจุบัน) เทียบงบตามแผนสะสม (เฉลี่ยเท่ากันทุกเดือน ตลอดปี)
-  let acc0 = 0;
-  const cumUsed = usedByMonth.map(u => acc0 += u);
-  const cumPlan = monthNames.map((_, i) => monthlyBase * (i+1));
+  // งบคงเหลือ "สะสม": เริ่มจากงบทั้งปี แล้วหักลบไปเรื่อยๆ ตามยอดใช้จ่ายจริงของแต่ละเดือน
+  // (เหมือนเข็มวัดน้ำมัน — ตอบคำถามว่า "ตอนนี้เหลือเงินเท่าไหร่ พอถึงสิ้นปีไหม")
+  let running = acc.budget;
+  const remaining = usedByMonth.map(used => { running -= used; return Math.round(running * 100) / 100; });
 
   const isLight = forceLight || document.documentElement.getAttribute('data-theme') === 'light';
-  const lineColorOk = '#1baf7a', lineColorOver = '#e34948';
-  const planColor = isLight ? '#94a3b8' : '#64748b';
+  const posColor = '#1baf7a', negColor = '#e34948';
   const labelColor = isLight ? '#5b6b7d' : '#a9bdd1';
-  const isOverToday = cumUsed[refMonth] > cumPlan[refMonth];
-  const actualColor = isOverToday ? lineColorOver : lineColorOk;
+  const zeroLineColor = isLight ? '#94a3b8' : '#64748b';
 
-  const W = 340, H = 210, padL = 32, padR = 10, padT = 18, padB = 22;
-  const plotW = W - padL - padR, plotH = H - padT - padB;
-  const maxVal = Math.max(cumPlan[11], ...cumUsed, 1) * 1.08;
-  const scaleY = plotH / maxVal;
+  const W = 340, H = 210, padL = 34, padR = 10, padT = 20, padB = 20;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  const maxVal = Math.max(acc.budget, ...remaining, 1) * 1.08;
+  const minVal = Math.min(0, ...remaining) * 1.08; // เผื่อพื้นที่ด้านล่างกรณีติดลบ (ใช้เกินงบทั้งปี)
+  const range = (maxVal - minVal) || 1;
+  const scaleY = plotH / range;
+  const yFor = v => padT + (maxVal - v) * scaleY;
+  const zeroY = yFor(0);
+
   const stepX = plotW / 11;
-  const xAt = i => padL + stepX * i;
-  const yAt = v => H - padB - v * scaleY;
+  const xFor = i => padL + i * stepX;
+  const points = remaining.map((v, i) => ({ x: xFor(i), y: yFor(v), v }));
 
-  const planPts = monthNames.map((_, i) => `${xAt(i).toFixed(1)},${yAt(cumPlan[i]).toFixed(1)}`);
-  const planPath = 'M' + planPts.join(' L');
+  const lineColor = remaining.some(v => v < 0) ? negColor : posColor;
+  const linePath = points.map((p, i) => (i===0?'M':'L') + p.x.toFixed(1) + ' ' + p.y.toFixed(1)).join(' ');
+  const areaPath = `M${points[0].x.toFixed(1)} ${zeroY.toFixed(1)} ` +
+    points.map(p => `L${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ') +
+    ` L${points[points.length-1].x.toFixed(1)} ${zeroY.toFixed(1)} Z`;
 
-  const actualPts = [];
-  for(let i=0;i<=refMonth;i++) actualPts.push(`${xAt(i).toFixed(1)},${yAt(cumUsed[i]).toFixed(1)}`);
-  const actualPath = actualPts.length ? ('M' + actualPts.join(' L')) : '';
-  const areaPath = actualPts.length
-    ? actualPath + ` L${xAt(refMonth).toFixed(1)},${(H-padB).toFixed(1)} L${xAt(0).toFixed(1)},${(H-padB).toFixed(1)} Z`
-    : '';
-
-  const dots = [];
-  for(let i=0;i<=refMonth;i++){
-    const isLast = i===refMonth;
-    dots.push(`<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(cumUsed[i]).toFixed(1)}" r="${isLast?4:2.5}" fill="${actualColor}" stroke="${isLight?'#ffffff':'#0f1923'}" stroke-width="1.2"/>`);
-  }
-
-  const labels = monthNames.map((m, i) => {
-    return `<text x="${xAt(i).toFixed(1)}" y="${H-6}" font-size="9" fill="${labelColor}" text-anchor="middle" font-family="'Sarabun',sans-serif">${m}</text>`;
+  // จุด + ตัวเลขกำกับ เฉพาะเดือนที่มีการใช้จ่ายจริง (จุดที่เส้นหักลง) และเดือนสุดท้าย
+  const dots = points.map((p, i) => {
+    const changed = usedByMonth[i] > 0;
+    const isLast = i === points.length - 1;
+    if(!changed && !isLast) {
+      return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2" fill="${lineColor}" fill-opacity="0.5"/>`;
+    }
+    const over = p.v < 0;
+    const dotColor = over ? negColor : lineColor;
+    const labelY = p.y - 8;
+    return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="${dotColor}"/>
+      <text x="${p.x.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="8" font-weight="600" fill="${dotColor}" text-anchor="middle" font-family="'IBM Plex Mono',monospace">${formatRemainLabel(p.v)}</text>`;
   }).join('');
 
-  const statusText = actualPts.length
-    ? `${isOverToday?'ใช้เร็วกว่าแผน':'ใช้ช้ากว่าแผน'} ${Math.abs(Math.round(cumUsed[refMonth]-cumPlan[refMonth])).toLocaleString()} บาท`
-    : '';
-  const statusLabel = statusText
-    ? `<text x="${W-padR}" y="${padT-4}" font-size="8" font-weight="600" fill="${actualColor}" text-anchor="end" font-family="'Sarabun',sans-serif">${statusText}</text>`
+  const labels = monthNames.map((m, i) => {
+    const x = xFor(i);
+    const active = i === refMonth;
+    return `<text x="${x.toFixed(1)}" y="${H-6}" font-size="9" font-weight="${active?700:400}" fill="${active?labelColor:labelColor}" opacity="${active?1:0.8}" text-anchor="middle" font-family="'Sarabun',sans-serif">${m}</text>`;
+  }).join('');
+
+  const zeroLine = minVal < 0
+    ? `<line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${W-padR}" y2="${zeroY.toFixed(1)}" stroke="${zeroLineColor}" stroke-width="1" stroke-dasharray="3,3"/>`
     : '';
 
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
-    ${statusLabel}
-    <path d="${planPath}" fill="none" stroke="${planColor}" stroke-width="1.5" stroke-dasharray="5 4"/>
-    ${areaPath ? `<path d="${areaPath}" fill="${actualColor}" opacity="0.08"/>` : ''}
-    ${actualPath ? `<path d="${actualPath}" fill="none" stroke="${actualColor}" stroke-width="2" stroke-linejoin="round"/>` : ''}
-    ${dots.join('')}
+    <path d="${areaPath}" fill="${lineColor}" fill-opacity="0.12"/>
+    ${zeroLine}
+    <path d="${linePath}" fill="none" stroke="${lineColor}" stroke-width="2"/>
+    ${dots}
     ${labels}
   </svg>`;
 }
@@ -1944,13 +1979,13 @@ function buildSlipHTML(acc, entry, slipNo){
       </div>
     </div>
 
-    <!-- ชั้น 6.5: งบคงเหลือรายเดือน -->
+    <!-- ชั้น 6.5: งบคงเหลือสะสมทั้งปี -->
     <div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <span style="font-size:11px;font-weight:800;color:#334155">งบคงเหลือรายเดือน</span>
+        <span style="font-size:11px;font-weight:800;color:#334155">งบคงเหลือสะสมทั้งปี</span>
         <div style="display:flex;gap:10px;font-size:9px;color:#64748b">
-          <span><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#1baf7a;margin-right:3px;-webkit-print-color-adjust:exact;print-color-adjust:exact"></span>ช้ากว่าแผน</span>
-          <span><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#e34948;margin-right:3px;-webkit-print-color-adjust:exact;print-color-adjust:exact"></span>เร็วกว่าแผน</span>
+          <span><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#1baf7a;margin-right:3px;-webkit-print-color-adjust:exact;print-color-adjust:exact"></span>งบคงเหลือ</span>
+          <span><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#e34948;margin-right:3px;-webkit-print-color-adjust:exact;print-color-adjust:exact"></span>ติดลบ</span>
         </div>
       </div>
       ${buildMonthlyDiffChartSVG(acc, true)}
