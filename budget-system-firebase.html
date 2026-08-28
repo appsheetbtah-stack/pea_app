@@ -298,6 +298,12 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 .monthly-sub{font-size:9px;color:#4ade80;font-weight:600;letter-spacing:.3px;margin-bottom:4px;text-transform:uppercase}
 .monthly-val{font-size:15px;font-weight:800;color:#4ade80}
 .monthly-val.gray{color:var(--text2)}
+
+/* ===== MONTHLY DIFF CHART ===== */
+.monthly-chart-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-top:14px}
+.monthly-chart-title{font-size:13px;font-weight:800;color:var(--text-bright);margin-bottom:8px}
+.monthly-chart-legend{display:flex;gap:14px;font-size:11px;color:var(--text2);margin-bottom:10px}
+.monthly-chart-legend .dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:middle}
 .monthly-val.over{color:#f87171}
 .monthly-val.under{color:var(--blue-light)}
 .monthly-val.ok{color:#4ade80}
@@ -753,6 +759,15 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
         <div style="text-align:right;margin-top:8px">
           <button onclick="openCarrySeedModal()" style="background:none;border:none;color:#94a3b8;font-size:11px;text-decoration:underline;cursor:pointer;padding:2px 0">⚙️ ตั้งยอดยกมาเริ่มต้น (สำหรับปีที่เริ่มใช้ระบบกลางปี)</button>
         </div>
+      </div>
+      <!-- กราฟส่วนต่างงบเฉลี่ยต่อเดือน 12 เดือน -->
+      <div class="monthly-chart-card" id="d-monthly-chart-card">
+        <div class="monthly-chart-title">เทียบงบเฉลี่ย/เดือนรายเดือน</div>
+        <div class="monthly-chart-legend">
+          <span><span class="dot" style="background:#1baf7a"></span>ใช้น้อยกว่างบเฉลี่ย</span>
+          <span><span class="dot" style="background:#e34948"></span>ใช้เกินงบเฉลี่ย</span>
+        </div>
+        <div id="d-monthly-chart"></div>
       </div>
     </div>
 
@@ -1377,6 +1392,8 @@ function renderDetail(){
   dp.style.background=pct>90?'linear-gradient(90deg,#fb923c,#dc2626)':pct>70?'linear-gradient(90deg,#fbbf24,#d97706)':'linear-gradient(90deg,#38bdf8,#0284c7)';
   // monthly card
   updateMonthlyCard(acc, rem);
+  // กราฟส่วนต่างงบเฉลี่ย/เดือน
+  renderMonthlyDiffChart('d-monthly-chart', acc);
   // submit btn
   document.getElementById('f-submit').disabled=(rem<=0);
   // history
@@ -1447,6 +1464,69 @@ function computeFixedMonthly(acc, refDate){
   }
 
   return { monthlyBase, carryIn, monthBudget, monthUsed, monthRemain, refMonth };
+}
+
+function buildMonthlyDiffChartSVG(acc, forceLight){
+  const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  const monthlyBase = acc.budget / 12;
+  const now = new Date();
+  const refYear = now.getFullYear();
+  const refMonth = now.getMonth(); // เดือนปัจจุบัน (0=ม.ค.)
+
+  const usedByMonth = new Array(12).fill(0);
+  (acc.entries||[]).forEach(e=>{
+    const d = new Date(e.date);
+    if(!isNaN(d) && d.getFullYear()===refYear) usedByMonth[d.getMonth()] += (e.amount||0);
+  });
+  // เดือนที่ยังไม่ถึง (อนาคต) ให้เป็น null คือยังไม่มีข้อมูล ไม่ใช่ "ใช้ 0 บาท"
+  const diff = monthNames.map((_, m) => m > refMonth ? null : Math.round(monthlyBase - usedByMonth[m]));
+
+  const isLight = forceLight || document.documentElement.getAttribute('data-theme') === 'light';
+  const posColor = '#1baf7a', negColor = '#e34948';
+  const posSoft = 'rgba(27,175,122,0.65)', negSoft = 'rgba(227,73,72,0.65)';
+  const labelColor = isLight ? '#5b6b7d' : '#a9bdd1';
+  const zeroLineColor = isLight ? '#aab6c4' : '#4a6278';
+  const posZone = 'rgba(27,175,122,0.06)', negZone = 'rgba(227,73,72,0.06)';
+
+  const W = 340, H = 210, padL = 30, padR = 8, padT = 20, padB = 20;
+  const plotH = H - padT - padB;
+  const maxAbs = Math.max(1000, ...diff.filter(v=>v!==null).map(v=>Math.abs(v)));
+  const scaleY = (plotH/2) / (maxAbs * 1.15);
+  const zeroY = padT + plotH/2;
+  const gap = 6;
+  const barW = (W - padL - padR - gap*11) / 12;
+
+  const bars = diff.map((v, i) => {
+    if(v===null) return '';
+    const x = padL + i*(barW+gap);
+    const h = Math.abs(v) * scaleY;
+    const y = v >= 0 ? zeroY - h : zeroY;
+    const color = i===refMonth ? (v<0?negColor:posColor) : (v<0?negSoft:posSoft);
+    const labelY = v >= 0 ? (y - 5) : (y + h + 12);
+    const labelColorV = v<0 ? negColor : posColor;
+    const kText = (v>=0?'+':'') + (Math.round(v/100)/10) + 'k';
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(h,1).toFixed(1)}" rx="4" fill="${color}"/>
+      <text x="${(x+barW/2).toFixed(1)}" y="${labelY.toFixed(1)}" font-size="9" font-weight="600" fill="${labelColorV}" text-anchor="middle" font-family="'IBM Plex Mono',monospace">${kText}</text>`;
+  }).join('');
+
+  const labels = monthNames.map((m, i) => {
+    const x = padL + i*(barW+gap) + barW/2;
+    return `<text x="${x.toFixed(1)}" y="${H-6}" font-size="9" fill="${labelColor}" text-anchor="middle" font-family="'Sarabun',sans-serif">${m}</text>`;
+  }).join('');
+
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+    <rect x="${padL}" y="${padT}" width="${W-padL-padR}" height="${plotH/2}" fill="${posZone}"/>
+    <rect x="${padL}" y="${zeroY}" width="${W-padL-padR}" height="${plotH/2}" fill="${negZone}"/>
+    <line x1="${padL}" y1="${zeroY}" x2="${W-padR}" y2="${zeroY}" stroke="${zeroLineColor}" stroke-width="1"/>
+    ${bars}
+    ${labels}
+  </svg>`;
+}
+
+function renderMonthlyDiffChart(containerId, acc){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  el.innerHTML = buildMonthlyDiffChartSVG(acc, false);
 }
 
 function updateMonthlyCard(acc, rem){
@@ -1848,6 +1928,18 @@ function buildSlipHTML(acc, entry, slipNo){
           <div style="font-size:14px;font-weight:800;color:${diffColor}">${diffStr}</div>
         </div>
       </div>
+    </div>
+
+    <!-- ชั้น 6.5: กราฟส่วนต่างงบเฉลี่ย/เดือน -->
+    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:11px;font-weight:800;color:#334155">เทียบงบเฉลี่ย/เดือนรายเดือน</span>
+        <div style="display:flex;gap:10px;font-size:9px;color:#64748b">
+          <span><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#1baf7a;margin-right:3px;-webkit-print-color-adjust:exact;print-color-adjust:exact"></span>น้อยกว่างบ</span>
+          <span><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#e34948;margin-right:3px;-webkit-print-color-adjust:exact;print-color-adjust:exact"></span>เกินงบ</span>
+        </div>
+      </div>
+      ${buildMonthlyDiffChartSVG(acc, true)}
     </div>
 
     <!-- ชั้น 7: จ่ายครั้งนี้ -->
