@@ -762,9 +762,9 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
       </div>
       <!-- กราฟส่วนต่างงบเฉลี่ยต่อเดือน 12 เดือน -->
       <div class="monthly-chart-card" id="d-monthly-chart-card">
-        <div class="monthly-chart-title">เทียบงบเฉลี่ย/เดือนรายเดือน</div>
+        <div class="monthly-chart-title">งบคงเหลือรายเดือน</div>
         <div class="monthly-chart-legend">
-          <span><span class="dot" style="background:#1baf7a"></span>ใช้น้อยกว่างบเฉลี่ย</span>
+          <span><span class="dot" style="background:#1baf7a"></span>ใช้ไม่เกินงบเฉลี่ย</span>
           <span><span class="dot" style="background:#e34948"></span>ใช้เกินงบเฉลี่ย</span>
         </div>
         <div id="d-monthly-chart"></div>
@@ -1478,35 +1478,37 @@ function buildMonthlyDiffChartSVG(acc, forceLight){
     const d = new Date(e.date);
     if(!isNaN(d) && d.getFullYear()===refYear) usedByMonth[d.getMonth()] += (e.amount||0);
   });
-  // เดือนที่ยังไม่ถึง (อนาคต) ให้เป็น null คือยังไม่มีข้อมูล ไม่ใช่ "ใช้ 0 บาท"
-  const diff = monthNames.map((_, m) => m > refMonth ? null : Math.round(monthlyBase - usedByMonth[m]));
+  // เหลือ = งบเฉลี่ย/เดือน - ใช้ไป : ยังไม่ใช้เลย = เหลือเต็มแท่ง, ใช้พอดีงบ = เหลือ 0, ใช้เกิน = ติดลบ
+  const remain = usedByMonth.map(used => Math.round(monthlyBase - used));
 
   const isLight = forceLight || document.documentElement.getAttribute('data-theme') === 'light';
   const posColor = '#1baf7a', negColor = '#e34948';
   const posSoft = 'rgba(27,175,122,0.65)', negSoft = 'rgba(227,73,72,0.65)';
   const labelColor = isLight ? '#5b6b7d' : '#a9bdd1';
-  const zeroLineColor = isLight ? '#aab6c4' : '#4a6278';
-  const posZone = 'rgba(27,175,122,0.06)', negZone = 'rgba(227,73,72,0.06)';
+  const zeroLineColor = isLight ? '#94a3b8' : '#64748b';
 
   const W = 340, H = 210, padL = 30, padR = 8, padT = 20, padB = 20;
   const plotH = H - padT - padB;
-  const maxAbs = Math.max(1000, ...diff.filter(v=>v!==null).map(v=>Math.abs(v)));
-  const scaleY = (plotH/2) / (maxAbs * 1.15);
+  const maxAbs = Math.max(monthlyBase, 1, ...remain.map(v=>Math.abs(v))) * 1.15;
+  const scaleY = (plotH/2) / maxAbs;
   const zeroY = padT + plotH/2;
   const gap = 6;
   const barW = (W - padL - padR - gap*11) / 12;
 
-  const bars = diff.map((v, i) => {
-    if(v===null) return '';
+  const bars = remain.map((v, i) => {
     const x = padL + i*(barW+gap);
-    const h = Math.abs(v) * scaleY;
+    const h = Math.max(Math.abs(v) * scaleY, 1);
     const y = v >= 0 ? zeroY - h : zeroY;
-    const color = i===refMonth ? (v<0?negColor:posColor) : (v<0?negSoft:posSoft);
+    const over = v < 0;
+    const color = i===refMonth ? (over?negColor:posColor) : (over?negSoft:posSoft);
+    // แสดงตัวเลขกำกับเฉพาะเดือนที่มีการใช้จ่ายจริงแล้ว (กันตัวเลข "เต็มแท่ง" ซ้ำๆ ชนกันในเดือนที่ยังไม่ใช้)
+    if(usedByMonth[i] <= 0) {
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="${color}"/>`;
+    }
     const labelY = v >= 0 ? (y - 5) : (y + h + 12);
-    const labelColorV = v<0 ? negColor : posColor;
-    const kText = (v>=0?'+':'') + (Math.round(v/100)/10) + 'k';
-    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(h,1).toFixed(1)}" rx="4" fill="${color}"/>
-      <text x="${(x+barW/2).toFixed(1)}" y="${labelY.toFixed(1)}" font-size="9" font-weight="600" fill="${labelColorV}" text-anchor="middle" font-family="'IBM Plex Mono',monospace">${kText}</text>`;
+    const kText = (v>=0?'+':'') + Math.round(v/1000) + 'k';
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="${color}"/>
+      <text x="${(x+barW/2).toFixed(1)}" y="${labelY.toFixed(1)}" font-size="8" font-weight="600" fill="${over?negColor:posColor}" text-anchor="middle" font-family="'IBM Plex Mono',monospace">${kText}</text>`;
   }).join('');
 
   const labels = monthNames.map((m, i) => {
@@ -1515,9 +1517,7 @@ function buildMonthlyDiffChartSVG(acc, forceLight){
   }).join('');
 
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
-    <rect x="${padL}" y="${padT}" width="${W-padL-padR}" height="${plotH/2}" fill="${posZone}"/>
-    <rect x="${padL}" y="${zeroY}" width="${W-padL-padR}" height="${plotH/2}" fill="${negZone}"/>
-    <line x1="${padL}" y1="${zeroY}" x2="${W-padR}" y2="${zeroY}" stroke="${zeroLineColor}" stroke-width="1"/>
+    <line x1="0" y1="${zeroY.toFixed(1)}" x2="${W}" y2="${zeroY.toFixed(1)}" stroke="${zeroLineColor}" stroke-width="1"/>
     ${bars}
     ${labels}
   </svg>`;
@@ -1930,12 +1930,12 @@ function buildSlipHTML(acc, entry, slipNo){
       </div>
     </div>
 
-    <!-- ชั้น 6.5: กราฟส่วนต่างงบเฉลี่ย/เดือน -->
+    <!-- ชั้น 6.5: งบคงเหลือรายเดือน -->
     <div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <span style="font-size:11px;font-weight:800;color:#334155">เทียบงบเฉลี่ย/เดือนรายเดือน</span>
+        <span style="font-size:11px;font-weight:800;color:#334155">งบคงเหลือรายเดือน</span>
         <div style="display:flex;gap:10px;font-size:9px;color:#64748b">
-          <span><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#1baf7a;margin-right:3px;-webkit-print-color-adjust:exact;print-color-adjust:exact"></span>น้อยกว่างบ</span>
+          <span><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#1baf7a;margin-right:3px;-webkit-print-color-adjust:exact;print-color-adjust:exact"></span>ไม่เกินงบ</span>
           <span><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#e34948;margin-right:3px;-webkit-print-color-adjust:exact;print-color-adjust:exact"></span>เกินงบ</span>
         </div>
       </div>
