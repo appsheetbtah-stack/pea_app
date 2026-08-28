@@ -138,7 +138,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .charts-row { display:flex; flex-direction:column; gap:10px; }
 .chart-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
 .chart-title { font-size:13px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:12px; }
-.pie-wrap { display:flex; align-items:center; gap:16px; }
+.pie-wrap { display:flex; flex-direction:column; align-items:center; gap:14px; }
 .pie-circle-wrap { position:relative; width:96px; height:96px; flex-shrink:0; }
 .pie-circle { width:100%; height:100%; border-radius:50%; }
 .pie-circle-hole {
@@ -147,10 +147,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   display:flex; align-items:center; justify-content:center;
   font-family:var(--mono); font-size:11px; color:var(--text2); text-align:center; line-height:1.2;
 }
-.pie-legend { flex:1; min-width:0; display:flex; flex-direction:column; gap:7px; }
-.pie-legend-item { display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--text2); }
+.pie-legend { display:flex; flex-direction:column; align-items:center; gap:8px; width:100%; max-width:320px; }
+.pie-legend-item { display:flex; align-items:center; justify-content:center; gap:7px; font-size:12.5px; color:var(--text2); width:100%; }
 .pie-legend-dot { width:9px; height:9px; border-radius:2px; flex-shrink:0; }
-.pie-legend-label { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pie-legend-label { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; }
 .pie-legend-value { font-family:var(--mono); font-size:11.5px; color:var(--text); white-space:nowrap; }
 
 /* ── SEARCH ── */
@@ -334,11 +334,7 @@ textarea.form-control { resize:vertical; min-height:70px; }
     </div>
     <div class="charts-row">
       <div class="chart-card">
-        <div class="chart-title">ประเภทมิเตอร์</div>
-        <div id="chart-metertype"></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">จังหวัด / อำเภอ</div>
+        <div class="chart-title">จังหวัด</div>
         <div id="chart-changwat"></div>
       </div>
     </div>
@@ -523,7 +519,6 @@ function initStats() {
     mtCount[key] = (mtCount[key]||0)+1;
   });
   const mtSorted = Object.entries(mtCount).sort((a,b)=>b[1]-a[1]);
-  renderPieChart('chart-metertype', mtSorted);
   renderMeterTypeCards(mtSorted);
 
   const cwCount = {};
