@@ -1506,7 +1506,9 @@ function buildMonthlyDiffChartSVG(acc, forceLight){
       return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="${color}"/>`;
     }
     const labelY = v >= 0 ? (y - 5) : (y + h + 12);
-    const kText = (v>=0?'+':'') + Math.round(v/1000) + 'k';
+    const kText = Math.abs(v) < 1000
+      ? (v>=0?'+':'') + Math.round(v).toLocaleString()
+      : (v>=0?'+':'') + Math.round(v/1000) + 'k';
     return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="${color}"/>
       <text x="${(x+barW/2).toFixed(1)}" y="${labelY.toFixed(1)}" font-size="8" font-weight="600" fill="${over?negColor:posColor}" text-anchor="middle" font-family="'IBM Plex Mono',monospace">${kText}</text>`;
   }).join('');
