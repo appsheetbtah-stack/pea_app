@@ -31,6 +31,7 @@
   --yellow:#f39c12; --text:#e8f0f8; --text2:#a9bdd1;
   --mono:'IBM Plex Mono',monospace; --sans:'Sarabun',sans-serif;
   --topbar:52px; --botnav:56px;
+  --shimmer-color:rgba(255,255,255,0.5);
 }
 html[data-theme="light"] {
   --bg:#e7ebf1;
@@ -40,6 +41,7 @@ html[data-theme="light"] {
   --accent:#d97f0a;
   --text:#131f2b;
   --text2:#5b6b7d;
+  --shimmer-color:rgba(20,30,25,0.28);
 }
 
 * { box-sizing:border-box; margin:0; padding:0; }
@@ -200,8 +202,8 @@ textarea.form-control { resize:vertical; min-height:70px; }
 .shimmer-sweep::before {
   content:'';
   position:absolute; top:0; left:-60%;
-  width:40%; height:100%;
-  background:linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%);
+  width:50%; height:100%;
+  background:linear-gradient(120deg, transparent 0%, var(--shimmer-color) 50%, transparent 100%);
   animation:shimmer-sweep-anim 2.6s ease-in-out infinite;
   pointer-events:none;
 }
@@ -297,7 +299,8 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
 <!-- TAB: DASHBOARD -->
 <div class="tab-pane active" id="pane-dashboard">
   <div class="db-wrap">
-    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <button class="btn btn-ghost" style="font-size:13px;padding:6px 12px;" onclick="migrateDeviceStatsFromExisting()" title="นับสถิติอุปกรณ์ย้อนหลังจากงานทั้งหมด รวมที่จัดเก็บเข้าคลังไปแล้ว (ทำครั้งเดียวตอนเริ่มใช้ฟีเจอร์นี้)">🔄 ซิงก์สถิติอุปกรณ์ย้อนหลัง</button>
       <button class="btn btn-ghost" style="font-size:13px;padding:6px 12px;" onclick="archiveOldDoneTickets()" title="ย้ายงานเสร็จแล้วที่ค้างนานเกินไป ไปเก็บ archive แยกต่างหาก">🗄️ จัดเก็บงานเก่าเข้าคลัง</button>
     </div>
     <div class="stats-grid">
@@ -465,7 +468,7 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
 <div class="tab-pane" id="pane-ticketlist">
   <div class="ticket-wrap">
     <div class="ticket-list-title">รายการแจ้งเหตุ</div>
-    <input type="text" id="ticket-list-search" placeholder="🔍 ค้นหาชื่อ / CA / PEANO / ที่อยู่" oninput="onTicketListSearchInput()" style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:8px;border-radius:8px;border:1px solid var(--border,#3a4553);background:var(--panel,#1e2733);color:inherit;font-size:14px;">
+    <input type="text" id="ticket-list-search" placeholder="🔍 ค้นหาชื่อ / CA / PEANO / ที่อยู่" oninput="onTicketListSearchInput()" style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:8px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;font-family:var(--sans);">
     <div class="ticket-filter-row">
       <span class="ticket-status-legend" style="display:flex;align-items:center;gap:14px;font-size:13px;opacity:0.8;padding:6px 4px;">
         <span>🔴 รอดำเนินการ</span>
@@ -541,7 +544,7 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, limit, where, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, limit, where, getCountFromServer, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyC7bzImCV7c89fLGhIq8OycWKQWRYdvZvE",
@@ -557,7 +560,7 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
   const db = getFirestore(app);
 
   window._db = db;
-  window._fsLib = { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, limit, where, getCountFromServer };
+  window._fsLib = { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, limit, where, getCountFromServer, runTransaction };
   window._firebaseReady = true;
   document.getElementById('fb-dot').style.background = '#2ecc71';
 
@@ -570,6 +573,14 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
     updateTicketBadge();
     renderTicketDashboard();
     if (mapFull) renderTicketMarkers();
+    // ซิงก์สถิติอุปกรณ์สะสม (device_stats) ทุกครั้งที่มีข้อมูลใหม่/เปลี่ยนแปลงเข้ามา
+    // ฟังก์ชันนี้กันนับซ้ำในตัวเองอยู่แล้ว (ทั้งฝั่ง client และฝั่ง server ผ่าน transaction) เรียกซ้ำได้อย่างปลอดภัย
+    if (window.syncDeviceStatsForTicket) {
+      tickets.forEach(t => { if (t.equipment && t.equipment.length) window.syncDeviceStatsForTicket(t); });
+    }
+    // เผื่อหน้าโหลดมาก่อน Firestore พร้อม — เรียกอีกครั้งตอนข้อมูลชุดแรกมาถึงจริง
+    if (window.refreshAggregateStats) window.refreshAggregateStats();
+    if (window.refreshEquipmentStatsChart) window.refreshEquipmentStatsChart();
   }, (err) => {
     console.warn("Firestore listen error:", err);
     document.getElementById('fb-dot').style.background = '#e74c3c';
@@ -665,6 +676,100 @@ async function archiveOldDoneTickets() {
 }
 window.archiveOldDoneTickets = archiveOldDoneTickets;
 
+// ========= สถิติอุปกรณ์สะสม (device_stats) =========
+// เก็บตัวนับ "จำนวนครั้งที่ไฟดับ" ต่ออุปกรณ์ (PEANO) แบบสะสมถาวร แยกจาก ticket โดยสิ้นเชิง
+// เพื่อไม่ให้ตัวเลขหายไปเวลา ticket ต้นทางถูกจัดเก็บเข้าคลัง (archive) หรือถูกลบ
+const deviceStatsSyncSeen = new Set(); // กันเรียก transaction ซ้ำในเซสชันเดียวกันเฉยๆ (ไม่ใช่กลไกความถูกต้องหลัก)
+
+async function syncDeviceStatsForTicket(ticket) {
+  if(!window._firebaseReady || !ticket.equipment || !ticket.equipment.length) return;
+  const { doc, runTransaction } = window._fsLib;
+  const db = window._db;
+  for (const eq of ticket.equipment) {
+    if(!eq.id) continue;
+    const seenKey = ticket.id + '::' + eq.tp + ':' + eq.id;
+    if(deviceStatsSyncSeen.has(seenKey)) continue; // เร่งความเร็ว client-side เฉยๆ
+    const statRef = doc(db, "device_stats", String(eq.id)); // ใช้ PEANO เป็น document id
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(statRef);
+        const data = snap.exists() ? snap.data() : { outageCount:0, countedKeys:{} };
+        const countKey = ticket.id + ':' + eq.tp; // กันนับซ้ำจริงฝั่ง server ต่อ ticket+ประเภทอุปกรณ์
+        if(data.countedKeys && data.countedKeys[countKey]) return; // เคยนับไปแล้ว ไม่ว่าจะมาจาก client ไหน
+        tx.set(statRef, {
+          peano: eq.id,
+          label: eq.label || eq.tp,
+          color: eq.color || '#a9bdd1',
+          outageCount: (data.outageCount || 0) + 1,
+          lastAddr: ticket.addr || '',
+          lastReportedAt: ticket.createdAt || Date.now(),
+          countedKeys: { ...(data.countedKeys || {}), [countKey]: true }
+        }, { merge:true });
+      });
+      deviceStatsSyncSeen.add(seenKey);
+    } catch(e) { console.error("device_stats sync error:", e); }
+  }
+}
+window.syncDeviceStatsForTicket = syncDeviceStatsForTicket;
+
+// migration ครั้งเดียว: นับย้อนหลัง ticket ที่มีอยู่แล้ว (ทั้งที่ active อยู่ และที่ archive ไปแล้ว) เข้า device_stats
+// ต้องดึง tickets_archive มาด้วยผ่าน getDocs เพราะไม่ได้อยู่ใน array `tickets` ที่ sync สดอยู่แล้ว
+async function migrateDeviceStatsFromExisting() {
+  if(!window._firebaseReady) { showToast('⚠️ ยังไม่เชื่อมต่อ Firestore', 'error'); return; }
+  if(!confirm('นับสถิติอุปกรณ์ย้อนหลังจากงานทั้งหมด (รวมที่จัดเก็บเข้าคลังไปแล้ว)?\n\nทำครั้งเดียวตอนเริ่มใช้ฟีเจอร์นี้ก็พอ ไม่ต้องกดซ้ำบ่อยๆ')) return;
+  const { collection, getDocs } = window._fsLib;
+  const db = window._db;
+  let count = 0;
+  try {
+    // งานที่ active อยู่ตอนนี้ (ใช้ array ที่โหลดไว้แล้วในเครื่อง ไม่ต้องอ่านซ้ำ)
+    for (const t of tickets) { if(t.equipment && t.equipment.length) { await syncDeviceStatsForTicket(t); count++; } }
+    // งานที่ถูกจัดเก็บเข้าคลังไปแล้ว
+    const archiveSnap = await getDocs(collection(db, "tickets_archive"));
+    for (const d of archiveSnap.docs) {
+      const t = { id: d.id, ...d.data() };
+      if(t.equipment && t.equipment.length) { await syncDeviceStatsForTicket(t); count++; }
+    }
+    showToast(`✅ นับสถิติย้อนหลังจาก ${count.toLocaleString()} ticket เรียบร้อย`, 'success');
+    refreshEquipmentStatsChart();
+  } catch(e) {
+    console.error("migrateDeviceStatsFromExisting error:", e);
+    showToast('เกิดข้อผิดพลาดระหว่างนับย้อนหลัง', 'error');
+  }
+}
+window.migrateDeviceStatsFromExisting = migrateDeviceStatsFromExisting;
+
+// ดึง Top 8 อุปกรณ์ที่ไฟดับสะสมบ่อยสุดจาก device_stats โดยตรง (query เดียว เบามาก)
+// แทนที่การนับสดจาก tickets ในเครื่อง ซึ่งจะขาดหายเมื่อ ticket ถูก archive ไปแล้ว
+async function refreshEquipmentStatsChart() {
+  const el = document.getElementById('chart-equipment');
+  if(!el) return;
+  if(!window._firebaseReady) return;
+  try {
+    const { collection, query, orderBy, limit, getDocs } = window._fsLib;
+    const db = window._db;
+    const snap = await getDocs(query(collection(db, "device_stats"), orderBy("outageCount", "desc"), limit(8)));
+    if(snap.empty) {
+      el.innerHTML = '<div class="empty-note">ยังไม่มีข้อมูลอุปกรณ์ที่เกี่ยวข้อง</div>';
+      return;
+    }
+    const rows = snap.docs.map(d => d.data());
+    const max = rows[0].outageCount || 1;
+    el.innerHTML = rows.map(e => {
+      const title = e.peano + ' · ' + e.label;
+      return '<div class="bar-row">' +
+        '<div class="bar-label" title="'+title+'">'+title+'</div>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:'+((e.outageCount/max*100).toFixed(1))+'%;background:'+e.color+'"></div></div>' +
+        '<div class="bar-count">'+e.outageCount.toLocaleString()+'</div>' +
+        '</div>';
+    }).join('');
+  } catch(e) {
+    console.warn("refreshEquipmentStatsChart error:", e);
+    el.innerHTML = '<div class="empty-note">โหลดข้อมูลอุปกรณ์ไม่สำเร็จ</div>';
+  }
+}
+window.refreshEquipmentStatsChart = refreshEquipmentStatsChart;
+
+
 // ======= TAB SWITCH =======
 function switchTab(tab) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
@@ -676,6 +781,9 @@ function switchTab(tab) {
   }
   if(tab === 'dashboard' || tab === 'ticketlist') {
     refreshAggregateStats();
+  }
+  if(tab === 'dashboard') {
+    refreshEquipmentStatsChart();
   }
 }
 
@@ -703,6 +811,7 @@ async function refreshAggregateStats() {
     console.warn("refreshAggregateStats error:", e);
   }
 }
+window.refreshAggregateStats = refreshAggregateStats;
 
 // ======= TICKET FORM =======
 function ticketSearchUser() {
@@ -1246,29 +1355,8 @@ function renderTicketDashboard() {
     '<div class="bar-count">'+v.toLocaleString()+'</div>' +
     '</div>').join('');
 
-  // อุปกรณ์ที่ทำให้ไฟดับบ่อย — นับรายตัว จาก equipment ที่ผูกไว้ตอนอัปเดต ticket (update.html)
-  const eqCount = {}; // key `${tp}:${id}` -> {count, label, color}
-  tickets.forEach(t => {
-    (t.equipment || []).forEach(eq => {
-      const key = eq.tp + ':' + eq.id;
-      if(!eqCount[key]) eqCount[key] = { id: eq.id, label: eq.label || eq.tp, color: eq.color || '#a9bdd1', count: 0 };
-      eqCount[key].count++;
-    });
-  });
-  const eqSorted = Object.values(eqCount).sort((a,b)=>b.count-a.count).slice(0,8);
-  if(!eqSorted.length) {
-    document.getElementById('chart-equipment').innerHTML = '<div class="empty-note">ยังไม่มีข้อมูลอุปกรณ์ที่เกี่ยวข้อง</div>';
-  } else {
-    const maxEq = eqSorted[0].count;
-    document.getElementById('chart-equipment').innerHTML = eqSorted.map(e => {
-      const title = e.id + ' · ' + e.label;
-      return '<div class="bar-row">' +
-        '<div class="bar-label" title="'+title+'">'+title+'</div>' +
-        '<div class="bar-track"><div class="bar-fill" style="width:'+((e.count/maxEq*100).toFixed(1))+'%;background:'+e.color+'"></div></div>' +
-        '<div class="bar-count">'+e.count.toLocaleString()+'</div>' +
-        '</div>';
-    }).join('');
-  }
+  // อุปกรณ์ที่ทำให้ไฟดับบ่อย — ย้ายไปดึงจาก device_stats (สะสมถาวร ไม่หายตอน archive) แทนการนับสดจาก tickets ในเครื่อง
+  // เรียกแยกเป็น async ผ่าน refreshEquipmentStatsChart() ตอนเปิดแท็บ Dashboard (ดูใน switchTab)
 }
 
 // ======= MAP (จุดแจ้งเหตุเท่านั้น ไม่มีตำแหน่งมิเตอร์) =======
@@ -1420,6 +1508,8 @@ window.addEventListener('DOMContentLoaded', () => {
   renderTickets();
   updateTicketBadge();
   renderTicketDashboard();
+  refreshAggregateStats();
+  refreshEquipmentStatsChart();
 
   // ถ้ามาจากปุ่ม "แจ้งเหตุไฟดับ" ในหน้าข้อมูลผู้ใช้ไฟฟ้า พร้อม CA มาด้วย ให้เปิดฟอร์มและเติมข้อมูลอัตโนมัติ
   const params = new URLSearchParams(window.location.search);
