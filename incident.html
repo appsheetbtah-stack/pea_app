@@ -195,6 +195,21 @@ textarea.form-control { resize:vertical; min-height:70px; }
   border-radius:20px; cursor:pointer; white-space:nowrap; transition:all .15s;
 }
 .ticket-filter-chip.active { border-color:var(--accent); background:rgba(245,166,35,.15); color:var(--accent); }
+/* แสงกวาดผ่านหน้าปุ่ม (shimmer sweep) — เส้นแสงบางๆ เลื่อนซ้ายไปขวาเป็นระยะ ใช้แค่ transform/opacity เสถียรทุกเบราว์เซอร์ */
+.shimmer-sweep { overflow:hidden; }
+.shimmer-sweep::before {
+  content:'';
+  position:absolute; top:0; left:-60%;
+  width:40%; height:100%;
+  background:linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%);
+  animation:shimmer-sweep-anim 2.6s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes shimmer-sweep-anim {
+  0% { left:-60%; }
+  50% { left:120%; }
+  100% { left:120%; }
+}
 .empty-state { text-align:center; padding:50px 20px; color:var(--text2); }
 .empty-icon { font-size:44px; margin-bottom:12px; }
 .empty-text { font-size:14px; }
@@ -282,6 +297,9 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
 <!-- TAB: DASHBOARD -->
 <div class="tab-pane active" id="pane-dashboard">
   <div class="db-wrap">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+      <button class="btn btn-ghost" style="font-size:13px;padding:6px 12px;" onclick="archiveOldDoneTickets()" title="ย้ายงานเสร็จแล้วที่ค้างนานเกินไป ไปเก็บ archive แยกต่างหาก">🗄️ จัดเก็บงานเก่าเข้าคลัง</button>
+    </div>
     <div class="stats-grid">
       <div class="stat-card orange">
         <div class="stat-label">Ticket ทั้งหมด</div>
@@ -447,11 +465,16 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
 <div class="tab-pane" id="pane-ticketlist">
   <div class="ticket-wrap">
     <div class="ticket-list-title">รายการแจ้งเหตุ</div>
+    <input type="text" id="ticket-list-search" placeholder="🔍 ค้นหาชื่อ / CA / PEANO / ที่อยู่" oninput="onTicketListSearchInput()" style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:8px;border-radius:8px;border:1px solid var(--border,#3a4553);background:var(--panel,#1e2733);color:inherit;font-size:14px;">
     <div class="ticket-filter-row">
-      <button class="ticket-filter-chip" id="filter-all" onclick="setTicketFilter('all')">ทั้งหมด</button>
-      <button class="ticket-filter-chip" id="filter-open" onclick="setTicketFilter('open')">🔴 รอดำเนินการ</button>
-      <button class="ticket-filter-chip" id="filter-progress" onclick="setTicketFilter('progress')">🟡 กำลังดำเนินการ</button>
-      <button class="ticket-filter-chip" id="filter-done" onclick="setTicketFilter('done')">🟢 แก้ไขแล้ว</button>
+      <span class="ticket-status-legend" style="display:flex;align-items:center;gap:14px;font-size:13px;opacity:0.8;padding:6px 4px;">
+        <span>🔴 รอดำเนินการ</span>
+        <span>🟡 กำลังดำเนินการ</span>
+        <span>🟢 แก้ไขแล้ว</span>
+      </span>
+      <button class="ticket-filter-chip active-filter shimmer-sweep" id="filter-hide-done-toggle" onclick="toggleHideDoneInList()" style="margin-left:auto;position:relative;">
+        🟢 งานเสร็จแล้ว (<span id="hide-done-state-word" style="color:var(--red);font-weight:800;">ซ่อน</span>)
+      </button>
     </div>
     <div id="ticket-list"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">ยังไม่มีรายการแจ้งเหตุ</div></div></div>
   </div>
@@ -461,7 +484,8 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
 <div class="tab-pane map-pane" id="pane-map">
   <div class="map-topbar-controls">
     <div class="map-controls">
-      <button class="btn btn-ghost" onclick="toggleHideDoneTickets()" id="btn-hide-done">🟢 งานเสร็จสิ้น (แสดง)</button>
+      <button class="btn btn-ghost active-filter" onclick="toggleHideDoneTickets()" id="btn-hide-done">🟢 งานเสร็จสิ้น (ซ่อน)</button>
+      <button class="btn btn-ghost active-filter" onclick="toggleMapDateLimit()" id="btn-map-date-limit">🗓️ 45 วันล่าสุด</button>
       <button class="btn btn-primary" onclick="fitMapBounds()">🎯 ดูภาพรวม</button>
     </div>
     <div class="map-legend">
@@ -517,7 +541,7 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, limit, where, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyC7bzImCV7c89fLGhIq8OycWKQWRYdvZvE",
@@ -533,11 +557,13 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
   const db = getFirestore(app);
 
   window._db = db;
-  window._fsLib = { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy };
+  window._fsLib = { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, limit, where, getCountFromServer };
   window._firebaseReady = true;
   document.getElementById('fb-dot').style.background = '#2ecc71';
 
-  const q = query(collection(db, "tickets"), orderBy("createdAt", "desc"));
+  // (5) จำกัดจำนวน ticket ที่ดึงมาแสดง/ทำงานด้วยฝั่ง client ไว้ที่ 1,000 รายการล่าสุด เป็นเพดานความปลอดภัย
+  // (ใช้ร่วมกับข้อ 4 ที่ย้ายงานเก่าออกไป archive เรื่อยๆ ทำให้ 1,000 นี้พอเพียงสำหรับงานที่ยัง active อยู่จริง)
+  const q = query(collection(db, "tickets"), orderBy("createdAt", "desc"), limit(1000));
   onSnapshot(q, (snapshot) => {
     tickets = snapshot.docs.map(d => ({ _docId: d.id, ...d.data() }));
     renderTickets();
@@ -556,13 +582,26 @@ const LINE_ICON = '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAA
 
 let tickets = [];
 let ticketCounter = 1;
-let ticketFilter = 'all';
 let ticketSelectedUser = null;
 let mapFull = null;
 let ticketLayer = null;
 let ticketLayerVisible = true;
-let hideDoneTickets = false;
+// (1) ซ่อน "งานเสร็จแล้ว" บนแผนที่เป็นค่าเริ่มต้น — ลดจำนวนหมุดที่ต้องวาดโดยไม่กระทบงานที่ยังต้องทำ
+let hideDoneTickets = true;
+// (2) จำกัดช่วงเวลาที่โหลดขึ้นแผนที่เป็นค่าเริ่มต้น (วัน) — ไม่ตัดพื้นที่ไหนออก แค่ตัด ticket เก่ามากๆ ที่ไม่เกี่ยวกับงานตอนนี้
+// ผู้ใช้กดปุ่ม "🗓️ 45 วันล่าสุด" เพื่อสลับดูทั้งหมดได้เสมอ (เช่น ตามหา ticket เก่าที่ค้าง)
+const MAP_DATE_LIMIT_DAYS = 45;
+let mapDateLimitEnabled = true;
 let myLocationMarker = null;
+// (3) แบ่งหน้ารายการ ticket แทนการโชว์ทุกรายการพร้อมกัน
+const TICKET_PAGE_SIZE = 25;
+let ticketVisibleCount = TICKET_PAGE_SIZE;
+// ซ่อนงาน "เสร็จแล้ว" เป็นค่าเริ่มต้นในหน้ารายการ เมื่ออยู่แท็บ "ทั้งหมด" (แท็บ "แก้ไขแล้ว" ยังเปิดดูได้ตามปกติ)
+let hideDoneInList = true;
+// คำค้นหาในหน้ารายการ (ชื่อ/CA/PEANO/ที่อยู่) — กรองจากข้อมูลที่โหลดมาแล้วในเครื่อง ไม่ต้อง query ใหม่
+let ticketListSearchTerm = '';
+// (4) เก็บ ticket "เสร็จแล้ว" ที่ค้างเกินกี่วัน เข้าคลัง archive
+const ARCHIVE_DONE_AFTER_DAYS = 60;
 
 // ======= INIT =======
 function saveTickets() {
@@ -586,11 +625,11 @@ async function fsAddTicket(ticket) {
     await addDoc(collection(db, "tickets"), { ...ticket, createdAt: Date.now() });
   } catch(e) { console.error("Firestore add error:", e); showToast('⚠️ บันทึก Firestore ล้มเหลว (ข้อมูลยังอยู่ใน localStorage)', 'error'); }
 }
-async function fsUpdateTicketStatus(docId, status) {
+async function fsUpdateTicketStatus(docId, status, extra = {}) {
   if(!window._firebaseReady || !docId) return;
   const { doc, updateDoc } = window._fsLib;
   const db = window._db;
-  try { await updateDoc(doc(db, "tickets", docId), { status }); } catch(e) { console.error("Firestore update error:", e); }
+  try { await updateDoc(doc(db, "tickets", docId), { status, ...extra }); } catch(e) { console.error("Firestore update error:", e); }
 }
 async function fsDeleteTicket(docId) {
   if(!window._firebaseReady || !docId) return;
@@ -598,6 +637,33 @@ async function fsDeleteTicket(docId) {
   const db = window._db;
   try { await deleteDoc(doc(db, "tickets", docId)); } catch(e) { console.error("Firestore delete error:", e); }
 }
+
+// (4) ย้ายงาน "เสร็จแล้ว" ที่ค้างเกิน ARCHIVE_DONE_AFTER_DAYS วัน ไปเก็บใน collection "tickets_archive"
+// แยกต่างหาก เพื่อไม่ให้ collection หลัก (tickets) โตขึ้นเรื่อยๆ ตามเวลา — เรียกด้วยมือจากปุ่มในหน้า Dashboard
+async function archiveOldDoneTickets() {
+  if(!window._firebaseReady) { showToast('⚠️ ยังไม่เชื่อมต่อ Firestore', 'error'); return; }
+  const cutoff = Date.now() - ARCHIVE_DONE_AFTER_DAYS*24*60*60*1000;
+  const eligible = tickets.filter(t => t.status === 'done' && (t.doneAt || t.createdAt) && (t.doneAt || t.createdAt) < cutoff && t._docId);
+  if(!eligible.length) { showToast('ไม่มีงานเก่าที่ต้องจัดเก็บตอนนี้', 'success'); return; }
+  if(!confirm(`ย้ายงานที่ "เสร็จแล้ว" ค้างเกิน ${ARCHIVE_DONE_AFTER_DAYS} วัน จำนวน ${eligible.length} รายการ ไปเก็บ archive?\n\nรายการเหล่านี้จะหายไปจากหน้าหลัก (ยังดูย้อนหลังได้จาก Firestore console)`)) return;
+
+  const { collection, addDoc, doc, deleteDoc } = window._fsLib;
+  const db = window._db;
+  let ok = 0, fail = 0;
+  for (const t of eligible) {
+    try {
+      const { _docId, ...data } = t;
+      await addDoc(collection(db, "tickets_archive"), { ...data, archivedAt: Date.now() });
+      await deleteDoc(doc(db, "tickets", _docId));
+      ok++;
+    } catch(e) {
+      console.error("Archive error:", e);
+      fail++;
+    }
+  }
+  showToast(`📦 จัดเก็บสำเร็จ ${ok} รายการ${fail ? ` (ล้มเหลว ${fail})` : ''}`, fail ? 'error' : 'success');
+}
+window.archiveOldDoneTickets = archiveOldDoneTickets;
 
 // ======= TAB SWITCH =======
 function switchTab(tab) {
@@ -607,6 +673,34 @@ function switchTab(tab) {
   document.getElementById('btn-tab-' + tab).classList.add('active');
   if(tab === 'map') {
     setTimeout(() => { initMap(); if(mapFull) mapFull.invalidateSize(); }, 100);
+  }
+  if(tab === 'dashboard' || tab === 'ticketlist') {
+    refreshAggregateStats();
+  }
+}
+
+// (5) ให้ Firestore นับจำนวนให้ฝั่ง server แทนการดาวน์โหลดข้อมูลทั้งหมดมานับเองที่เครื่อง
+// เรียกเฉพาะตอนเปิดแท็บ Dashboard (ไม่ใช่ทุกครั้งที่มีข้อมูลเปลี่ยน) เพื่อประหยัด quota การอ่าน
+async function refreshAggregateStats() {
+  if(!window._firebaseReady) return;
+  try {
+    const { collection, query, where, getCountFromServer } = window._fsLib;
+    const db = window._db;
+    const ticketsRef = collection(db, "tickets");
+    const [totalSnap, openSnap, progressSnap, doneSnap] = await Promise.all([
+      getCountFromServer(query(ticketsRef)),
+      getCountFromServer(query(ticketsRef, where("status", "==", "open"))),
+      getCountFromServer(query(ticketsRef, where("status", "==", "progress"))),
+      getCountFromServer(query(ticketsRef, where("status", "==", "done"))),
+    ]);
+    const total = totalSnap.data().count;
+    document.getElementById('total-badge').textContent = total.toLocaleString() + ' รายการ';
+    document.getElementById('stat-total').textContent = total.toLocaleString();
+    document.getElementById('stat-open').textContent = openSnap.data().count.toLocaleString();
+    document.getElementById('stat-done').textContent = doneSnap.data().count.toLocaleString();
+  } catch(e) {
+    // ถ้านับฝั่ง server ไม่สำเร็จ (เช่น offline) ให้ใช้ตัวเลขที่คำนวณจากข้อมูลที่โหลดมาแล้วแทน (renderTicketDashboard คำนวณไว้อยู่แล้ว)
+    console.warn("refreshAggregateStats error:", e);
   }
 }
 
@@ -799,23 +893,73 @@ function createTicket() {
   showToast(`สร้าง Ticket ${ticket.id} เรียบร้อย ✓ (บันทึก Firebase)`, 'success');
 }
 
-function setTicketFilter(filter) {
-  ticketFilter = filter;
-  ['all','open','progress','done'].forEach(f => {
-    document.getElementById('filter-'+f).classList.toggle('active', f===filter);
-  });
+function toggleHideDoneInList() {
+  hideDoneInList = !hideDoneInList;
+  ticketVisibleCount = TICKET_PAGE_SIZE;
+  const btn = document.getElementById('filter-hide-done-toggle');
+  const word = document.getElementById('hide-done-state-word');
+  word.textContent = hideDoneInList ? 'ซ่อน' : 'แสดง';
+  word.style.color = hideDoneInList ? 'var(--red)' : 'var(--green)';
+  btn.classList.toggle('active-filter', hideDoneInList);
   renderTickets();
+}
+window.toggleHideDoneInList = toggleHideDoneInList;
+
+function onTicketListSearchInput() {
+  ticketListSearchTerm = document.getElementById('ticket-list-search').value.trim().toLowerCase();
+  ticketVisibleCount = TICKET_PAGE_SIZE; // ค้นหาใหม่ = เริ่มนับหน้าใหม่
+  renderTickets();
+}
+window.onTicketListSearchInput = onTicketListSearchInput;
+
+function loadMoreTickets() {
+  ticketVisibleCount += TICKET_PAGE_SIZE;
+  renderTickets();
+}
+window.loadMoreTickets = loadMoreTickets;
+
+// จัดกลุ่มตามวันเพื่อให้ไล่ดูรายการยาวๆ ง่ายขึ้น — ใช้ createdAt (เวลาที่บันทึกจริง)
+// ticket เก่าที่ไม่มี createdAt (ข้อมูลเก่าก่อนอัปเดตระบบ) จะถูกจัดไว้ในกลุ่ม "ก่อนหน้านี้"
+function ticketDateGroupLabel(t) {
+  if(!t.createdAt) return 'ก่อนหน้านี้';
+  const startOfDay = (ms) => { const x = new Date(ms); x.setHours(0,0,0,0); return x.getTime(); };
+  const today = startOfDay(Date.now());
+  const yesterday = today - 24*60*60*1000;
+  const day = startOfDay(t.createdAt);
+  if(day === today) return 'วันนี้';
+  if(day === yesterday) return 'เมื่อวาน';
+  return 'ก่อนหน้านี้';
 }
 
 function renderTickets() {
   const el = document.getElementById('ticket-list');
-  let list = tickets;
-  if(ticketFilter !== 'all') list = tickets.filter(t => t.status === ticketFilter);
-  if(!list.length) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">ยังไม่มีรายการแจ้งเหตุ</div></div>';
+  // ไม่มีตัวกรองสถานะแยกแท็บอีกต่อไป (ตัดออกตามที่ตกลง) — แถวสถานะด้านบนเหลือแค่คำอธิบายสี
+  // เหลือแค่ toggle "ซ่อนงานเสร็จแล้ว" ที่ยังกรองได้ + ช่องค้นหา
+  let fullList = hideDoneInList ? tickets.filter(t => !shouldHideDoneTicket(t)) : tickets;
+  if(ticketListSearchTerm) {
+    const term = ticketListSearchTerm;
+    fullList = fullList.filter(t => {
+      const haystack = [t.name, t.ca, t.peano, t.addr, t.tel, t.callerTel, t.id]
+        .map(v => (v ?? '') + '').join(' ').toLowerCase();
+      return haystack.includes(term);
+    });
+  }
+  if(!fullList.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">ไม่พบรายการที่ตรงกับเงื่อนไข</div></div>';
     return;
   }
-  el.innerHTML = list.map((t,i) => `
+  // (3) แสดงทีละหน้า แทนการ render ทุกรายการพร้อมกัน — ลดภาระ browser เมื่อ ticket มีจำนวนมาก
+  const list = fullList.slice(0, ticketVisibleCount);
+  const remaining = fullList.length - list.length;
+
+  let lastGroup = null;
+  el.innerHTML = list.map((t,i) => {
+    const group = ticketDateGroupLabel(t);
+    const groupHeader = (group !== lastGroup)
+      ? `<div style="font-size:13px;font-weight:700;opacity:0.65;margin:${lastGroup===null?'0':'16px'} 0 6px 2px;">${group}</div>`
+      : '';
+    lastGroup = group;
+    return groupHeader + `
     <div class="ticket-card" id="tc-${t.id}">
       <div class="ticket-card-top">
         <div class="ticket-status-dot ${t.status==='open'?'dot-open':t.status==='progress'?'dot-progress':'dot-done'}"></div>
@@ -848,14 +992,36 @@ function renderTickets() {
         </div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('') + (remaining > 0 ? `
+    <div style="text-align:center;padding:16px;">
+      <button class="btn btn-ghost" onclick="loadMoreTickets()">⬇️ โหลดเพิ่มเติม (เหลืออีก ${remaining.toLocaleString()} รายการ)</button>
+    </div>` : '');
+}
+
+// ชั่วโมงที่ให้ ticket "เสร็จแล้ว" ยังคงแสดงอยู่ก่อนจะถูกซ่อนอัตโนมัติ
+// เผื่อเวลาให้ช่างกดปุ่ม "แจ้งไฟติด (ETR)" ส่งไลน์กลุ่มหลังปิดงาน ไม่ให้ ticket หายไปก่อนส่งข้อความ
+const DONE_HIDE_DELAY_HOURS = 24;
+function shouldHideDoneTicket(t) {
+  if(t.status !== 'done') return false;
+  // ticket เก่าที่ปิดงานไปก่อนจะมี field doneAt (เพิ่งเพิ่ม) จะไม่มีเวลาปิดงานให้ใช้
+  // ใช้เวลาที่แจ้งเหตุ (createdAt) แทนแล้วนับ 24 ชม.จากตรงนั้น เพราะ ticket เก่าเหล่านี้แจ้งมานานแล้วแน่นอน
+  const doneTime = t.doneAt || t.createdAt;
+  if(!doneTime) return false; // ไม่มีข้อมูลเวลาเลย (กรณีหายากมาก) — ไม่ซ่อนไว้ก่อนเพื่อความปลอดภัย
+  return (Date.now() - doneTime) >= DONE_HIDE_DELAY_HOURS*60*60*1000;
 }
 
 function changeStatus(id, status) {
   const t = tickets.find(x=>x.id===id);
   if(t) {
-    fsUpdateTicketStatus(t._docId, status);
-    t.status = status; saveTickets(); renderTickets(); updateTicketBadge(); renderTicketDashboard();
+    const extra = {};
+    if(status === 'done' && t.status !== 'done') extra.doneAt = Date.now();
+    else if(status !== 'done') extra.doneAt = null; // เปิดงานใหม่ (reopen) — ล้างเวลาปิดงานเดิม
+    fsUpdateTicketStatus(t._docId, status, extra);
+    t.status = status;
+    if('doneAt' in extra) t.doneAt = extra.doneAt;
+    saveTickets(); renderTickets(); updateTicketBadge(); renderTicketDashboard();
+    if(mapFull) renderTicketMarkers();
   }
 }
 
@@ -1141,7 +1307,14 @@ function ticketStatusLabel(status) {
 function renderTicketMarkers() {
   if(!mapFull) return;
   if(ticketLayer) mapFull.removeLayer(ticketLayer);
-  const visibleTickets = tickets.filter(t => t.lat && t.lng && !(hideDoneTickets && t.status === 'done'));
+  const dateCutoff = mapDateLimitEnabled ? (Date.now() - MAP_DATE_LIMIT_DAYS*24*60*60*1000) : null;
+  const visibleTickets = tickets.filter(t => {
+    if(!t.lat || !t.lng) return false;
+    if(hideDoneTickets && shouldHideDoneTicket(t)) return false;
+    // ตัวกรองช่วงเวลา: ใช้กับ ticket ที่มี createdAt เท่านั้น (ticket เก่ามากที่ไม่มี createdAt ยังคงแสดงตามปกติ)
+    if(dateCutoff && t.createdAt && t.createdAt < dateCutoff) return false;
+    return true;
+  });
   ticketLayer = L.layerGroup(visibleTickets.map(t => {
     const color = ticketStatusColor(t.status);
     const icon = L.divIcon({className:'', html:`<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 8px ${color}"></div>`, iconSize:[14,14], iconAnchor:[7,7]});
@@ -1171,6 +1344,13 @@ function toggleHideDoneTickets() {
   hideDoneTickets = !hideDoneTickets;
   document.getElementById('btn-hide-done').textContent = hideDoneTickets ? '🟢 งานเสร็จสิ้น (ซ่อน)' : '🟢 งานเสร็จสิ้น (แสดง)';
   document.getElementById('btn-hide-done').classList.toggle('active-filter', hideDoneTickets);
+  renderTicketMarkers();
+}
+
+function toggleMapDateLimit() {
+  mapDateLimitEnabled = !mapDateLimitEnabled;
+  document.getElementById('btn-map-date-limit').textContent = mapDateLimitEnabled ? `🗓️ ${MAP_DATE_LIMIT_DAYS} วันล่าสุด` : '🗓️ ทั้งหมด';
+  document.getElementById('btn-map-date-limit').classList.toggle('active-filter', mapDateLimitEnabled);
   renderTicketMarkers();
 }
 
