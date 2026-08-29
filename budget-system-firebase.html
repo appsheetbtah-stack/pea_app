@@ -1951,18 +1951,6 @@ function buildSlipHTML(acc, entry, slipNo){
       </div>
     </div>
 
-    <!-- ชั้น 6.5: งบคงเหลือรายเดือน -->
-    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:12px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <span style="font-size:11px;font-weight:800;color:#334155">งบคงเหลือรายเดือน</span>
-        <div style="display:flex;gap:10px;font-size:9px;color:#64748b">
-          <span><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#1baf7a;margin-right:3px;-webkit-print-color-adjust:exact;print-color-adjust:exact"></span>ช้ากว่าแผน</span>
-          <span><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#e34948;margin-right:3px;-webkit-print-color-adjust:exact;print-color-adjust:exact"></span>เร็วกว่าแผน</span>
-        </div>
-      </div>
-      ${buildMonthlyDiffChartSVG(acc, true)}
-    </div>
-
     <!-- ชั้น 7: จ่ายครั้งนี้ -->
     <div class="slip-amount-box" style="flex-direction:column;gap:6px">
       <div style="display:flex;justify-content:space-between;align-items:center;width:100%;flex:1">
