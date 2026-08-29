@@ -32,6 +32,7 @@
   --yellow:#f39c12; --text:#e8f0f8; --text2:#a9bdd1;
   --mono:'IBM Plex Mono',monospace; --sans:'Sarabun',sans-serif;
   --topbar:52px; --botnav:56px;
+  color-scheme: dark;
 }
 html[data-theme="light"] {
   --bg:#e7ebf1;
@@ -41,6 +42,7 @@ html[data-theme="light"] {
   --accent:#d97f0a;
   --text:#131f2b;
   --text2:#5b6b7d;
+  color-scheme: light;
 }
 
 * { box-sizing:border-box; margin:0; padding:0; }
@@ -226,7 +228,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .map-batch-bar {
   position:absolute; top:10px; left:10px; right:10px; z-index:501;
 }
-.map-batch-bar select { background:var(--surface); color:var(--text); border:1px solid var(--border); box-shadow:0 1px 6px rgba(0,0,0,.15); }
+.map-batch-bar .reason-picker-field { background:var(--surface); color:var(--text); border:1px solid var(--border); box-shadow:0 1px 6px rgba(0,0,0,.15); margin:0; }
 .map-legend {
   position:absolute; top:56px; left:10px; right:10px; z-index:500;
   background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:10px;
@@ -285,9 +287,20 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .field-hint { font-size:12px; color:var(--text2); margin-top:5px; }
 
 .checklist { display:flex; flex-direction:column; gap:2px; max-height:240px; overflow-y:auto; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:6px; }
-.checklist label { display:flex; align-items:center; gap:10px; padding:8px 6px; font-size:14px; border-radius:6px; }
-.checklist label:active { background:var(--border); }
-.checklist input[type=checkbox] { width:18px; height:18px; flex-shrink:0; accent-color:var(--accent); }
+.checklist-item {
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:11px 10px; font-size:14px; border-radius:6px; cursor:pointer;
+  user-select:none; -webkit-tap-highlight-color:transparent;
+}
+.checklist-item:active { background:var(--border); }
+.checklist-item .check-icon {
+  width:20px; height:20px; flex-shrink:0; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:700; color:#fff; background:var(--accent);
+  opacity:0; transform:scale(.6); transition:opacity .12s, transform .12s;
+}
+.checklist-item.selected { background:rgba(245,166,35,0.16); color:var(--accent); font-weight:600; }
+.checklist-item.selected .check-icon { opacity:1; transform:scale(1); }
 .add-reason-row { display:flex; gap:8px; margin-top:8px; }
 .reason-picker-field {
   display:flex; align-items:center; justify-content:space-between; gap:8px;
@@ -296,6 +309,26 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .reason-picker-field.has-value { color:var(--text); }
 .reason-picker-field::after { content:'▾'; color:var(--text2); flex-shrink:0; }
 .add-reason-row input { flex:1; }
+
+.radio-list { display:flex; flex-direction:column; }
+.radio-item {
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:14px 4px; font-size:15px; cursor:pointer; border-bottom:1px solid var(--border);
+  user-select:none; -webkit-tap-highlight-color:transparent;
+}
+.radio-item:last-child { border-bottom:none; }
+.radio-item:active { background:var(--surface2); }
+.radio-item.selected { color:var(--accent); font-weight:600; }
+.radio-dot {
+  width:20px; height:20px; flex-shrink:0; border-radius:50%; border:2px solid var(--border);
+  display:flex; align-items:center; justify-content:center; transition:border-color .12s;
+}
+.radio-item.selected .radio-dot { border-color:var(--accent); }
+.radio-dot::after {
+  content:''; width:10px; height:10px; border-radius:50%; background:var(--accent);
+  opacity:0; transform:scale(.5); transition:opacity .12s, transform .12s;
+}
+.radio-item.selected .radio-dot::after { opacity:1; transform:scale(1); }
 
 
 
@@ -477,9 +510,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     <div class="search-box">
       🔍 <input id="search-input" placeholder="ค้นหาชื่อ, PEANO, REQ_NO..." oninput="renderList()">
     </div>
-    <select class="field-select" id="batch-filter-list" onchange="setBatchFilter(this.value)">
-      <option value="all">🗂️ ใบงานทุกรอบ</option>
-    </select>
+    <div class="field-input reason-picker-field has-value" id="batch-filter-list-field" onclick="openBatchPicker()">🗂️ ใบงานทุกรอบ</div>
     <div class="filter-row" id="filter-row">
       <button class="filter-chip active" data-f="all" onclick="setFilter('all',this)">ทั้งหมด</button>
       <button class="filter-chip" data-f="pending" onclick="setFilter('pending',this)"><i class="legend-pin" style="background:#a9bdd1">⏳</i> รอตรวจสอบ</button>
@@ -496,9 +527,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 <div class="tab-pane map-pane" id="pane-map">
   <div class="map-pane-inner">
     <div class="map-batch-bar">
-      <select class="field-select" id="batch-filter-map" onchange="setBatchFilter(this.value)">
-        <option value="all">🗂️ ใบงานทุกรอบ</option>
-      </select>
+      <div class="field-input reason-picker-field has-value" id="batch-filter-map-field" onclick="openBatchPicker()">🗂️ ใบงานทุกรอบ</div>
     </div>
     <div class="map-legend">
       <span><i class="legend-pin" style="background:#a9bdd1">⏳</i>รอตรวจสอบ</span>
@@ -747,6 +776,19 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="clearReasonPicker()">ล้างทั้งหมด</button>
       <button class="btn btn-primary" onclick="doneReasonPicker()">เสร็จสิ้น</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ BATCH PICKER MODAL ══ -->
+<div class="modal-overlay" id="batch-picker-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🗂️ เลือกรอบใบงาน</div>
+      <button class="modal-close" onclick="closeBatchPicker()">✕</button>
+    </div>
+    <div class="modal-body" style="padding:4px 16px 16px;">
+      <div class="radio-list" id="batch-picker-list"></div>
     </div>
   </div>
 </div>
@@ -1263,27 +1305,64 @@ function getBatchList() {
 }
 
 function renderBatchOptions() {
+  updateBatchFieldLabels();
+  if (document.getElementById('batch-picker-overlay').classList.contains('active')) {
+    renderBatchPickerList();
+  }
+}
+
+function batchFieldLabel(key) {
+  if (key === 'all') return '🗂️ ใบงานทุกรอบ';
   const batches = getBatchList();
-  const optsHtml = '<option value="all">🗂️ ใบงานทุกรอบ</option>' +
-    batches.map(([key, label]) => `<option value="${escAttr(key)}">${esc(label)}</option>`).join('');
-  ['batch-filter-list', 'batch-filter-map'].forEach(id => {
-    const sel = document.getElementById(id);
-    if (!sel) return;
-    sel.innerHTML = optsHtml;
-    sel.value = (currentBatch === 'all' || batches.some(([k]) => k === currentBatch)) ? currentBatch : 'all';
+  const found = batches.find(([k]) => k === key);
+  return found ? found[1] : '🗂️ ใบงานทุกรอบ';
+}
+
+function updateBatchFieldLabels() {
+  const label = batchFieldLabel(currentBatch);
+  ['batch-filter-list-field', 'batch-filter-map-field'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = label;
   });
 }
 
 function setBatchFilter(val) {
   currentBatch = val;
-  ['batch-filter-list', 'batch-filter-map'].forEach(id => {
-    const sel = document.getElementById(id);
-    if (sel && sel.value !== val) sel.value = val;
-  });
+  updateBatchFieldLabels();
   renderList();
   if (window.mapReady) renderMapMarkers();
 }
 window.setBatchFilter = setBatchFilter;
+
+function openBatchPicker() {
+  renderBatchPickerList();
+  document.getElementById('batch-picker-overlay').classList.add('active');
+}
+window.openBatchPicker = openBatchPicker;
+
+function closeBatchPicker() {
+  document.getElementById('batch-picker-overlay').classList.remove('active');
+}
+window.closeBatchPicker = closeBatchPicker;
+
+function renderBatchPickerList() {
+  const batches = getBatchList();
+  const items = [['all', '🗂️ ใบงานทุกรอบ'], ...batches];
+  const el = document.getElementById('batch-picker-list');
+  el.innerHTML = items.map(([key, label]) => `
+    <div class="radio-item${currentBatch === key ? ' selected' : ''}" onclick="selectBatchFromPicker('${escAttr(key)}')">
+      <span>${esc(label)}</span>
+      <span class="radio-dot"></span>
+    </div>
+  `).join('');
+}
+window.renderBatchPickerList = renderBatchPickerList;
+
+function selectBatchFromPicker(val) {
+  setBatchFilter(val);
+  closeBatchPicker();
+}
+window.selectBatchFromPicker = selectBatchFromPicker;
 
 // ══════════════════════════ LIST RENDER ══════════════════════════
 function renderList() {
@@ -1581,9 +1660,15 @@ function renderReasonPickerList() {
     el.innerHTML = `<div class="empty-state" style="padding:24px;">ไม่พบรายการที่ค้นหา</div>`;
     return;
   }
-  el.innerHTML = filtered.map(r => `
-    <label><input type="checkbox" value="${escAttr(r)}" ${pickerSelectedReasons.includes(r) ? 'checked' : ''} onchange="toggleReasonInPicker('${escAttr(r)}', this.checked)"> ${esc(r)}</label>
-  `).join('');
+  el.innerHTML = filtered.map(r => {
+    const selected = pickerSelectedReasons.includes(r);
+    return `
+    <div class="checklist-item${selected ? ' selected' : ''}" onclick="toggleReasonInPicker('${escAttr(r)}', ${selected ? 'false' : 'true'})">
+      <span>${esc(r)}</span>
+      <span class="check-icon">✓</span>
+    </div>
+  `;
+  }).join('');
 }
 window.renderReasonPickerList = renderReasonPickerList;
 
@@ -1593,6 +1678,7 @@ function toggleReasonInPicker(reason, checked) {
   } else {
     pickerSelectedReasons = pickerSelectedReasons.filter(r => r !== reason);
   }
+  renderReasonPickerList();
 }
 window.toggleReasonInPicker = toggleReasonInPicker;
 
