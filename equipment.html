@@ -127,18 +127,57 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .kva-count { font-family:var(--mono); font-size:13px; font-weight:600; color:var(--blue); }
 
 /* ── MAP TAB ── */
-.map-chips {
-  flex-shrink:0; display:flex; gap:8px; padding:10px 14px;
-  overflow-x:auto; background:var(--surface); border-bottom:1px solid var(--border);
+.map-filter-bar {
+  position:relative; flex-shrink:0; padding:10px 14px;
+  background:var(--surface); border-bottom:1px solid var(--border);
 }
-.map-chips::-webkit-scrollbar { display:none; }
-.chip {
-  flex-shrink:0; padding:6px 14px; border-radius:20px; font-size:13px;
-  font-weight:600; cursor:pointer; border:1px solid var(--border);
-  background:var(--surface2); color:var(--text2); font-family:var(--sans);
-  transition:all .15s; white-space:nowrap;
+.filter-dropdown-wrap { position:relative; }
+.filter-dropdown-btn {
+  width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:9px 14px; border-radius:8px; border:1px solid var(--border);
+  background:var(--surface2); color:var(--text); font-family:var(--sans);
+  font-size:13.5px; font-weight:600; cursor:pointer;
 }
-.chip.active { border-color:var(--c,var(--accent)); color:var(--c,var(--accent)); background:color-mix(in srgb,var(--c,var(--accent)) 15%,transparent); }
+.filter-dropdown-btn.open { border-color:var(--accent); color:var(--accent); }
+.filter-dropdown-btn .filter-caret { font-size:11px; color:var(--text2); transition:transform .15s; flex-shrink:0; }
+.filter-dropdown-btn.open .filter-caret { color:var(--accent); transform:rotate(180deg); }
+.filter-dropdown-btn span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.filter-count-badge {
+  font-family:var(--mono); font-size:12px; background:var(--accent); color:#0f1923;
+  border-radius:10px; padding:1px 7px; margin-left:6px; font-weight:700;
+}
+.filter-menu {
+  display:none; position:absolute; left:0; right:0; top:calc(100% + 6px);
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.35); z-index:700; padding:6px; max-height:60vh; overflow-y:auto;
+}
+.filter-menu.open { display:block; }
+.filter-menu-item {
+  display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:7px;
+  cursor:pointer; font-size:13.5px; color:var(--text); user-select:none;
+}
+.filter-menu-item:active { background:var(--surface2); }
+.filter-menu-item.all-item { font-weight:700; }
+.filter-menu-divider { height:1px; background:var(--border); margin:4px 2px; }
+.filter-check {
+  flex-shrink:0; width:18px; height:18px; border-radius:5px; border:1.5px solid var(--border);
+  background:var(--surface2); position:relative;
+}
+.filter-check.checked { background:var(--accent); border-color:var(--accent); }
+.filter-check.checked::after {
+  content:''; position:absolute; left:5px; top:1px; width:5px; height:9px;
+  border:solid #0f1923; border-width:0 2px 2px 0; transform:rotate(45deg);
+}
+.filter-radio {
+  flex-shrink:0; width:18px; height:18px; border-radius:50%; border:1.5px solid var(--border);
+  background:var(--surface2); position:relative;
+}
+.filter-radio.checked { border-color:var(--accent); }
+.filter-radio.checked::after {
+  content:''; position:absolute; left:3px; top:3px; width:9px; height:9px;
+  border-radius:50%; background:var(--accent);
+}
+.filter-menu-item .leg-dot { width:9px; height:9px; }
 
 .map-legend {
   flex-shrink:0; display:flex; flex-wrap:wrap; gap:8px; padding:8px 14px;
@@ -146,25 +185,33 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 }
 .leg { display:flex; align-items:center; gap:4px; font-size:13px; color:var(--text2); }
 .leg-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
-#map { flex:1; }
-.map-control-row { flex-shrink:0; padding:0 14px 10px; }
-.btn-locate {
-  width:100%; padding:10px 14px; border-radius:8px; border:1px solid var(--border);
-  background:var(--surface2); color:var(--text); font-family:var(--sans); font-size:13.5px;
-  font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+.map-wrap { position:relative; flex:1; }
+#map { position:absolute; inset:0; }
+.map-float-controls {
+  position:absolute; right:14px; bottom:14px; z-index:500;
+  display:flex; flex-direction:column; gap:10px; align-items:flex-end;
 }
-.btn-locate:active { border-color:var(--accent); color:var(--accent); }
-.btn-locate.loading { opacity:.6; }
+.map-float-btn {
+  width:40px; height:40px; border-radius:8px; border:1px solid var(--border);
+  background:var(--surface); color:var(--text); cursor:pointer;
+  display:flex; align-items:center; justify-content:center; font-size:16px;
+  box-shadow:0 2px 6px rgba(0,0,0,.25); font-family:var(--sans); font-weight:600; padding:0;
+}
+.map-float-btn:active { border-color:var(--accent); color:var(--accent); }
+.map-float-btn.loading { opacity:.6; }
+.zoom-group { display:flex; flex-direction:column; border-radius:8px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,.25); }
+.zoom-group .map-float-btn { box-shadow:none; border-radius:0; font-size:19px; }
+.zoom-group .map-float-btn:first-child { border-bottom:none; }
 
 /* ── SEARCH TAB ── */
 .search-wrap { padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
 .sel-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-.sel-grid select, .search-input {
+.search-input {
   background:var(--surface2); border:1px solid var(--border); color:var(--text);
   font-family:var(--sans); font-size:13px; padding:9px 10px; border-radius:8px;
   outline:none; width:100%;
 }
-.sel-grid select:focus, .search-input:focus { border-color:var(--accent); }
+.search-input:focus { border-color:var(--accent); }
 .search-input { padding:10px 12px; font-size:14px; }
 
 .result-bar {
@@ -292,15 +339,48 @@ body.pick-mode #btn-tab-dashboard { display:none; }
 
 <!-- TAB: MAP -->
 <div class="tab-pane map-pane" id="pane-map">
-  <div class="map-chips" id="map-chips">
-    <button class="chip active" style="--c:var(--accent)" data-f="" onclick="setMapFilter(this,'')">ทั้งหมด</button>
-    <button class="chip" style="--c:var(--red)" data-f="recloser" onclick="setMapFilter(this,'recloser')">🔴 Recloser</button>
-    <button class="chip" style="--c:var(--accent)" data-f="fuse" onclick="setMapFilter(this,'fuse')">🟡 Fuse Dropout</button>
-    <button class="chip" style="--c:var(--yellow)" data-f="disc" onclick="setMapFilter(this,'disc')">🟠 Disconnecting</button>
-    <button class="chip" style="--c:var(--green)" data-f="lbs" onclick="setMapFilter(this,'lbs')">🟢 LBS SF6</button>
-    <button class="chip" style="--c:var(--blue)" data-f="tx-pea-1" onclick="setMapFilter(this,'tx-pea-1')">🔵 Tx PEA 1Ph</button>
-    <button class="chip" style="--c:var(--cyan)" data-f="tx-pea-3" onclick="setMapFilter(this,'tx-pea-3')">🩵 Tx PEA 3Ph</button>
-    <button class="chip" style="--c:var(--purple)" data-f="tx-cust" onclick="setMapFilter(this,'tx-cust')">🟣 Tx Customer</button>
+  <div class="map-filter-bar">
+    <div class="filter-dropdown-wrap">
+      <button class="filter-dropdown-btn" id="filter-btn" onclick="toggleDropdown('filter')">
+        <span id="filter-btn-label">ทั้งหมด</span>
+        <span class="filter-caret">▾</span>
+      </button>
+      <div class="filter-menu" id="filter-menu">
+        <div class="filter-menu-item all-item" id="filter-item-all" onclick="selectAllFilters()">
+          <span class="filter-check checked" id="filter-check-all"></span>
+          <span>ทั้งหมด</span>
+        </div>
+        <div class="filter-menu-divider"></div>
+        <div class="filter-menu-item" data-f="recloser" onclick="toggleFilterOption(this,'recloser')">
+          <span class="filter-check"></span>
+          <span class="leg-dot" style="background:#e74c3c"></span><span>Recloser</span>
+        </div>
+        <div class="filter-menu-item" data-f="fuse" onclick="toggleFilterOption(this,'fuse')">
+          <span class="filter-check"></span>
+          <span class="leg-dot" style="background:#f5a623"></span><span>Fuse Dropout</span>
+        </div>
+        <div class="filter-menu-item" data-f="disc" onclick="toggleFilterOption(this,'disc')">
+          <span class="filter-check"></span>
+          <span class="leg-dot" style="background:#f39c12"></span><span>Disconnecting</span>
+        </div>
+        <div class="filter-menu-item" data-f="lbs" onclick="toggleFilterOption(this,'lbs')">
+          <span class="filter-check"></span>
+          <span class="leg-dot" style="background:#2ecc71"></span><span>LBS SF6</span>
+        </div>
+        <div class="filter-menu-item" data-f="tx-pea-1" onclick="toggleFilterOption(this,'tx-pea-1')">
+          <span class="filter-check"></span>
+          <span class="leg-dot" style="background:#3b9ede"></span><span>Tx PEA 1Ph</span>
+        </div>
+        <div class="filter-menu-item" data-f="tx-pea-3" onclick="toggleFilterOption(this,'tx-pea-3')">
+          <span class="filter-check"></span>
+          <span class="leg-dot" style="background:#00b4d8"></span><span>Tx PEA 3Ph</span>
+        </div>
+        <div class="filter-menu-item" data-f="tx-cust" onclick="toggleFilterOption(this,'tx-cust')">
+          <span class="filter-check"></span>
+          <span class="leg-dot" style="background:#9b59b6"></span><span>Tx Customer</span>
+        </div>
+      </div>
+    </div>
   </div>
   <div class="map-legend">
     <div class="leg"><div class="leg-dot" style="background:#e74c3c"></div>Recloser</div>
@@ -311,50 +391,132 @@ body.pick-mode #btn-tab-dashboard { display:none; }
     <div class="leg"><div class="leg-dot" style="background:#00b4d8"></div>Tx PEA 3Ph</div>
     <div class="leg"><div class="leg-dot" style="background:#9b59b6"></div>Tx Cust</div>
   </div>
-  <div class="map-control-row">
-    <button class="btn-locate" id="btn-locate-eq" onclick="locateMe()">📍 ตำแหน่งของฉัน</button>
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div class="map-float-controls">
+      <button class="map-float-btn" id="btn-locate-eq" onclick="locateMe()" title="ตำแหน่งของฉัน">📍</button>
+      <div class="zoom-group">
+        <button class="map-float-btn" onclick="map.zoomIn()" title="ซูมเข้า">+</button>
+        <button class="map-float-btn" onclick="map.zoomOut()" title="ซูมออก">−</button>
+      </div>
+    </div>
   </div>
-  <div id="map"></div>
 </div>
 
 <!-- TAB: SEARCH -->
 <div class="tab-pane" id="pane-search">
   <div class="search-wrap">
     <div class="sel-grid">
-      <select id="sel-type" onchange="doSearch()">
-        <option value="">ทุกประเภท</option>
-        <option value="recloser">Recloser</option>
-        <option value="fuse">Fuse Dropout</option>
-        <option value="disc">Disconnecting</option>
-        <option value="lbs">LBS SF6</option>
-        <option value="tx-pea-1">Tx PEA 1Phase</option>
-        <option value="tx-pea-3">Tx PEA 3Phase</option>
-        <option value="tx-cust-1">Tx Customer 1Phase</option>
-        <option value="tx-cust-3">Tx Customer 3Phase</option>
-      </select>
-      <select id="sel-feeder" onchange="doSearch()">
-        <option value="">ทุกสายป้อน</option>
-        <option value="PLZ03">PLZ03</option>
-        <option value="LKA02">LKA02</option>
-      </select>
-      <select id="sel-owner" onchange="doSearch()">
-        <option value="">เจ้าของทั้งหมด</option>
-        <option value="PEA">PEA</option>
-        <option value="Customer">Customer</option>
-      </select>
-      <select id="sel-kva" onchange="doSearch()">
-        <option value="">kVA ทั้งหมด</option>
-        <option value="10">10 kVA</option>
-        <option value="20">20 kVA</option>
-        <option value="30">30 kVA</option>
-        <option value="50">50 kVA</option>
-        <option value="100">100 kVA</option>
-        <option value="160">160 kVA</option>
-        <option value="250">250 kVA</option>
-        <option value="315">315 kVA</option>
-        <option value="500">500 kVA</option>
-        <option value="800">800 kVA</option>
-      </select>
+      <div class="filter-dropdown-wrap">
+        <button class="filter-dropdown-btn" id="sdd-tp-btn" onclick="toggleDropdown('sdd-tp')">
+          <span id="sdd-tp-label">ทุกประเภท</span>
+          <span class="filter-caret">▾</span>
+        </button>
+        <div class="filter-menu" id="sdd-tp-menu">
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'tp','','ทุกประเภท')">
+            <span class="filter-radio checked"></span><span>ทุกประเภท</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'tp','recloser','Recloser')">
+            <span class="filter-radio"></span><span>Recloser</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'tp','fuse','Fuse Dropout')">
+            <span class="filter-radio"></span><span>Fuse Dropout</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'tp','disc','Disconnecting')">
+            <span class="filter-radio"></span><span>Disconnecting</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'tp','lbs','LBS SF6')">
+            <span class="filter-radio"></span><span>LBS SF6</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'tp','tx-pea-1','Tx PEA 1Phase')">
+            <span class="filter-radio"></span><span>Tx PEA 1Phase</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'tp','tx-pea-3','Tx PEA 3Phase')">
+            <span class="filter-radio"></span><span>Tx PEA 3Phase</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'tp','tx-cust-1','Tx Customer 1Phase')">
+            <span class="filter-radio"></span><span>Tx Customer 1Phase</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'tp','tx-cust-3','Tx Customer 3Phase')">
+            <span class="filter-radio"></span><span>Tx Customer 3Phase</span>
+          </div>
+        </div>
+      </div>
+      <div class="filter-dropdown-wrap">
+        <button class="filter-dropdown-btn" id="sdd-fd-btn" onclick="toggleDropdown('sdd-fd')">
+          <span id="sdd-fd-label">ทุกสายป้อน</span>
+          <span class="filter-caret">▾</span>
+        </button>
+        <div class="filter-menu" id="sdd-fd-menu">
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'fd','','ทุกสายป้อน')">
+            <span class="filter-radio checked"></span><span>ทุกสายป้อน</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'fd','PLZ03','PLZ03')">
+            <span class="filter-radio"></span><span>PLZ03</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'fd','LKA02','LKA02')">
+            <span class="filter-radio"></span><span>LKA02</span>
+          </div>
+        </div>
+      </div>
+      <div class="filter-dropdown-wrap">
+        <button class="filter-dropdown-btn" id="sdd-own-btn" onclick="toggleDropdown('sdd-own')">
+          <span id="sdd-own-label">เจ้าของทั้งหมด</span>
+          <span class="filter-caret">▾</span>
+        </button>
+        <div class="filter-menu" id="sdd-own-menu">
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'own','','เจ้าของทั้งหมด')">
+            <span class="filter-radio checked"></span><span>เจ้าของทั้งหมด</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'own','PEA','PEA')">
+            <span class="filter-radio"></span><span>PEA</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'own','Customer','Customer')">
+            <span class="filter-radio"></span><span>Customer</span>
+          </div>
+        </div>
+      </div>
+      <div class="filter-dropdown-wrap">
+        <button class="filter-dropdown-btn" id="sdd-kva-btn" onclick="toggleDropdown('sdd-kva')">
+          <span id="sdd-kva-label">kVA ทั้งหมด</span>
+          <span class="filter-caret">▾</span>
+        </button>
+        <div class="filter-menu" id="sdd-kva-menu">
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'kva','','kVA ทั้งหมด')">
+            <span class="filter-radio checked"></span><span>kVA ทั้งหมด</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'kva','10','10 kVA')">
+            <span class="filter-radio"></span><span>10 kVA</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'kva','20','20 kVA')">
+            <span class="filter-radio"></span><span>20 kVA</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'kva','30','30 kVA')">
+            <span class="filter-radio"></span><span>30 kVA</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'kva','50','50 kVA')">
+            <span class="filter-radio"></span><span>50 kVA</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'kva','100','100 kVA')">
+            <span class="filter-radio"></span><span>100 kVA</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'kva','160','160 kVA')">
+            <span class="filter-radio"></span><span>160 kVA</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'kva','250','250 kVA')">
+            <span class="filter-radio"></span><span>250 kVA</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'kva','315','315 kVA')">
+            <span class="filter-radio"></span><span>315 kVA</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'kva','500','500 kVA')">
+            <span class="filter-radio"></span><span>500 kVA</span>
+          </div>
+          <div class="filter-menu-item" onclick="selectSearchOption(this,'kva','800','800 kVA')">
+            <span class="filter-radio"></span><span>800 kVA</span>
+          </div>
+        </div>
+      </div>
     </div>
     <input class="search-input" id="search-q" type="search" placeholder="🔍  ค้นหา รหัส / PEANO / สถานที่..." oninput="doSearch()">
     <div class="result-bar">
@@ -666,8 +828,56 @@ function renderDashboard() {
   `;
 }
 
+// ── GENERIC CUSTOM DROPDOWN ─────────────────────
+function toggleDropdown(id) {
+  const menu = document.getElementById(id + '-menu');
+  const btn = document.getElementById(id + '-btn');
+  const willOpen = !menu.classList.contains('open');
+  document.querySelectorAll('.filter-menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.filter-dropdown-btn.open').forEach(b => b.classList.remove('open'));
+  if (willOpen) { menu.classList.add('open'); btn.classList.add('open'); }
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.filter-dropdown-wrap')) {
+    document.querySelectorAll('.filter-menu.open').forEach(m => m.classList.remove('open'));
+    document.querySelectorAll('.filter-dropdown-btn.open').forEach(b => b.classList.remove('open'));
+  }
+});
+
 // ── MAP ───────────────────────────────────────
-let map, cluster, mapReady = false, mapFilter = '';
+let map, cluster, mapReady = false, mapFilterSet = new Set();
+
+const FILTER_LABELS = {
+  recloser:'Recloser', fuse:'Fuse Dropout', disc:'Disconnecting', lbs:'LBS SF6',
+  'tx-pea-1':'Tx PEA 1Ph', 'tx-pea-3':'Tx PEA 3Ph', 'tx-cust':'Tx Customer'
+};
+
+function updateFilterUI() {
+  document.getElementById('filter-check-all').classList.toggle('checked', mapFilterSet.size === 0);
+  document.querySelectorAll('.filter-menu-item[data-f]').forEach(el => {
+    el.querySelector('.filter-check').classList.toggle('checked', mapFilterSet.has(el.dataset.f));
+  });
+  const label = document.getElementById('filter-btn-label');
+  if (mapFilterSet.size === 0) label.textContent = 'ทั้งหมด';
+  else if (mapFilterSet.size === 1) label.textContent = FILTER_LABELS[[...mapFilterSet][0]];
+  else label.textContent = `เลือกแล้ว ${mapFilterSet.size} ประเภท`;
+}
+function selectAllFilters() {
+  mapFilterSet.clear();
+  updateFilterUI();
+  if (mapReady) renderMapMarkers();
+}
+function toggleFilterOption(el, f) {
+  if (mapFilterSet.has(f)) mapFilterSet.delete(f);
+  else mapFilterSet.add(f);
+  updateFilterUI();
+  if (mapReady) renderMapMarkers();
+}
+function matchAnyFilter(d, set) {
+  if (set.size === 0) return true;
+  for (const f of set) { if (matchFilter(d, f)) return true; }
+  return false;
+}
 let mapMarkers = []; // {data, marker}
 let myLocationMarker = null;
 
@@ -679,7 +889,6 @@ function locateMe() {
   }
   const btn = document.getElementById('btn-locate-eq');
   btn.classList.add('loading');
-  btn.textContent = '📍 กำลังค้นหา...';
 
   navigator.geolocation.getCurrentPosition(
     (pos) => {
@@ -697,11 +906,9 @@ function locateMe() {
       map.setView([latitude, longitude], 16);
       myLocationMarker.openPopup();
       btn.classList.remove('loading');
-      btn.textContent = '📍 ตำแหน่งของฉัน';
     },
     (err) => {
       btn.classList.remove('loading');
-      btn.textContent = '📍 ตำแหน่งของฉัน';
       if (err.code === 1) alert('กรุณาอนุญาตการเข้าถึงตำแหน่ง (GPS) ในเบราว์เซอร์');
       else alert('ไม่สามารถระบุตำแหน่งได้ กรุณาลองใหม่');
     },
@@ -710,7 +917,7 @@ function locateMe() {
 }
 
 function initMap() {
-  map = L.map('map').setView([16.80, 99.98], 11);
+  map = L.map('map', { zoomControl: false }).setView([16.80, 99.98], 11);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap', maxZoom: 19
   }).addTo(map);
@@ -725,7 +932,7 @@ function renderMapMarkers() {
   mapMarkers = [];
   DATA.forEach(d => {
     if (!d.la || !d.ln) { mapMarkers.push(null); return; }
-    if (!matchFilter(d, mapFilter)) { mapMarkers.push(null); return; }
+    if (!matchAnyFilter(d, mapFilterSet)) { mapMarkers.push(null); return; }
     const m = L.circleMarker([d.la, d.ln], {
       radius: d.tp === 'recloser' ? 10 : d.tp === 'switch' ? 7 : 5,
       color: '#0f1923', weight: 1.5,
@@ -734,13 +941,6 @@ function renderMapMarkers() {
     cluster.addLayer(m);
     mapMarkers.push({ d, m });
   });
-}
-
-function setMapFilter(el, f) {
-  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  mapFilter = f;
-  if (mapReady) renderMapMarkers();
 }
 
 function zoomToItem(d) {
@@ -766,12 +966,23 @@ function doZoom(d) {
 let searchFiltered = [...DATA];
 let pg = 0;
 const PER = 20;
+let searchFilterState = { tp:'', fd:'', own:'', kva:'' };
+
+function selectSearchOption(el, key, value, label) {
+  searchFilterState[key] = value;
+  document.getElementById('sdd-' + key + '-label').textContent = label;
+  el.closest('.filter-menu').querySelectorAll('.filter-radio').forEach(r => r.classList.remove('checked'));
+  el.querySelector('.filter-radio').classList.add('checked');
+  el.closest('.filter-menu').classList.remove('open');
+  document.getElementById('sdd-' + key + '-btn').classList.remove('open');
+  doSearch();
+}
 
 function doSearch() {
-  const tp   = document.getElementById('sel-type').value;
-  const fd   = document.getElementById('sel-feeder').value;
-  const own  = document.getElementById('sel-owner').value;
-  const kva  = document.getElementById('sel-kva').value;
+  const tp   = searchFilterState.tp;
+  const fd   = searchFilterState.fd;
+  const own  = searchFilterState.own;
+  const kva  = searchFilterState.kva;
   const q    = document.getElementById('search-q').value.trim().toLowerCase();
 
   searchFiltered = DATA.filter(d => {
@@ -790,7 +1001,13 @@ function doSearch() {
 }
 
 function clearSearch() {
-  ['sel-type','sel-feeder','sel-owner','sel-kva'].forEach(id => document.getElementById(id).value = '');
+  searchFilterState = { tp:'', fd:'', own:'', kva:'' };
+  const defaults = { tp:'ทุกประเภท', fd:'ทุกสายป้อน', own:'เจ้าของทั้งหมด', kva:'kVA ทั้งหมด' };
+  Object.keys(defaults).forEach(key => {
+    document.getElementById('sdd-' + key + '-label').textContent = defaults[key];
+    const menu = document.getElementById('sdd-' + key + '-menu');
+    menu.querySelectorAll('.filter-radio').forEach((r, i) => r.classList.toggle('checked', i === 0));
+  });
   document.getElementById('search-q').value = '';
   searchFiltered = [...DATA];
   pg = 0;
@@ -848,9 +1065,8 @@ function rowClick(gi) {
   const tr = document.querySelector(`#tbody tr[data-gi="${gi}"]`);
   if (tr) tr.classList.add('active-row');
   // reset map filter to show all, then zoom
-  mapFilter = '';
-  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-  document.querySelector('.chip[data-f=""]').classList.add('active');
+  mapFilterSet.clear();
+  updateFilterUI();
   zoomToItem(searchFiltered[gi]);
 }
 
