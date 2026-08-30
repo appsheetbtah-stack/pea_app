@@ -124,40 +124,37 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .db-section-header { display:flex; align-items:baseline; gap:8px; padding-bottom:8px; border-bottom:1px solid var(--border); }
 .db-section-title { font-size:15px; font-weight:700; }
 .db-admin-box { background:var(--surface); border:1px dashed var(--border); border-radius:10px; padding:12px; display:flex; gap:8px; flex-wrap:wrap; }
-/* ดรอปดาวน์เลือกปีแบบ custom ล้วนๆ (ไม่ใช้ <select> ของเบราว์เซอร์) เพื่อคุมหน้าตาเมนูให้เข้าธีมได้เต็มที่
-   เมนูเป็น in-flow (ดันเนื้อหาลงเวลาเปิด) ไม่ใช้ position:absolute ลอยทับ เพื่อกันปัญหาไม่โผล่ในบางเบราว์เซอร์/ตัว scroll container */
-.year-dropdown { width:100%; }
-.year-select {
-  display:inline-flex; align-items:center; gap:8px;
-  padding:8px 14px;
-  border-radius:20px;
-  border:1px solid var(--border);
-  background:var(--surface2);
-  color:var(--text);
-  font-family:var(--sans);
-  font-size:13px; font-weight:600;
-  cursor:pointer;
-  margin-left:auto;
+/* ── ANCHORED FLOATING DROPDOWN (เข้าธีมเดียวกับแอปอื่น) ── */
+.filter-dropdown-wrap { position:relative; margin-left:auto; }
+.filter-dropdown-btn {
+  display:flex; align-items:center; gap:8px;
+  padding:8px 14px; border-radius:20px; border:1px solid var(--border);
+  background:var(--surface2); color:var(--text); font-family:var(--sans);
+  font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;
 }
-.year-select-row { display:flex; }
-.year-select:hover { background:var(--border); }
-.year-select .arrow { font-size:10px; color:var(--text2); transition:transform .15s; }
-.year-select.open .arrow { transform:rotate(180deg); }
-.year-dropdown-menu {
-  width:100%; box-sizing:border-box;
+.filter-dropdown-btn.open { border-color:var(--accent); color:var(--accent); }
+.filter-dropdown-btn .filter-caret { font-size:10px; color:var(--text2); transition:transform .15s; }
+.filter-dropdown-btn.open .filter-caret { color:var(--accent); transform:rotate(180deg); }
+.filter-menu {
+  display:none; position:fixed; left:0; top:0;
   background:var(--surface); border:1px solid var(--border); border-radius:12px;
-  margin-top:6px;
-  padding:6px;
-  display:none; flex-direction:column; gap:2px;
+  box-shadow:0 8px 24px rgba(0,0,0,.45); z-index:9999; padding:6px; max-height:60vh; overflow-y:auto;
 }
-.year-dropdown-menu.open { display:flex; }
-.year-dropdown-item {
-  padding:9px 12px; border-radius:8px;
-  font-size:13px; font-weight:600; color:var(--text);
-  cursor:pointer; white-space:nowrap;
+.filter-menu.open { display:block; }
+.filter-menu-item {
+  display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:8px;
+  cursor:pointer; font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; user-select:none;
 }
-.year-dropdown-item:hover { background:var(--surface2); }
-.year-dropdown-item.active { color:var(--accent); background:rgba(245,166,35,.12); }
+.filter-menu-item:active { background:var(--surface2); }
+.filter-radio {
+  flex-shrink:0; width:18px; height:18px; border-radius:50%; border:1.5px solid var(--border);
+  background:var(--surface2); position:relative;
+}
+.filter-radio.checked { border-color:var(--accent); }
+.filter-radio.checked::after {
+  content:''; position:absolute; left:3px; top:3px; width:9px; height:9px;
+  border-radius:50%; background:var(--accent);
+}
 .chart-title { font-size:13px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:12px; }
 .bar-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 .bar-row:last-child { margin-bottom:0; }
@@ -893,7 +890,7 @@ let statsYearFilter = 'all';
 let statsYearFilterInitialized = false; // ยังไม่ได้ตั้งค่าเริ่มต้นเป็นปีปัจจุบัน (รอดูว่ามีข้อมูลปีนี้จริงไหมก่อน)
 let cachedStatsYearItems = null; // แคชรายการปีไว้ในเซสชัน กันยิง Firestore อ่านซ้ำทุกครั้งที่เปิด/ปิดเมนู
 
-// สร้างดรอปดาวน์เลือกปีแบบ custom (ไม่ใช้ <select> ของเบราว์เซอร์ เพราะแต่งเมนูให้เข้าธีมไม่ได้)
+// สร้างดรอปดาวน์เลือกปีแบบ custom ลอยยึดกับปุ่ม (เข้าธีมเดียวกับแอปอื่น)
 // ดึงเฉพาะปีที่มีข้อมูลจริงจาก stats_meta/years (ไม่โชว์ปีเปล่าๆ ที่ไม่มีข้อมูล)
 async function buildStatsYearFilterUI() {
   const el = document.getElementById('stats-year-filter');
@@ -918,42 +915,79 @@ async function buildStatsYearFilterUI() {
     return;
   }
   const current = cachedStatsYearItems.find(i => i.v === statsYearFilter) || cachedStatsYearItems[0];
-  const itemsHtml = cachedStatsYearItems.map(i =>
-    '<div class="year-dropdown-item'+(statsYearFilter===i.v?' active':'')+'" onclick="selectStatsYear(\''+i.v+'\')">'+i.label+'</div>'
-  ).join('');
   el.innerHTML =
-    '<div class="year-dropdown">' +
-      '<div class="year-select-row"><button type="button" class="year-select" id="year-select-btn" onclick="toggleYearDropdown(event)">'+current.label+'<span class="arrow">▾</span></button></div>' +
-      '<div class="year-dropdown-menu" id="year-dropdown-menu">'+itemsHtml+'</div>' +
+    '<div class="filter-dropdown-wrap">' +
+      '<button type="button" class="filter-dropdown-btn" id="year-select-btn" onclick="toggleYearDropdown(event)">'+current.label+'<span class="filter-caret">▾</span></button>' +
     '</div>';
 }
 window.buildStatsYearFilterUI = buildStatsYearFilterUI;
 
-function toggleYearDropdown(e) {
-  e.stopPropagation();
+function positionYearMenu(menu, btn) {
+  const rect = btn.getBoundingClientRect();
+  const vw = window.innerWidth, vh = window.innerHeight;
+  menu.style.visibility = 'hidden';
+  menu.style.position = 'fixed';
+  menu.style.minWidth = rect.width + 'px';
+  menu.style.left = rect.left + 'px';
+  menu.style.top = (rect.bottom + 6) + 'px';
+  menu.classList.add('open');
+  if (menu.parentNode !== document.body) document.body.appendChild(menu);
+  const menuH = menu.offsetHeight;
+  if (rect.bottom + 6 + menuH > vh && rect.top - 6 - menuH > 0) {
+    menu.style.top = (rect.top - 6 - menuH) + 'px';
+  }
+  let left = rect.right - menu.offsetWidth;
+  if (left < 8) left = 8;
+  if (left + menu.offsetWidth > vw - 8) left = Math.max(8, vw - 8 - menu.offsetWidth);
+  menu.style.left = left + 'px';
+  menu.style.visibility = 'visible';
+}
+
+function closeYearDropdown() {
   const menu = document.getElementById('year-dropdown-menu');
   const btn = document.getElementById('year-select-btn');
-  if(!menu) return;
-  menu.classList.toggle('open');
-  if(btn) btn.classList.toggle('open');
+  if (menu) menu.classList.remove('open');
+  if (btn) btn.classList.remove('open');
+}
+window.closeYearDropdown = closeYearDropdown;
+
+function toggleYearDropdown(e) {
+  e.stopPropagation();
+  const btn = document.getElementById('year-select-btn');
+  let menu = document.getElementById('year-dropdown-menu');
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.className = 'filter-menu';
+    menu.id = 'year-dropdown-menu';
+    document.body.appendChild(menu);
+  }
+  const wasOpen = menu.classList.contains('open');
+  closeYearDropdown();
+  if (wasOpen) return;
+  menu.innerHTML = cachedStatsYearItems.map(i =>
+    '<div class="filter-menu-item" onclick="selectStatsYear(\''+i.v+'\')">' +
+      '<span class="filter-radio'+(statsYearFilter===i.v?' checked':'')+'"></span><span>'+i.label+'</span>' +
+    '</div>'
+  ).join('');
+  btn.classList.add('open');
+  positionYearMenu(menu, btn);
 }
 window.toggleYearDropdown = toggleYearDropdown;
 
 function selectStatsYear(year) {
   setStatsYearFilter(year);
+  closeYearDropdown();
   buildStatsYearFilterUI(); // ใช้ cachedStatsYearItems ที่มีอยู่แล้ว ไม่อ่าน Firestore ซ้ำ
 }
 window.selectStatsYear = selectStatsYear;
 
-// ปิดเมนูเมื่อแตะที่อื่นนอกกล่อง dropdown
+// ปิดเมนูเมื่อแตะที่อื่นนอกกล่อง dropdown / เลื่อนหน้าจอ / ปรับขนาดหน้าต่าง
 document.addEventListener('click', (e) => {
-  const menu = document.getElementById('year-dropdown-menu');
-  if(menu && menu.classList.contains('open') && !e.target.closest('.year-dropdown')) {
-    menu.classList.remove('open');
-    const btn = document.getElementById('year-select-btn');
-    if(btn) btn.classList.remove('open');
-  }
+  if (e.target.closest('.filter-dropdown-btn') || e.target.closest('.filter-menu')) return;
+  closeYearDropdown();
 });
+document.addEventListener('scroll', closeYearDropdown, true);
+window.addEventListener('resize', closeYearDropdown);
 
 function setStatsYearFilter(year) {
   statsYearFilter = year;
