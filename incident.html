@@ -852,8 +852,45 @@ async function syncDeviceStatsForTicket(ticket) {
 }
 window.syncDeviceStatsForTicket = syncDeviceStatsForTicket;
 
+// ย้อนสถิติ device_stats ของ ticket ที่ถูกลบ (หักลบเฉพาะรายการที่เคยถูกนับไปแล้วจริง ผ่าน countedKeys)
+// ใช้ตอนลบ ticket ทดสอบ/ผิดพลาด เพื่อไม่ให้ยอดสะสมค้างเกินจริง
+async function unsyncDeviceStatsForTicket(ticket) {
+  if(!window._firebaseReady || !ticket.equipment || !ticket.equipment.length) return;
+  const { doc, runTransaction } = window._fsLib;
+  const db = window._db;
+  for (const eq of ticket.equipment) {
+    if(!eq.id) continue;
+    const countKey = ticket.id + ':' + eq.tp;
+    const statRef = doc(db, "device_stats", String(eq.id));
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(statRef);
+        if(!snap.exists()) return;
+        const data = snap.data();
+        const raw = data.countedKeys && data.countedKeys[countKey];
+        const entry = (raw && typeof raw === 'object') ? raw : null;
+        if(!entry || !entry.total) return; // ไม่เคยถูกนับ ไม่ต้องหักอะไร
+        const byYear = { ...(data.outageByYear || {}) };
+        if(entry.year != null) byYear[entry.year] = Math.max(0, (byYear[entry.year] || 0) - 1);
+        const byMonth = { ...(data.outageByMonth || {}) };
+        if(entry.month != null) byMonth[entry.month] = Math.max(0, (byMonth[entry.month] || 0) - 1);
+        const countedKeys = { ...(data.countedKeys || {}) };
+        delete countedKeys[countKey];
+        tx.set(statRef, {
+          outageCount: Math.max(0, (data.outageCount || 0) - 1),
+          outageByYear: byYear,
+          outageByMonth: byMonth,
+          countedKeys
+        }, { merge:true });
+      });
+    } catch(e) { console.error("device_stats unsync error:", e); }
+  }
+}
+window.unsyncDeviceStatsForTicket = unsyncDeviceStatsForTicket;
+
 // ปีที่ให้เลือกดูสถิติ — ใช้ร่วมกันทั้งกราฟตำบลและอุปกรณ์
 let statsYearFilter = 'all';
+let statsYearFilterInitialized = false; // ยังไม่ได้ตั้งค่าเริ่มต้นเป็นปีปัจจุบัน (รอดูว่ามีข้อมูลปีนี้จริงไหมก่อน)
 let cachedStatsYearItems = null; // แคชรายการปีไว้ในเซสชัน กันยิง Firestore อ่านซ้ำทุกครั้งที่เปิด/ปิดเมนู
 
 // สร้างดรอปดาวน์เลือกปีแบบ custom (ไม่ใช้ <select> ของเบราว์เซอร์ เพราะแต่งเมนูให้เข้าธีมไม่ได้)
@@ -864,6 +901,16 @@ async function buildStatsYearFilterUI() {
   if(!cachedStatsYearItems) {
     const years = await loadAvailableStatsYears();
     cachedStatsYearItems = [{ v:'all', label:'ทุกปี' }].concat(years.map(y => ({ v:y, label:'ปี '+y })));
+    // ค่าเริ่มต้น: เลือกปีปัจจุบัน (พ.ศ.) ถ้ามีข้อมูลปีนั้นอยู่แล้ว มิฉะนั้นคงไว้ที่ "ทุกปี"
+    if(!statsYearFilterInitialized) {
+      statsYearFilterInitialized = true;
+      const nowBE = String(new Date().getFullYear() + 543);
+      if(years.includes(nowBE)) {
+        statsYearFilter = nowBE;
+        refreshEquipmentStatsChart();
+        refreshTumbolStatsChart();
+      }
+    }
   }
   const hasYears = cachedStatsYearItems.some(i => i.v !== 'all');
   if(!hasYears) {
@@ -1033,6 +1080,38 @@ async function syncTumbolStatsForTicket(ticket) {
 }
 window.syncTumbolStatsForTicket = syncTumbolStatsForTicket;
 
+// ย้อนสถิติ tumbol_stats ของ ticket ที่ถูกลบ (คู่กับ unsyncDeviceStatsForTicket)
+async function unsyncTumbolStatsForTicket(ticket) {
+  if(!window._firebaseReady) return;
+  const tumbol = ticket.tumbol || 'ไม่ระบุ';
+  const { doc, runTransaction } = window._fsLib;
+  const db = window._db;
+  const statRef = doc(db, "tumbol_stats", tumbol);
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(statRef);
+      if(!snap.exists()) return;
+      const data = snap.data();
+      const raw = data.countedKeys && data.countedKeys[ticket.id];
+      const entry = (raw && typeof raw === 'object') ? raw : null;
+      if(!entry || !entry.total) return;
+      const byYear = { ...(data.reportByYear || {}) };
+      if(entry.year != null) byYear[entry.year] = Math.max(0, (byYear[entry.year] || 0) - 1);
+      const byMonth = { ...(data.reportByMonth || {}) };
+      if(entry.month != null) byMonth[entry.month] = Math.max(0, (byMonth[entry.month] || 0) - 1);
+      const countedKeys = { ...(data.countedKeys || {}) };
+      delete countedKeys[ticket.id];
+      tx.set(statRef, {
+        reportCount: Math.max(0, (data.reportCount || 0) - 1),
+        reportByYear: byYear,
+        reportByMonth: byMonth,
+        countedKeys
+      }, { merge:true });
+    });
+  } catch(e) { console.error("tumbol_stats unsync error:", e); }
+}
+window.unsyncTumbolStatsForTicket = unsyncTumbolStatsForTicket;
+
 async function refreshTumbolStatsChart() {
   const el = document.getElementById('chart-amphoe');
   const periodEl = document.getElementById('chart-amphoe-period');
@@ -1076,8 +1155,8 @@ window.refreshTumbolStatsChart = refreshTumbolStatsChart;
 // วิธีนี้ปลอดภัยกว่า: คำนวณทุกอย่างใหม่จากต้นทางเสมอ กดซ้ำกี่ครั้งก็ได้ผลลัพธ์ถูกต้องเท่ากันทุกครั้ง (ไม่มีทางนับซ้ำ)
 async function migrateAllStatsFromExisting() {
   if(!window._firebaseReady) { showToast('⚠️ ยังไม่เชื่อมต่อ Firestore', 'error'); return; }
-  if(!confirm('คำนวณสถิติอุปกรณ์ + ตำบลใหม่ทั้งหมดจากงานทั้งหมด (รวมที่จัดเก็บเข้าคลังไปแล้ว)?\n\nจะเขียนทับตัวเลขเดิมด้วยค่าที่ถูกต้อง แก้ปัญหานับซ้ำที่เคยเกิดได้ด้วย กดซ้ำได้เสมอ')) return;
-  const { collection, getDocs, doc, setDoc } = window._fsLib;
+  if(!confirm('คำนวณสถิติอุปกรณ์ + ตำบลใหม่ทั้งหมดจากงานทั้งหมด (รวมที่จัดเก็บเข้าคลังไปแล้ว)?\n\nจะเขียนทับตัวเลขเดิมด้วยค่าที่ถูกต้อง แก้ปัญหานับซ้ำที่เคยเกิดได้ด้วย และล้างรายการเก่าของอุปกรณ์/ตำบลที่ไม่มี ticket เหลืออยู่แล้ว (เช่น ticket ทดสอบที่เคยลบไปแต่ตัวเลขค้าง) กดซ้ำได้เสมอ')) return;
+  const { collection, getDocs, doc, setDoc, deleteDoc } = window._fsLib;
   const db = window._db;
   try {
     // รวบรวม ticket ทั้งหมด: ที่ active อยู่ (มีในเครื่องแล้ว) + ที่เคยจัดเก็บเข้าคลังไปแล้ว
@@ -1126,7 +1205,19 @@ async function migrateAllStatsFromExisting() {
     for (const agg of Object.values(tumbolAgg)) { await setDoc(doc(db, "tumbol_stats", agg.tumbol), agg); writes++; }
     await setDoc(doc(db, "stats_meta", "years"), yearsSeen); // เขียนทับให้ตรงกับข้อมูลจริงเป๊ะ ไม่ merge ของเก่า
 
-    showToast(`✅ คำนวณสถิติใหม่จาก ${allTickets.length.toLocaleString()} ticket เรียบร้อย (${writes} เอกสาร)`, 'success');
+    // ลบเอกสารสถิติของอุปกรณ์/ตำบลที่ไม่มี ticket เหลืออยู่แล้ว (เช่น ticket ทดสอบที่เคยลบไป)
+    // ไม่งั้นตัวเลขเก่าจะค้างอยู่ถาวรเพราะการลบ ticket ไม่ได้ลบสถิติเดิมออกไปด้วย
+    let cleaned = 0;
+    const deviceSnap = await getDocs(collection(db, "device_stats"));
+    for (const d of deviceSnap.docs) {
+      if (!deviceAgg[d.id]) { await deleteDoc(doc(db, "device_stats", d.id)); cleaned++; }
+    }
+    const tumbolSnap = await getDocs(collection(db, "tumbol_stats"));
+    for (const d of tumbolSnap.docs) {
+      if (!tumbolAgg[d.id]) { await deleteDoc(doc(db, "tumbol_stats", d.id)); cleaned++; }
+    }
+
+    showToast(`✅ คำนวณสถิติใหม่จาก ${allTickets.length.toLocaleString()} ticket เรียบร้อย (${writes} เอกสาร${cleaned ? ', ล้างของเก่าที่ไม่มี ticket แล้ว ' + cleaned + ' รายการ' : ''})`, 'success');
     cachedStatsYearItems = null; // ล้างแคชปีเก่า ให้ดรอปดาวน์โหลดรายชื่อปีใหม่
     buildStatsYearFilterUI();
     refreshEquipmentStatsChart();
@@ -1509,14 +1600,16 @@ function changeStatus(id, status) {
   }
 }
 
-function deleteTicket(id) {
+async function deleteTicket(id) {
   const t = tickets.find(x=>x.id===id);
   if(!t) return;
   if(!confirm(`ยืนยันลบรายการ ${t.id} — ${t.name}?\n\nการลบนี้ไม่สามารถย้อนกลับได้`)) return;
   fsDeleteTicket(t._docId);
+  await Promise.all([unsyncDeviceStatsForTicket(t), unsyncTumbolStatsForTicket(t)]);
   tickets = tickets.filter(x=>x.id!==id);
   saveTickets();
   renderTickets(); updateTicketBadge(); renderTicketDashboard();
+  refreshEquipmentStatsChart(); refreshTumbolStatsChart();
   if(mapFull) renderTicketMarkers();
 }
 
