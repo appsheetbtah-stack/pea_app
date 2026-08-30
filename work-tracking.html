@@ -157,23 +157,44 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .search-input:focus { border-color:var(--accent); }
 .search-input::placeholder { color:var(--text2); }
 .status-select-wrap { flex-shrink:0; width:44%; position:relative; }
-.status-select-wrap .status-dot {
+
+/* ── CUSTOM DROPDOWN (shared component) ── */
+.filter-dropdown-wrap { position:relative; }
+.filter-dropdown-btn {
+  width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:10px 12px 10px 28px; border-radius:10px; border:1px solid var(--border);
+  background:var(--surface2); color:var(--text); font-family:var(--sans);
+  font-size:13px; font-weight:600; cursor:pointer; position:relative;
+}
+.filter-dropdown-btn.open { border-color:var(--accent); }
+.filter-dropdown-btn .filter-caret { font-size:11px; color:var(--text2); transition:transform .15s; flex-shrink:0; }
+.filter-dropdown-btn.open .filter-caret { color:var(--accent); transform:rotate(180deg); }
+.filter-dropdown-btn span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.filter-dropdown-btn .status-dot {
   position:absolute; left:12px; top:50%; transform:translateY(-50%);
   width:9px; height:9px; border-radius:50%; background:var(--text2); pointer-events:none;
 }
-.status-select {
-  width:100%; appearance:none; -webkit-appearance:none;
-  background:var(--surface2); border:1px solid var(--border);
-  border-radius:10px; padding:10px 28px 10px 28px; color:var(--text);
-  font-family:var(--sans); font-size:13px; font-weight:600; outline:none;
-  cursor:pointer; transition:border-color .15s; white-space:nowrap;
-  text-overflow:ellipsis;
+.filter-menu {
+  display:none; position:absolute; left:0; right:0; top:calc(100% + 6px);
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.35); z-index:700; padding:6px; max-height:60vh; overflow-y:auto;
 }
-.status-select:focus { border-color:var(--accent); }
-.status-select-wrap::after {
-  content:"▾"; position:absolute; right:10px; top:50%; transform:translateY(-50%);
-  font-size:11px; color:var(--text2); pointer-events:none;
+.filter-menu.open { display:block; }
+.filter-menu-item {
+  display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:7px;
+  cursor:pointer; font-size:13.5px; color:var(--text); user-select:none;
 }
+.filter-menu-item:active { background:var(--surface2); }
+.filter-radio {
+  flex-shrink:0; width:18px; height:18px; border-radius:50%; border:1.5px solid var(--border);
+  background:var(--surface2); position:relative;
+}
+.filter-radio.checked { border-color:var(--accent); }
+.filter-radio.checked::after {
+  content:''; position:absolute; left:3px; top:3px; width:9px; height:9px;
+  border-radius:50%; background:var(--accent);
+}
+.filter-menu-item .leg-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
 
 /* ── LIST ── */
 .list-container { padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
@@ -356,15 +377,29 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       <span class="search-icon">🔍</span>
       <input type="text" id="search-input" class="search-input" placeholder="ค้นหางาน...">
     </div>
-    <div class="status-select-wrap">
+    <div class="status-select-wrap filter-dropdown-wrap">
       <span class="status-dot" id="status-select-dot"></span>
-      <select id="status-select" class="status-select">
-        <option value="">ทั้งหมด</option>
-        <option value="survey">🔵 สำรวจออกแบบ</option>
-        <option value="estimate">🟡 ประมาณการ</option>
-        <option value="approval">🔴 รออนุมัติ</option>
-        <option value="done">🟢 ก่อสร้างแล้วเสร็จ</option>
-      </select>
+      <button type="button" class="filter-dropdown-btn" id="status-filter-btn" onclick="toggleDropdown('status-filter')">
+        <span id="status-filter-label">ทั้งหมด</span>
+        <span class="filter-caret">▾</span>
+      </button>
+      <div class="filter-menu" id="status-filter-menu">
+        <div class="filter-menu-item" onclick="selectStatusFilter(this,'','ทั้งหมด','var(--text2)')">
+          <span class="filter-radio checked"></span><span>ทั้งหมด</span>
+        </div>
+        <div class="filter-menu-item" onclick="selectStatusFilter(this,'survey','สำรวจออกแบบ','var(--blue)')">
+          <span class="filter-radio"></span><span class="leg-dot" style="background:var(--blue)"></span><span>สำรวจออกแบบ</span>
+        </div>
+        <div class="filter-menu-item" onclick="selectStatusFilter(this,'estimate','ประมาณการ','var(--yellow)')">
+          <span class="filter-radio"></span><span class="leg-dot" style="background:var(--yellow)"></span><span>ประมาณการ</span>
+        </div>
+        <div class="filter-menu-item" onclick="selectStatusFilter(this,'approval','รออนุมัติ','var(--red)')">
+          <span class="filter-radio"></span><span class="leg-dot" style="background:var(--red)"></span><span>รออนุมัติ</span>
+        </div>
+        <div class="filter-menu-item" onclick="selectStatusFilter(this,'done','ก่อสร้างแล้วเสร็จ','var(--green)')">
+          <span class="filter-radio"></span><span class="leg-dot" style="background:var(--green)"></span><span>ก่อสร้างแล้วเสร็จ</span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -446,12 +481,27 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       </div>
       <div>
         <label class="field-label">สถานะ</label>
-        <select class="field-select" id="f-status">
-          <option value="survey">🔵 อยู่ระหว่างสำรวจออกแบบ</option>
-          <option value="estimate">🟡 อยู่ระหว่างการประมาณการ</option>
-          <option value="approval">🔴 ส่ง กฟส.บรก. รออนุมัติ</option>
-          <option value="done">🟢 งานก่อสร้างแล้วเสร็จ</option>
-        </select>
+        <div class="filter-dropdown-wrap">
+          <button type="button" class="filter-dropdown-btn" id="f-status-btn" onclick="toggleDropdown('f-status')" style="padding-left:12px;">
+            <span id="f-status-label">🔵 อยู่ระหว่างสำรวจออกแบบ</span>
+            <span class="filter-caret">▾</span>
+          </button>
+          <div class="filter-menu" id="f-status-menu">
+            <div class="filter-menu-item" onclick="selectFStatus(this,'survey','🔵 อยู่ระหว่างสำรวจออกแบบ')">
+              <span class="filter-radio checked"></span><span class="leg-dot" style="background:var(--blue)"></span><span>อยู่ระหว่างสำรวจออกแบบ</span>
+            </div>
+            <div class="filter-menu-item" onclick="selectFStatus(this,'estimate','🟡 อยู่ระหว่างการประมาณการ')">
+              <span class="filter-radio"></span><span class="leg-dot" style="background:var(--yellow)"></span><span>อยู่ระหว่างการประมาณการ</span>
+            </div>
+            <div class="filter-menu-item" onclick="selectFStatus(this,'approval','🔴 ส่ง กฟส.บรก. รออนุมัติ')">
+              <span class="filter-radio"></span><span class="leg-dot" style="background:var(--red)"></span><span>ส่ง กฟส.บรก. รออนุมัติ</span>
+            </div>
+            <div class="filter-menu-item" onclick="selectFStatus(this,'done','🟢 งานก่อสร้างแล้วเสร็จ')">
+              <span class="filter-radio"></span><span class="leg-dot" style="background:var(--green)"></span><span>งานก่อสร้างแล้วเสร็จ</span>
+            </div>
+          </div>
+        </div>
+        <input type="hidden" id="f-status" value="survey">
       </div>
     </div>
     <div class="modal-footer">
@@ -734,7 +784,6 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   });
 
   const searchInput = document.getElementById('search-input');
-  const statusSelect = document.getElementById('status-select');
   const statusSelectDot = document.getElementById('status-select-dot');
   const STATUS_DOT_COLOR = { survey: 'var(--blue)', estimate: 'var(--yellow)', approval: 'var(--red)', done: 'var(--green)' };
 
@@ -743,10 +792,58 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     render();
   });
 
-  statusSelect.addEventListener('change', (e) => {
-    currentStatus = e.target.value || 'all';
+  window.selectStatusFilter = function(el, value, label, color) {
+    const menu = el.closest('.filter-menu');
+    menu.querySelectorAll('.filter-radio').forEach(r => r.classList.remove('checked'));
+    el.querySelector('.filter-radio').classList.add('checked');
+    document.getElementById('status-filter-label').textContent = label;
+    closeDropdownWrap(el);
+    currentStatus = value || 'all';
     statusSelectDot.style.background = STATUS_DOT_COLOR[currentStatus] || 'var(--text2)';
     render();
+  };
+
+  const F_STATUS_LABELS = {
+    survey: '🔵 อยู่ระหว่างสำรวจออกแบบ',
+    estimate: '🟡 อยู่ระหว่างการประมาณการ',
+    approval: '🔴 ส่ง กฟส.บรก. รออนุมัติ',
+    done: '🟢 งานก่อสร้างแล้วเสร็จ'
+  };
+  window.setFStatusUI = function(value) {
+    const v = value || 'survey';
+    document.getElementById('f-status').value = v;
+    document.getElementById('f-status-label').textContent = F_STATUS_LABELS[v] || F_STATUS_LABELS.survey;
+    const menu = document.getElementById('f-status-menu');
+    menu.querySelectorAll('.filter-menu-item').forEach((item, i) => {
+      const keys = ['survey', 'estimate', 'approval', 'done'];
+      item.querySelector('.filter-radio').classList.toggle('checked', keys[i] === v);
+    });
+  };
+
+  window.selectFStatus = function(el, value, label) {
+    setFStatusUI(value);
+    closeDropdownWrap(el);
+  };
+
+  // ── GENERIC CUSTOM DROPDOWN ──
+  window.toggleDropdown = function(id) {
+    const menu = document.getElementById(id + '-menu');
+    const btn = document.getElementById(id + '-btn');
+    const willOpen = !menu.classList.contains('open');
+    document.querySelectorAll('.filter-menu.open').forEach(m => m.classList.remove('open'));
+    document.querySelectorAll('.filter-dropdown-btn.open').forEach(b => b.classList.remove('open'));
+    if (willOpen) { menu.classList.add('open'); btn.classList.add('open'); }
+  };
+  function closeDropdownWrap(el) {
+    const wrap = el.closest('.filter-dropdown-wrap');
+    wrap.querySelector('.filter-menu').classList.remove('open');
+    wrap.querySelector('.filter-dropdown-btn').classList.remove('open');
+  }
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.filter-dropdown-wrap')) {
+      document.querySelectorAll('.filter-menu.open').forEach(m => m.classList.remove('open'));
+      document.querySelectorAll('.filter-dropdown-btn.open').forEach(b => b.classList.remove('open'));
+    }
   });
 
   // ── MODAL FORM ──
@@ -762,7 +859,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     document.getElementById('f-job').placeholder = (currentCat === 'improvement')
       ? 'เช่น งานปรับปรุงไฟตก บ้าน...'
       : 'เช่น C140ม. บ.หนองอ้อ (นายเอกชัย ต้นน้อย)';
-    document.getElementById('f-status').value = 'survey';
+    setFStatusUI('survey');
     const drawingLinkInput = document.getElementById('f-drawinglink');
     drawingLinkInput.value = '';
     delete drawingLinkInput.dataset.fileId;
@@ -824,7 +921,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     document.getElementById('f-drawing-hint').textContent = 'แก้ไขเลขผังได้หากจำเป็น';
     document.getElementById('f-job').value = w.jobName || '';
     document.getElementById('f-phone').value = w.phone || '';
-    document.getElementById('f-status').value = w.status || 'survey';
+    setFStatusUI(w.status || 'survey');
     const drawingLinkInput = document.getElementById('f-drawinglink');
     drawingLinkInput.value = w.drawingLink || '';
     if (w.drawingFileId) drawingLinkInput.dataset.fileId = w.drawingFileId; else delete drawingLinkInput.dataset.fileId;
