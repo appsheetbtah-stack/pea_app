@@ -772,6 +772,39 @@ html[data-theme="light"] {
     .field input, .field select{background:#fff !important;border:1px solid #ccc !important}
     table td{background:#fff !important;border-color:#ccc !important}
   }
+
+  /* ===== Custom dropdown (replaces native select) ===== */
+  .filter-dropdown-wrap { position:relative; width:100%; }
+  .filter-dropdown-btn {
+    width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:8px 10px; border-radius:6px; border:1px solid var(--border);
+    background:var(--bg); color:var(--text); font-family:'Sarabun',sans-serif;
+    font-size:14px; font-weight:500; cursor:pointer; text-align:left;
+  }
+  .filter-dropdown-btn.open { border-color:var(--accent); }
+  .filter-dropdown-btn .filter-caret { font-size:11px; color:var(--text2); transition:transform .15s; flex-shrink:0; }
+  .filter-dropdown-btn.open .filter-caret { color:var(--accent); transform:rotate(180deg); }
+  .filter-dropdown-btn span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .filter-menu {
+    display:none; position:fixed; left:0; top:0;
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,.45); z-index:9999; padding:6px; max-height:60vh; overflow-y:auto;
+  }
+  .filter-menu.open { display:block; }
+  .filter-menu-item {
+    display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:7px;
+    cursor:pointer; font-size:13.5px; color:var(--text); user-select:none;
+  }
+  .filter-menu-item:active { background:var(--surface2); }
+  .filter-radio {
+    flex-shrink:0; width:18px; height:18px; border-radius:50%; border:1.5px solid var(--border);
+    background:var(--surface2); position:relative;
+  }
+  .filter-radio.checked { border-color:var(--accent); }
+  .filter-radio.checked::after {
+    content:''; position:absolute; left:3px; top:3px; width:9px; height:9px;
+    border-radius:50%; background:var(--accent);
+  }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 </head>
@@ -3291,6 +3324,131 @@ function calComputeDayStatus(dayData){
   if(hasPm) return 'pm';
   return 'none';
 }
+
+// ===== Custom dropdown: replaces native <select> visually, keeps full compatibility =====
+function closeAllDropdowns() {
+  document.querySelectorAll('.filter-menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.filter-dropdown-btn.open').forEach(b => b.classList.remove('open'));
+}
+function positionDropdown(menu, btn) {
+  const rect = btn.getBoundingClientRect();
+  const vw = window.innerWidth, vh = window.innerHeight;
+  menu.style.visibility = 'hidden';
+  menu.style.position = 'fixed';
+  menu.style.left = rect.left + 'px';
+  menu.style.width = rect.width + 'px';
+  menu.style.top = (rect.bottom + 6) + 'px';
+  menu.classList.add('open');
+  if (menu.parentNode !== document.body) document.body.appendChild(menu);
+  const menuH = menu.offsetHeight;
+  // flip above the button if there isn't enough room below
+  if (rect.bottom + 6 + menuH > vh && rect.top - 6 - menuH > 0) {
+    menu.style.top = (rect.top - 6 - menuH) + 'px';
+  }
+  // clamp horizontally within viewport
+  let left = rect.left;
+  if (left + rect.width > vw - 8) left = Math.max(8, vw - 8 - rect.width);
+  menu.style.left = left + 'px';
+  menu.style.visibility = 'visible';
+}
+function toggleDropdown(id) {
+  const menu = document.getElementById(id + '-menu');
+  const btn = document.getElementById(id + '-btn');
+  if (!menu || !btn) return;
+  const willOpen = !menu.classList.contains('open');
+  closeAllDropdowns();
+  if (willOpen) {
+    positionDropdown(menu, btn);
+    btn.classList.add('open');
+  }
+}
+function closeDropdown(id) {
+  const menu = document.getElementById(id + '-menu');
+  const btn = document.getElementById(id + '-btn');
+  if (menu) menu.classList.remove('open');
+  if (btn) btn.classList.remove('open');
+}
+document.addEventListener('click', (e) => {
+  if (e.target.closest('.filter-dropdown-btn')) return;
+  if (e.target.closest('.filter-menu')) return;
+  closeAllDropdowns();
+});
+document.addEventListener('scroll', closeAllDropdowns, true);
+window.addEventListener('resize', closeAllDropdowns);
+
+function bindCustomSelect(id) {
+  const select = document.getElementById(id);
+  if (!select || select.dataset.customBound) return;
+  select.dataset.customBound = '1';
+
+  const options = Array.from(select.options).map(o => ({ value: o.value, label: o.textContent }));
+
+  select.style.display = 'none';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'filter-dropdown-wrap';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'filter-dropdown-btn';
+  btn.id = id + '-btn';
+  const labelSpan = document.createElement('span');
+  labelSpan.id = id + '-label';
+  const caret = document.createElement('span');
+  caret.className = 'filter-caret';
+  caret.textContent = '▾';
+  btn.appendChild(labelSpan);
+  btn.appendChild(caret);
+  btn.onclick = () => toggleDropdown(id);
+
+  const menu = document.createElement('div');
+  menu.className = 'filter-menu';
+  menu.id = id + '-menu';
+
+  options.forEach(opt => {
+    const item = document.createElement('div');
+    item.className = 'filter-menu-item';
+    item.dataset.value = opt.value;
+    const radio = document.createElement('span');
+    radio.className = 'filter-radio';
+    const text = document.createElement('span');
+    text.textContent = opt.label;
+    item.appendChild(radio);
+    item.appendChild(text);
+    item.onclick = () => {
+      select.value = opt.value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      closeDropdown(id);
+    };
+    menu.appendChild(item);
+  });
+
+  wrap.appendChild(btn);
+  wrap.appendChild(menu);
+  select.parentNode.insertBefore(wrap, select.nextSibling);
+
+  function updateUI() {
+    const val = select.value;
+    const match = options.find(o => o.value === val) || options[0];
+    labelSpan.textContent = match ? match.label : '';
+    menu.querySelectorAll('.filter-menu-item').forEach(item => {
+      item.querySelector('.filter-radio').classList.toggle('checked', item.dataset.value === val);
+    });
+  }
+
+  // intercept .value on this element so direct JS assignments (el.value = x) keep the custom UI in sync
+  const nativeDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+  Object.defineProperty(select, 'value', {
+    get() { return nativeDesc.get.call(select); },
+    set(v) { nativeDesc.set.call(select, v); updateUI(); },
+    configurable: true
+  });
+
+  updateUI();
+}
+
+['shift', 'inspector', 'supervisor', 'u-driver', 'pr-shift', 'ex-month', 'm-month'].forEach(bindCustomSelect);
 </script>
 
 </body>
+</html>
