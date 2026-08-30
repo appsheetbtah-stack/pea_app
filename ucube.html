@@ -397,6 +397,54 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .source-badge { display:inline-block; font-size:10.5px; font-weight:700; color:var(--accent); background:rgba(245,166,35,.12); border:1px solid rgba(245,166,35,.3); border-radius:10px; padding:2px 8px; margin-left:6px; vertical-align:middle; }
 .batch-manage-box { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:10px; }
 .batch-manage-actions { display:flex; gap:8px; }
+
+/* ===== Custom dropdown (แทนที่ reason-picker-field / bottom-sheet picker เดิม) ===== */
+.filter-dropdown-wrap{ position:relative; width:100%; }
+.filter-dropdown-btn{
+  width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px;
+  background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+  padding:10px 12px; color:var(--text); font-family:var(--sans); font-size:14px;
+  cursor:pointer; text-align:left; transition:border-color .15s;
+}
+.filter-dropdown-btn:active{ background:var(--border); }
+.filter-dropdown-btn.open{ border-color:var(--accent); }
+.filter-dropdown-btn .fdd-label{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); }
+.filter-dropdown-btn .fdd-label.fdd-placeholder{ color:var(--text2); }
+.filter-dropdown-btn .fdd-caret{ flex:none; font-size:11px; color:var(--text2); transition:transform .15s; }
+.filter-dropdown-btn.open .fdd-caret{ transform:rotate(180deg); color:var(--accent); }
+.filter-menu{
+  display:none; position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:60;
+  background:var(--bg); border:1px solid var(--border); border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.35); max-height:60vh; overflow-y:auto; padding:6px;
+}
+.filter-menu.open{ display:block; }
+.filter-menu-item{
+  display:flex; align-items:center; gap:10px; padding:10px; border-radius:8px;
+  cursor:pointer; font-size:14px; color:var(--text); user-select:none; -webkit-tap-highlight-color:transparent;
+}
+.filter-menu-item:active{ background:var(--surface2); }
+.filter-radio{
+  flex:none; width:18px; height:18px; border-radius:50%; border:2px solid var(--border);
+  position:relative; box-sizing:border-box;
+}
+.filter-radio.checked{ border-color:var(--accent); }
+.filter-radio.checked::after{
+  content:''; position:absolute; top:50%; left:50%; width:8px; height:8px;
+  transform:translate(-50%,-50%);
+  border-radius:50%; background:var(--accent);
+}
+.filter-menu-item .leg-dot{ flex:none; width:10px; height:10px; border-radius:50%; }
+.filter-menu-custom-row{ display:flex; gap:8px; padding:8px 6px 4px; border-top:1px solid var(--border); margin-top:4px; }
+.filter-menu-custom-row input{
+  flex:1; min-width:0; background:var(--surface2); border:1px solid var(--border); border-radius:6px;
+  padding:8px 10px; color:var(--text); font-family:var(--sans); font-size:13px; outline:none;
+}
+.filter-menu-custom-row input:focus{ border-color:var(--accent); }
+.filter-menu-custom-row button{
+  flex:none; background:var(--accent); color:#1a1a2e; border:none; border-radius:6px;
+  padding:8px 14px; font-family:var(--sans); font-size:13px; font-weight:700; cursor:pointer;
+}
+.fdd-native-select{ display:none !important; }
 </style>
 </head>
 <body>
@@ -1351,7 +1399,9 @@ function updateBatchFieldLabels() {
   const label = batchFieldLabel(currentBatch);
   ['batch-filter-list-field', 'batch-filter-map-field'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.textContent = label;
+    if (!el) return;
+    const fddLabel = el.querySelector('.fdd-label');
+    if (fddLabel) fddLabel.textContent = label; else el.textContent = label;
   });
 }
 
@@ -1395,74 +1445,222 @@ window.selectBatchFromPicker = selectBatchFromPicker;
 
 // ══════════════════════════ GENERIC LIST PICKER (แทน native <select>) ══════════════════════════
 // ใช้กับ select เดือน/ปี/รอบใบงาน ที่ยังเหลืออยู่หลายจุด: เก็บ <select> เดิมไว้ (ซ่อนด้วย .select-hidden)
-// เพื่อให้โค้ดเดิมที่อ้างอิง .value / onchange / .options ยังทำงานได้ครบ แล้วสร้างช่องแสดงผล + popup
-// ของแอปเองมาแทนที่หน้าตาเท่านั้น
-let listPickerCallback = null;
+// เพื่อให้โค้ดเดิมที่อ้างอิง .value / onchange / .options ยังทำงานได้ครบ แล้วสร้างดรอปดาวน์การ์ดลอย
+// (แบบเดียวกับแอปงานขยายเขต/ปรับปรุงระบบจำหน่าย) มาแทนที่หน้าตาเท่านั้น
 
+function fddCloseAll() {
+  document.querySelectorAll('.filter-menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.filter-dropdown-btn.open').forEach(b => b.classList.remove('open'));
+}
+window.fddCloseAll = fddCloseAll;
+
+function fddToggle(btn, menu) {
+  const willOpen = !menu.classList.contains('open');
+  fddCloseAll();
+  if (willOpen) { menu.classList.add('open'); btn.classList.add('open'); }
+}
+
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('.filter-dropdown-wrap')) fddCloseAll();
+});
+
+// อัปเดตหน้าตาปุ่ม/ดรอปดาวน์ให้ตรงกับค่า select ปัจจุบัน — เรียกทุกครั้งที่มีการเซ็ตค่า select ด้วยโค้ด (ไม่ใช่จากการคลิกเมนู)
 function syncPickerField(id) {
   const sel = document.getElementById(id);
   const field = document.getElementById(id + '-field');
   if (!sel || !field) return;
   const opt = sel.options[sel.selectedIndex];
-  field.textContent = opt ? opt.textContent : '';
+  const label = field.querySelector('.fdd-label');
+  if (label) {
+    label.textContent = opt ? opt.textContent : '';
+  } else {
+    field.textContent = opt ? opt.textContent : '';
+  }
   field.classList.toggle('has-value', !!(opt && opt.value));
 }
 window.syncPickerField = syncPickerField;
 
-function openSelectPicker(id, title, allowCustom) {
-  const sel = document.getElementById(id);
-  if (!sel) return;
-  const options = Array.from(sel.options).map(o => [o.value, o.textContent]);
-  listPickerCallback = (val) => {
-    if (![...sel.options].some(o => o.value === val)) {
-      const opt = document.createElement('option');
-      opt.value = val;
-      opt.textContent = val;
-      sel.appendChild(opt);
+// แปลง field div (ที่เดิม onclick เปิด bottom-sheet) ให้เป็นดรอปดาวน์การ์ดลอยแบบใหม่
+// options: { allowCustom, customPlaceholder }
+function buildSelectDropdown(selectId, fieldId, options) {
+  options = options || {};
+  const sel = document.getElementById(selectId);
+  const field = document.getElementById(fieldId);
+  if (!sel || !field || field.dataset.fddDone) return;
+  field.dataset.fddDone = '1';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'filter-dropdown-wrap';
+  field.parentNode.insertBefore(wrap, field);
+  wrap.appendChild(field);
+
+  field.classList.remove('reason-picker-field');
+  field.classList.add('filter-dropdown-btn');
+  field.removeAttribute('onclick');
+  field.innerHTML = '<span class="fdd-label"></span><span class="fdd-caret">▾</span>';
+
+  const menu = document.createElement('div');
+  menu.className = 'filter-menu';
+  wrap.appendChild(menu);
+
+  function renderMenu() {
+    menu.innerHTML = '';
+    Array.from(sel.options).forEach(function (opt, idx) {
+      const item = document.createElement('div');
+      item.className = 'filter-menu-item';
+      item.innerHTML = '<span class="filter-radio"></span><span class="fdd-item-text"></span>';
+      item.querySelector('.fdd-item-text').textContent = opt.textContent;
+      if (idx === sel.selectedIndex) item.querySelector('.filter-radio').classList.add('checked');
+      item.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (sel.selectedIndex !== idx) {
+          sel.selectedIndex = idx;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        syncPickerField(selectId);
+        fddCloseAll();
+      });
+      menu.appendChild(item);
+    });
+
+    if (options.allowCustom) {
+      const row = document.createElement('div');
+      row.className = 'filter-menu-custom-row';
+      row.innerHTML = '<input type="number" inputmode="numeric" placeholder="' + esc(options.customPlaceholder || 'ระบุค่าอื่น...') + '"><button type="button">ใช้</button>';
+      const input = row.querySelector('input');
+      const applyBtn = row.querySelector('button');
+      function applyCustom() {
+        const val = (input.value || '').trim();
+        if (!val) return;
+        if (![...sel.options].some(o => o.value === val)) {
+          const opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = val;
+          sel.appendChild(opt);
+        }
+        sel.value = val;
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+        syncPickerField(selectId);
+        fddCloseAll();
+      }
+      applyBtn.addEventListener('click', function (e) { e.stopPropagation(); applyCustom(); });
+      row.addEventListener('click', function (e) { e.stopPropagation(); });
+      menu.appendChild(row);
     }
-    sel.value = val;
-    syncPickerField(id);
-    sel.dispatchEvent(new Event('change', { bubbles: true }));
-  };
-  document.getElementById('list-picker-title').textContent = title;
-  const listEl = document.getElementById('list-picker-list');
-  listEl.innerHTML = options.map(([val, label]) => `
-    <div class="radio-item${val === sel.value ? ' selected' : ''}" onclick="selectListPickerItem('${escAttr(val)}')">
-      <span>${esc(label)}</span>
-      <span class="radio-dot"></span>
-    </div>
-  `).join('');
-  const customRow = document.getElementById('list-picker-custom-row');
-  const customInput = document.getElementById('list-picker-custom-input');
-  if (allowCustom) {
-    customRow.style.display = 'flex';
-    customInput.value = '';
-  } else {
-    customRow.style.display = 'none';
   }
-  document.getElementById('list-picker-overlay').classList.add('active');
-}
-window.openSelectPicker = openSelectPicker;
 
-function selectListPickerItem(val) {
-  closeListPicker();
-  if (listPickerCallback) listPickerCallback(val);
-}
-window.selectListPickerItem = selectListPickerItem;
+  field.addEventListener('click', function (e) {
+    e.stopPropagation();
+    renderMenu();
+    fddToggle(field, menu);
+  });
 
-function applyListPickerCustom() {
-  const input = document.getElementById('list-picker-custom-input');
-  const val = (input.value || '').trim();
-  if (!val) return;
-  closeListPicker();
-  if (listPickerCallback) listPickerCallback(val);
+  syncPickerField(selectId);
 }
-window.applyListPickerCustom = applyListPickerCustom;
+window.buildSelectDropdown = buildSelectDropdown;
 
-function closeListPicker() {
-  document.getElementById('list-picker-overlay').classList.remove('active');
+// เวอร์ชันสำหรับ native <select> ที่ยังไม่มี field div ของตัวเอง (เช่น ดรอปดาวน์สถานะ) — สร้างปุ่ม+เมนูให้ครบ
+// รองรับจุดสี (leg-dot) ถ้ามี colorMap ให้ (key = option.value, value = สี hex)
+function buildSelectDropdownStandalone(selectId, colorMap) {
+  const sel = document.getElementById(selectId);
+  if (!sel || sel.dataset.fddDone) return;
+  sel.dataset.fddDone = '1';
+  sel.classList.add('fdd-native-select');
+
+  const wrap = document.createElement('div');
+  wrap.className = 'filter-dropdown-wrap';
+  sel.insertAdjacentElement('afterend', wrap);
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.id = selectId + '-field';
+  btn.className = 'filter-dropdown-btn';
+  btn.innerHTML = '<span class="fdd-label"></span><span class="fdd-caret">▾</span>';
+
+  const menu = document.createElement('div');
+  menu.className = 'filter-menu';
+
+  function renderMenu() {
+    menu.innerHTML = '';
+    Array.from(sel.options).forEach(function (opt, idx) {
+      const item = document.createElement('div');
+      item.className = 'filter-menu-item';
+      const dotHtml = (colorMap && colorMap[opt.value]) ? '<span class="leg-dot" style="background:' + colorMap[opt.value] + '"></span>' : '';
+      item.innerHTML = '<span class="filter-radio"></span>' + dotHtml + '<span class="fdd-item-text"></span>';
+      item.querySelector('.fdd-item-text').textContent = opt.textContent;
+      if (idx === sel.selectedIndex) item.querySelector('.filter-radio').classList.add('checked');
+      item.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (sel.selectedIndex !== idx) {
+          sel.selectedIndex = idx;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        syncPickerField(selectId);
+        fddCloseAll();
+      });
+      menu.appendChild(item);
+    });
+  }
+
+  btn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    renderMenu();
+    fddToggle(btn, menu);
+  });
+
+  wrap.appendChild(btn);
+  wrap.appendChild(menu);
+  syncPickerField(selectId);
 }
-window.closeListPicker = closeListPicker;
+window.buildSelectDropdownStandalone = buildSelectDropdownStandalone;
+
+// แปลง field div ตัวกรอง "รอบใบงาน" (batch) ให้เป็นดรอปดาวน์การ์ดลอยเช่นกัน (ไม่มี <select> เดิมค้ำอยู่ อ่านจาก getBatchList() สด ๆ ทุกครั้งที่เปิด)
+function buildBatchDropdown(fieldId) {
+  const field = document.getElementById(fieldId);
+  if (!field || field.dataset.fddDone) return;
+  field.dataset.fddDone = '1';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'filter-dropdown-wrap';
+  field.parentNode.insertBefore(wrap, field);
+  wrap.appendChild(field);
+
+  const initialText = field.textContent;
+  field.classList.remove('reason-picker-field');
+  field.classList.add('filter-dropdown-btn');
+  field.removeAttribute('onclick');
+  field.innerHTML = '<span class="fdd-label"></span><span class="fdd-caret">▾</span>';
+  field.querySelector('.fdd-label').textContent = initialText;
+
+  const menu = document.createElement('div');
+  menu.className = 'filter-menu';
+  wrap.appendChild(menu);
+
+  function renderMenu() {
+    menu.innerHTML = '';
+    const items = [['all', '🗂️ ใบงานทุกรอบ'], ...getBatchList()];
+    items.forEach(function ([key, label]) {
+      const item = document.createElement('div');
+      item.className = 'filter-menu-item';
+      item.innerHTML = '<span class="filter-radio"></span><span class="fdd-item-text"></span>';
+      item.querySelector('.fdd-item-text').textContent = label;
+      if (currentBatch === key) item.querySelector('.filter-radio').classList.add('checked');
+      item.addEventListener('click', function (e) {
+        e.stopPropagation();
+        setBatchFilter(key);
+        fddCloseAll();
+      });
+      menu.appendChild(item);
+    });
+  }
+
+  field.addEventListener('click', function (e) {
+    e.stopPropagation();
+    renderMenu();
+    fddToggle(field, menu);
+  });
+}
+window.buildBatchDropdown = buildBatchDropdown;
 
 // ══════════════════════════ LIST RENDER ══════════════════════════
 function renderList() {
@@ -1690,6 +1888,7 @@ function openDetail(reqNo) {
   const statusVal = t.status || 'pending';
   const statusSelect = document.getElementById('d-status-select');
   statusSelect.value = statusVal;
+  syncPickerField('d-status-select');
   statusSelect.onchange = () => renderReportPreview();
 
   const photoImg = document.getElementById('d-photo-preview');
@@ -2546,6 +2745,7 @@ function openAddTicketModal() {
   document.getElementById('add-location-hint').textContent = '';
   document.getElementById('add-detail').value = '';
   document.getElementById('add-status-select').value = 'pending';
+  syncPickerField('add-status-select');
   addTicketReasons = [];
   populateMonthYearSelect('add-month', 'add-year');
   document.getElementById('add-overlay').classList.add('active');
@@ -2819,6 +3019,24 @@ PEA No (มิเตอร์เก่า): ${t.peanoMeter || '-'}
   setTimeout(() => window.print(), 150); // รอ DOM render กริดให้เสร็จก่อนค่อยสั่งพิมพ์
 }
 window.printMeterLabels = printMeterLabels;
+
+// ══════════════════════════ สร้างดรอปดาวน์การ์ดลอยให้ทุกจุดในระบบ ══════════════════════════
+(function initCustomDropdowns() {
+  buildSelectDropdown('dash-month-select', 'dash-month-select-field');
+  buildSelectDropdown('dash-year-select', 'dash-year-select-field');
+  buildSelectDropdown('add-month', 'add-month-field');
+  buildSelectDropdown('add-year', 'add-year-field', { allowCustom: true, customPlaceholder: 'ระบุปีอื่น...' });
+  buildSelectDropdown('import-month', 'import-month-field');
+  buildSelectDropdown('import-year', 'import-year-field', { allowCustom: true, customPlaceholder: 'ระบุปีอื่น...' });
+  buildSelectDropdown('batch-manage-select', 'batch-manage-select-field');
+  buildBatchDropdown('batch-filter-list-field');
+  buildBatchDropdown('batch-filter-map-field');
+
+  const statusColorMap = {};
+  Object.keys(STATUS_META).forEach(k => { statusColorMap[k] = STATUS_META[k].color; });
+  buildSelectDropdownStandalone('d-status-select', statusColorMap);
+  buildSelectDropdownStandalone('add-status-select', statusColorMap);
+})();
 </script>
 </body>
 </html>
