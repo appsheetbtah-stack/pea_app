@@ -119,6 +119,42 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .charts-row { display:flex; flex-direction:column; gap:10px; }
 .chart-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
 .chart-card.full { grid-column:1 / -1; }
+/* หัวข้อเซกชันในหน้าแดชบอร์ด — ใช้แบ่งกลุ่มข้อมูลที่ความหมายต่างกันให้เห็นชัด */
+.db-section { display:flex; flex-direction:column; gap:12px; }
+.db-section-header { display:flex; align-items:baseline; gap:8px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+.db-section-title { font-size:15px; font-weight:700; }
+.db-admin-box { background:var(--surface); border:1px dashed var(--border); border-radius:10px; padding:12px; display:flex; gap:8px; flex-wrap:wrap; }
+/* ดรอปดาวน์เลือกปีแบบ custom ล้วนๆ (ไม่ใช้ <select> ของเบราว์เซอร์) เพื่อคุมหน้าตาเมนูให้เข้าธีมได้เต็มที่ */
+.year-dropdown { position:relative; display:inline-block; }
+.year-select {
+  display:inline-flex; align-items:center; gap:8px;
+  padding:8px 14px;
+  border-radius:20px;
+  border:1px solid var(--border);
+  background:var(--surface2);
+  color:var(--text);
+  font-family:var(--sans);
+  font-size:13px; font-weight:600;
+  cursor:pointer;
+}
+.year-select:hover { background:var(--border); }
+.year-select .arrow { font-size:10px; color:var(--text2); transition:transform .15s; }
+.year-select.open .arrow { transform:rotate(180deg); }
+.year-dropdown-menu {
+  position:absolute; top:calc(100% + 6px); right:0; min-width:140px;
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  box-shadow:0 10px 28px rgba(0,0,0,.35);
+  padding:6px; z-index:50;
+  display:none; flex-direction:column; gap:2px;
+}
+.year-dropdown-menu.open { display:flex; }
+.year-dropdown-item {
+  padding:9px 12px; border-radius:8px;
+  font-size:13px; font-weight:600; color:var(--text);
+  cursor:pointer; white-space:nowrap;
+}
+.year-dropdown-item:hover { background:var(--surface2); }
+.year-dropdown-item.active { color:var(--accent); background:rgba(245,166,35,.12); }
 .chart-title { font-size:13px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:12px; }
 .bar-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 .bar-row:last-child { margin-bottom:0; }
@@ -299,50 +335,77 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
 <!-- TAB: DASHBOARD -->
 <div class="tab-pane active" id="pane-dashboard">
   <div class="db-wrap">
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-      <button class="btn btn-ghost" style="font-size:13px;padding:6px 12px;" onclick="migrateDeviceStatsFromExisting()" title="นับสถิติอุปกรณ์ย้อนหลังจากงานทั้งหมด รวมที่จัดเก็บเข้าคลังไปแล้ว (ทำครั้งเดียวตอนเริ่มใช้ฟีเจอร์นี้)">🔄 ซิงก์สถิติอุปกรณ์ย้อนหลัง</button>
-      <button class="btn btn-ghost" style="font-size:13px;padding:6px 12px;" onclick="archiveOldDoneTickets()" title="ย้ายงานเสร็จแล้วที่ค้างนานเกินไป ไปเก็บ archive แยกต่างหาก">🗄️ จัดเก็บงานเก่าเข้าคลัง</button>
-    </div>
-    <div class="stats-grid">
-      <div class="stat-card orange">
-        <div class="stat-label">Ticket ทั้งหมด</div>
-        <div class="stat-value" id="stat-total">0</div>
-        <div class="stat-unit">รายการ</div>
+
+    <!-- กลุ่ม 1: ภาพรวมงานตอนนี้ (เฉพาะงาน active) -->
+    <div class="db-section">
+      <div class="db-section-header">
+        <div class="db-section-title">📊 ภาพรวมงานตอนนี้</div>
       </div>
-      <div class="stat-card blue">
-        <div class="stat-label">แจ้งเข้าวันนี้</div>
-        <div class="stat-value" id="stat-today">0</div>
-        <div class="stat-unit">รายการ</div>
+      <div class="stats-grid">
+        <div class="stat-card orange">
+          <div class="stat-label">Ticket ทั้งหมด</div>
+          <div class="stat-value" id="stat-total">0</div>
+          <div class="stat-unit">รายการ</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-label">แจ้งเข้าวันนี้</div>
+          <div class="stat-value" id="stat-today">0</div>
+          <div class="stat-unit">รายการ</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">รอดำเนินการ</div>
+          <div class="stat-value" id="stat-open">0</div>
+          <div class="stat-unit">รายการ</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">แก้ไขแล้ว</div>
+          <div class="stat-value" id="stat-done">0</div>
+          <div class="stat-unit">รายการ</div>
+        </div>
       </div>
-      <div class="stat-card red">
-        <div class="stat-label">รอดำเนินการ</div>
-        <div class="stat-value" id="stat-open">0</div>
-        <div class="stat-unit">รายการ</div>
-      </div>
-      <div class="stat-card green">
-        <div class="stat-label">แก้ไขแล้ว</div>
-        <div class="stat-value" id="stat-done">0</div>
-        <div class="stat-unit">รายการ</div>
-      </div>
-    </div>
-    <div class="charts-row">
-      <div class="chart-card">
-        <div class="chart-title">สถานะงาน</div>
-        <div id="chart-status"></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">ประเภทการแจ้ง</div>
-        <div id="chart-mode"></div>
-      </div>
-      <div class="chart-card full">
-        <div class="chart-title">ตำบลที่แจ้งเหตุบ่อย</div>
-        <div id="chart-amphoe"></div>
-      </div>
-      <div class="chart-card full">
-        <div class="chart-title">อุปกรณ์ที่ทำให้ไฟดับบ่อย</div>
-        <div id="chart-equipment"></div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-title">สถานะงาน</div>
+          <div id="chart-status"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">ประเภทการแจ้ง</div>
+          <div id="chart-mode"></div>
+        </div>
       </div>
     </div>
+
+    <!-- กลุ่ม 2: สถิติสะสมเพื่อการบำรุงรักษา (ไม่หายตอน archive) -->
+    <div class="db-section">
+      <div class="db-section-header">
+        <div class="db-section-title">🔧 สถิติสะสมเพื่อการบำรุงรักษา</div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card full" style="padding-bottom:4px;">
+          <div id="stats-year-filter" class="ticket-filter-row" style="margin-bottom:2px;justify-content:flex-end;"></div>
+        </div>
+        <div class="chart-card full">
+          <div class="chart-title">ตำบลที่แจ้งเหตุบ่อย</div>
+          <div id="chart-amphoe"></div>
+        </div>
+        <div class="chart-card full">
+          <div class="chart-title">อุปกรณ์ที่ทำให้ไฟดับบ่อย</div>
+          <div id="chart-equipment"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- กลุ่ม 3: จัดการข้อมูล (ปุ่มแอดมิน ใช้ไม่บ่อย) -->
+    <div class="db-section">
+      <div class="db-section-header">
+        <div class="db-section-title">⚙️ จัดการข้อมูล</div>
+      </div>
+      <div class="db-admin-box">
+        <button class="btn btn-ghost" style="font-size:13px;padding:6px 12px;" onclick="migrateAllStatsFromExisting()" title="นับสถิติอุปกรณ์และตำบลย้อนหลังจากงานทั้งหมด รวมที่จัดเก็บเข้าคลังไปแล้ว (ทำครั้งเดียวตอนเริ่มใช้ฟีเจอร์นี้)">🔄 ซิงก์สถิติย้อนหลัง</button>
+        <button class="btn btn-ghost" style="font-size:13px;padding:6px 12px;" onclick="archiveOldDoneTickets()" title="ย้ายงานเสร็จแล้วที่ค้างนานเกินไป ไปเก็บ archive แยกต่างหาก">🗄️ จัดเก็บงานเก่าเข้าคลัง</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -544,7 +607,7 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, limit, where, getCountFromServer, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, limit, where, getCountFromServer, runTransaction, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyC7bzImCV7c89fLGhIq8OycWKQWRYdvZvE",
@@ -560,7 +623,7 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
   const db = getFirestore(app);
 
   window._db = db;
-  window._fsLib = { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, limit, where, getCountFromServer, runTransaction };
+  window._fsLib = { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, limit, where, getCountFromServer, runTransaction, getDoc, setDoc };
   window._firebaseReady = true;
   document.getElementById('fb-dot').style.background = '#2ecc71';
 
@@ -573,14 +636,18 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
     updateTicketBadge();
     renderTicketDashboard();
     if (mapFull) renderTicketMarkers();
-    // ซิงก์สถิติอุปกรณ์สะสม (device_stats) ทุกครั้งที่มีข้อมูลใหม่/เปลี่ยนแปลงเข้ามา
+    // ซิงก์สถิติอุปกรณ์ + ตำบลสะสม ทุกครั้งที่มีข้อมูลใหม่/เปลี่ยนแปลงเข้ามา
     // ฟังก์ชันนี้กันนับซ้ำในตัวเองอยู่แล้ว (ทั้งฝั่ง client และฝั่ง server ผ่าน transaction) เรียกซ้ำได้อย่างปลอดภัย
     if (window.syncDeviceStatsForTicket) {
       tickets.forEach(t => { if (t.equipment && t.equipment.length) window.syncDeviceStatsForTicket(t); });
     }
+    if (window.syncTumbolStatsForTicket) {
+      tickets.forEach(t => window.syncTumbolStatsForTicket(t));
+    }
     // เผื่อหน้าโหลดมาก่อน Firestore พร้อม — เรียกอีกครั้งตอนข้อมูลชุดแรกมาถึงจริง
     if (window.refreshAggregateStats) window.refreshAggregateStats();
     if (window.refreshEquipmentStatsChart) window.refreshEquipmentStatsChart();
+    if (window.refreshTumbolStatsChart) window.refreshTumbolStatsChart();
   }, (err) => {
     console.warn("Firestore listen error:", err);
     document.getElementById('fb-dot').style.background = '#e74c3c';
@@ -681,10 +748,44 @@ window.archiveOldDoneTickets = archiveOldDoneTickets;
 // เพื่อไม่ให้ตัวเลขหายไปเวลา ticket ต้นทางถูกจัดเก็บเข้าคลัง (archive) หรือถูกลบ
 const deviceStatsSyncSeen = new Set(); // กันเรียก transaction ซ้ำในเซสชันเดียวกันเฉยๆ (ไม่ใช่กลไกความถูกต้องหลัก)
 
+// ปี พ.ศ. ของ ticket ใช้อ้างอิงกับตัวเลือกปีในกราฟ — ให้ตรงกับที่แอปแสดงผลวันที่อยู่แล้ว (พ.ศ.)
+function ticketYearBE(ticket) {
+  return String(new Date(ticket.createdAt || Date.now()).getFullYear() + 543);
+}
+
+// เก็บ "รายชื่อปีที่เคยมีข้อมูลจริง" ไว้ในเอกสารเดียว (stats_meta/years) เพื่อให้ dropdown เลือกปี
+// แสดงเฉพาะปีที่มีข้อมูลจริงเท่านั้น โดยไม่ต้องสแกน device_stats/tumbol_stats ทั้งหมดทุกครั้ง
+const statsYearMarkSeen = new Set(); // กันยิง setDoc ซ้ำๆ ในเซสชันเดียวกันเฉยๆ
+async function markStatsYearExists(year) {
+  if(!window._firebaseReady || statsYearMarkSeen.has(year)) return;
+  const { doc, setDoc } = window._fsLib;
+  const db = window._db;
+  try {
+    await setDoc(doc(db, "stats_meta", "years"), { [year]: true }, { merge:true });
+    statsYearMarkSeen.add(year);
+  } catch(e) { console.warn("markStatsYearExists error:", e); }
+}
+
+async function loadAvailableStatsYears() {
+  if(!window._firebaseReady) return [];
+  const { doc, getDoc } = window._fsLib;
+  const db = window._db;
+  try {
+    const snap = await getDoc(doc(db, "stats_meta", "years"));
+    if(!snap.exists()) return [];
+    return Object.keys(snap.data()).sort((a,b) => Number(b)-Number(a)); // ปีล่าสุดก่อน
+  } catch(e) {
+    console.warn("loadAvailableStatsYears error:", e);
+    return [];
+  }
+}
+
 async function syncDeviceStatsForTicket(ticket) {
   if(!window._firebaseReady || !ticket.equipment || !ticket.equipment.length) return;
   const { doc, runTransaction } = window._fsLib;
   const db = window._db;
+  const year = ticketYearBE(ticket);
+  markStatsYearExists(year);
   for (const eq of ticket.equipment) {
     if(!eq.id) continue;
     const seenKey = ticket.id + '::' + eq.tp + ':' + eq.id;
@@ -693,17 +794,24 @@ async function syncDeviceStatsForTicket(ticket) {
     try {
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(statRef);
-        const data = snap.exists() ? snap.data() : { outageCount:0, countedKeys:{} };
+        const data = snap.exists() ? snap.data() : { outageCount:0, outageByYear:{}, countedKeys:{} };
         const countKey = ticket.id + ':' + eq.tp; // กันนับซ้ำจริงฝั่ง server ต่อ ticket+ประเภทอุปกรณ์
-        if(data.countedKeys && data.countedKeys[countKey]) return; // เคยนับไปแล้ว ไม่ว่าจะมาจาก client ไหน
+        const already = data.countedKeys && data.countedKeys[countKey];
+        // นับไปแล้วด้วยปีเดียวกัน (รูปแบบใหม่) = ไม่ต้องทำอะไรอีก
+        if(already && already === year) return;
+        const byYear = { ...(data.outageByYear || {}) };
+        byYear[year] = (byYear[year] || 0) + 1;
+        // ถ้าเคยนับไปแล้วแบบเก่า (ก่อนมีฟีเจอร์แยกปี, ค่าเป็น true) ให้แค่เติม outageByYear ย้อนหลัง
+        // ไม่บวก outageCount ซ้ำ เพราะนับรวมไปแล้วตั้งแต่รอบก่อน
         tx.set(statRef, {
           peano: eq.id,
           label: eq.label || eq.tp,
           color: eq.color || '#a9bdd1',
-          outageCount: (data.outageCount || 0) + 1,
+          outageCount: already ? (data.outageCount || 0) : (data.outageCount || 0) + 1,
+          outageByYear: byYear,
           lastAddr: ticket.addr || '',
           lastReportedAt: ticket.createdAt || Date.now(),
-          countedKeys: { ...(data.countedKeys || {}), [countKey]: true }
+          countedKeys: { ...(data.countedKeys || {}), [countKey]: year }
         }, { merge:true });
       });
       deviceStatsSyncSeen.add(seenKey);
@@ -712,34 +820,72 @@ async function syncDeviceStatsForTicket(ticket) {
 }
 window.syncDeviceStatsForTicket = syncDeviceStatsForTicket;
 
-// migration ครั้งเดียว: นับย้อนหลัง ticket ที่มีอยู่แล้ว (ทั้งที่ active อยู่ และที่ archive ไปแล้ว) เข้า device_stats
-// ต้องดึง tickets_archive มาด้วยผ่าน getDocs เพราะไม่ได้อยู่ใน array `tickets` ที่ sync สดอยู่แล้ว
-async function migrateDeviceStatsFromExisting() {
-  if(!window._firebaseReady) { showToast('⚠️ ยังไม่เชื่อมต่อ Firestore', 'error'); return; }
-  if(!confirm('นับสถิติอุปกรณ์ย้อนหลังจากงานทั้งหมด (รวมที่จัดเก็บเข้าคลังไปแล้ว)?\n\nทำครั้งเดียวตอนเริ่มใช้ฟีเจอร์นี้ก็พอ ไม่ต้องกดซ้ำบ่อยๆ')) return;
-  const { collection, getDocs } = window._fsLib;
-  const db = window._db;
-  let count = 0;
-  try {
-    // งานที่ active อยู่ตอนนี้ (ใช้ array ที่โหลดไว้แล้วในเครื่อง ไม่ต้องอ่านซ้ำ)
-    for (const t of tickets) { if(t.equipment && t.equipment.length) { await syncDeviceStatsForTicket(t); count++; } }
-    // งานที่ถูกจัดเก็บเข้าคลังไปแล้ว
-    const archiveSnap = await getDocs(collection(db, "tickets_archive"));
-    for (const d of archiveSnap.docs) {
-      const t = { id: d.id, ...d.data() };
-      if(t.equipment && t.equipment.length) { await syncDeviceStatsForTicket(t); count++; }
-    }
-    showToast(`✅ นับสถิติย้อนหลังจาก ${count.toLocaleString()} ticket เรียบร้อย`, 'success');
-    refreshEquipmentStatsChart();
-  } catch(e) {
-    console.error("migrateDeviceStatsFromExisting error:", e);
-    showToast('เกิดข้อผิดพลาดระหว่างนับย้อนหลัง', 'error');
-  }
-}
-window.migrateDeviceStatsFromExisting = migrateDeviceStatsFromExisting;
+// ปีที่ให้เลือกดูสถิติ — ใช้ร่วมกันทั้งกราฟตำบลและอุปกรณ์
+let statsYearFilter = 'all';
+let cachedStatsYearItems = null; // แคชรายการปีไว้ในเซสชัน กันยิง Firestore อ่านซ้ำทุกครั้งที่เปิด/ปิดเมนู
 
-// ดึง Top 8 อุปกรณ์ที่ไฟดับสะสมบ่อยสุดจาก device_stats โดยตรง (query เดียว เบามาก)
+// สร้างดรอปดาวน์เลือกปีแบบ custom (ไม่ใช้ <select> ของเบราว์เซอร์ เพราะแต่งเมนูให้เข้าธีมไม่ได้)
+// ดึงเฉพาะปีที่มีข้อมูลจริงจาก stats_meta/years (ไม่โชว์ปีเปล่าๆ ที่ไม่มีข้อมูล)
+async function buildStatsYearFilterUI() {
+  const el = document.getElementById('stats-year-filter');
+  if(!el) return;
+  if(!cachedStatsYearItems) {
+    const years = await loadAvailableStatsYears();
+    cachedStatsYearItems = [{ v:'all', label:'ทุกปี' }].concat(years.map(y => ({ v:y, label:'ปี '+y })));
+  }
+  const hasYears = cachedStatsYearItems.some(i => i.v !== 'all');
+  if(!hasYears) {
+    el.innerHTML = '<span style="font-size:13px;color:var(--text2);">ยังไม่มีข้อมูลปีให้เลือก</span>';
+    return;
+  }
+  const current = cachedStatsYearItems.find(i => i.v === statsYearFilter) || cachedStatsYearItems[0];
+  const itemsHtml = cachedStatsYearItems.map(i =>
+    '<div class="year-dropdown-item'+(statsYearFilter===i.v?' active':'')+'" onclick="selectStatsYear(\''+i.v+'\')">'+i.label+'</div>'
+  ).join('');
+  el.innerHTML =
+    '<div class="year-dropdown">' +
+      '<button type="button" class="year-select" id="year-select-btn" onclick="toggleYearDropdown(event)">'+current.label+'<span class="arrow">▾</span></button>' +
+      '<div class="year-dropdown-menu" id="year-dropdown-menu">'+itemsHtml+'</div>' +
+    '</div>';
+}
+window.buildStatsYearFilterUI = buildStatsYearFilterUI;
+
+function toggleYearDropdown(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('year-dropdown-menu');
+  const btn = document.getElementById('year-select-btn');
+  if(!menu) return;
+  menu.classList.toggle('open');
+  if(btn) btn.classList.toggle('open');
+}
+window.toggleYearDropdown = toggleYearDropdown;
+
+function selectStatsYear(year) {
+  setStatsYearFilter(year);
+  buildStatsYearFilterUI(); // ใช้ cachedStatsYearItems ที่มีอยู่แล้ว ไม่อ่าน Firestore ซ้ำ
+}
+window.selectStatsYear = selectStatsYear;
+
+// ปิดเมนูเมื่อแตะที่อื่นนอกกล่อง dropdown
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('year-dropdown-menu');
+  if(menu && menu.classList.contains('open') && !e.target.closest('.year-dropdown')) {
+    menu.classList.remove('open');
+    const btn = document.getElementById('year-select-btn');
+    if(btn) btn.classList.remove('open');
+  }
+});
+
+function setStatsYearFilter(year) {
+  statsYearFilter = year;
+  refreshEquipmentStatsChart();
+  refreshTumbolStatsChart();
+}
+window.setStatsYearFilter = setStatsYearFilter;
+
+// ดึง Top อุปกรณ์ที่ไฟดับสะสมบ่อยสุดจาก device_stats โดยตรง (query เดียว เบามาก)
 // แทนที่การนับสดจาก tickets ในเครื่อง ซึ่งจะขาดหายเมื่อ ticket ถูก archive ไปแล้ว
+// เมื่อเลือกปี: ดึง Top ตามยอดรวมมาก่อน (50 รายการ) แล้วจัดอันดับใหม่ตามยอดของปีนั้นฝั่ง client
 async function refreshEquipmentStatsChart() {
   const el = document.getElementById('chart-equipment');
   if(!el) return;
@@ -747,19 +893,31 @@ async function refreshEquipmentStatsChart() {
   try {
     const { collection, query, orderBy, limit, getDocs } = window._fsLib;
     const db = window._db;
-    const snap = await getDocs(query(collection(db, "device_stats"), orderBy("outageCount", "desc"), limit(8)));
+    const fetchLimit = statsYearFilter === 'all' ? 8 : 50;
+    const snap = await getDocs(query(collection(db, "device_stats"), orderBy("outageCount", "desc"), limit(fetchLimit)));
     if(snap.empty) {
       el.innerHTML = '<div class="empty-note">ยังไม่มีข้อมูลอุปกรณ์ที่เกี่ยวข้อง</div>';
       return;
     }
-    const rows = snap.docs.map(d => d.data());
-    const max = rows[0].outageCount || 1;
+    let rows = snap.docs.map(d => {
+      const data = d.data();
+      const count = statsYearFilter === 'all' ? (data.outageCount || 0) : ((data.outageByYear || {})[statsYearFilter] || 0);
+      return { ...data, count };
+    });
+    if(statsYearFilter !== 'all') rows = rows.filter(r => r.count > 0);
+    rows.sort((a,b) => b.count - a.count);
+    rows = rows.slice(0, 8);
+    if(!rows.length) {
+      el.innerHTML = '<div class="empty-note">ไม่มีข้อมูลในปีที่เลือก</div>';
+      return;
+    }
+    const max = rows[0].count || 1;
     el.innerHTML = rows.map(e => {
       const title = e.peano + ' · ' + e.label;
       return '<div class="bar-row">' +
         '<div class="bar-label" title="'+title+'">'+title+'</div>' +
-        '<div class="bar-track"><div class="bar-fill" style="width:'+((e.outageCount/max*100).toFixed(1))+'%;background:'+e.color+'"></div></div>' +
-        '<div class="bar-count">'+e.outageCount.toLocaleString()+'</div>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:'+((e.count/max*100).toFixed(1))+'%;background:'+e.color+'"></div></div>' +
+        '<div class="bar-count">'+e.count.toLocaleString()+'</div>' +
         '</div>';
     }).join('');
   } catch(e) {
@@ -768,6 +926,101 @@ async function refreshEquipmentStatsChart() {
   }
 }
 window.refreshEquipmentStatsChart = refreshEquipmentStatsChart;
+
+// ========= สถิติตำบลสะสม (tumbol_stats) — เหมือน device_stats แต่ระดับตำบล =========
+async function syncTumbolStatsForTicket(ticket) {
+  if(!window._firebaseReady) return;
+  const tumbol = ticket.tumbol || 'ไม่ระบุ';
+  const seenKey = 'tumbol::' + ticket.id;
+  if(deviceStatsSyncSeen.has(seenKey)) return; // เร่งความเร็ว client-side เฉยๆ
+  const { doc, runTransaction } = window._fsLib;
+  const db = window._db;
+  const year = ticketYearBE(ticket);
+  markStatsYearExists(year);
+  const statRef = doc(db, "tumbol_stats", tumbol);
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(statRef);
+      const data = snap.exists() ? snap.data() : { reportCount:0, reportByYear:{}, countedKeys:{} };
+      const already = data.countedKeys && data.countedKeys[ticket.id];
+      if(already && already === year) return; // นับไปแล้วด้วยปีเดียวกัน (รูปแบบใหม่) = ไม่ต้องทำอะไรอีก
+      const byYear = { ...(data.reportByYear || {}) };
+      byYear[year] = (byYear[year] || 0) + 1;
+      // ถ้าเคยนับไปแล้วแบบเก่า (ก่อนมีฟีเจอร์แยกปี, ค่าเป็น true) ให้แค่เติม reportByYear ย้อนหลัง ไม่บวก reportCount ซ้ำ
+      tx.set(statRef, {
+        tumbol,
+        reportCount: already ? (data.reportCount || 0) : (data.reportCount || 0) + 1,
+        reportByYear: byYear,
+        lastReportedAt: ticket.createdAt || Date.now(),
+        countedKeys: { ...(data.countedKeys || {}), [ticket.id]: year }
+      }, { merge:true });
+    });
+    deviceStatsSyncSeen.add(seenKey);
+  } catch(e) { console.error("tumbol_stats sync error:", e); }
+}
+window.syncTumbolStatsForTicket = syncTumbolStatsForTicket;
+
+async function refreshTumbolStatsChart() {
+  const el = document.getElementById('chart-amphoe');
+  if(!el || !window._firebaseReady) return;
+  try {
+    const { collection, query, orderBy, limit, getDocs } = window._fsLib;
+    const db = window._db;
+    const fetchLimit = statsYearFilter === 'all' ? 6 : 50;
+    const snap = await getDocs(query(collection(db, "tumbol_stats"), orderBy("reportCount", "desc"), limit(fetchLimit)));
+    if(snap.empty) { el.innerHTML = '<div class="empty-note">ยังไม่มีข้อมูล</div>'; return; }
+    let rows = snap.docs.map(d => {
+      const data = d.data();
+      const count = statsYearFilter === 'all' ? (data.reportCount || 0) : ((data.reportByYear || {})[statsYearFilter] || 0);
+      return { ...data, count };
+    });
+    if(statsYearFilter !== 'all') rows = rows.filter(r => r.count > 0);
+    rows.sort((a,b) => b.count - a.count);
+    rows = rows.slice(0, 6);
+    if(!rows.length) { el.innerHTML = '<div class="empty-note">ไม่มีข้อมูลในปีที่เลือก</div>'; return; }
+    const max = rows[0].count || 1;
+    el.innerHTML = rows.map(r =>
+      '<div class="bar-row">' +
+      '<div class="bar-label" title="'+r.tumbol+'">'+r.tumbol+'</div>' +
+      '<div class="bar-track"><div class="bar-fill blue" style="width:'+((r.count/max*100).toFixed(1))+'%"></div></div>' +
+      '<div class="bar-count">'+r.count.toLocaleString()+'</div>' +
+      '</div>').join('');
+  } catch(e) {
+    console.warn("refreshTumbolStatsChart error:", e);
+    el.innerHTML = '<div class="empty-note">โหลดข้อมูลตำบลไม่สำเร็จ</div>';
+  }
+}
+window.refreshTumbolStatsChart = refreshTumbolStatsChart;
+
+// migration ย้อนหลังรวมทั้งอุปกรณ์และตำบลในปุ่มเดียว (เผื่อมีสถิติสะสมชนิดใหม่เพิ่มในอนาคต เรียกจากที่นี่ที่เดียว)
+async function migrateAllStatsFromExisting() {
+  if(!window._firebaseReady) { showToast('⚠️ ยังไม่เชื่อมต่อ Firestore', 'error'); return; }
+  if(!confirm('นับสถิติอุปกรณ์ + ตำบลย้อนหลังจากงานทั้งหมด (รวมที่จัดเก็บเข้าคลังไปแล้ว)?\n\nทำครั้งเดียวตอนเริ่มใช้ฟีเจอร์นี้ก็พอ ไม่ต้องกดซ้ำบ่อยๆ')) return;
+  const { collection, getDocs } = window._fsLib;
+  const db = window._db;
+  let count = 0;
+  try {
+    for (const t of tickets) {
+      if(t.equipment && t.equipment.length) await syncDeviceStatsForTicket(t);
+      await syncTumbolStatsForTicket(t);
+      count++;
+    }
+    const archiveSnap = await getDocs(collection(db, "tickets_archive"));
+    for (const d of archiveSnap.docs) {
+      const t = { id: d.id, ...d.data() };
+      if(t.equipment && t.equipment.length) await syncDeviceStatsForTicket(t);
+      await syncTumbolStatsForTicket(t);
+      count++;
+    }
+    showToast(`✅ นับสถิติย้อนหลังจาก ${count.toLocaleString()} ticket เรียบร้อย`, 'success');
+    refreshEquipmentStatsChart();
+    refreshTumbolStatsChart();
+  } catch(e) {
+    console.error("migrateAllStatsFromExisting error:", e);
+    showToast('เกิดข้อผิดพลาดระหว่างนับย้อนหลัง', 'error');
+  }
+}
+window.migrateAllStatsFromExisting = migrateAllStatsFromExisting;
 
 
 // ======= TAB SWITCH =======
@@ -783,7 +1036,9 @@ function switchTab(tab) {
     refreshAggregateStats();
   }
   if(tab === 'dashboard') {
+    buildStatsYearFilterUI();
     refreshEquipmentStatsChart();
+    refreshTumbolStatsChart();
   }
 }
 
@@ -1340,20 +1595,11 @@ function renderTicketDashboard() {
     '</div>').join('');
 
   if(!tickets.length) {
-    document.getElementById('chart-amphoe').innerHTML = '<div class="empty-note">ยังไม่มีข้อมูล</div>';
     document.getElementById('chart-equipment').innerHTML = '<div class="empty-note">ยังไม่มีข้อมูล</div>';
     return;
   }
-  const amCount = {};
-  tickets.forEach(t => { const k = t.tumbol || 'ไม่ระบุ'; amCount[k] = (amCount[k]||0)+1; });
-  const amSorted = Object.entries(amCount).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const maxAm = amSorted[0] ? amSorted[0][1] : 1;
-  document.getElementById('chart-amphoe').innerHTML = amSorted.map(([k,v]) =>
-    '<div class="bar-row">' +
-    '<div class="bar-label" title="'+k+'">'+k+'</div>' +
-    '<div class="bar-track"><div class="bar-fill blue" style="width:'+((v/maxAm*100).toFixed(1))+'%"></div></div>' +
-    '<div class="bar-count">'+v.toLocaleString()+'</div>' +
-    '</div>').join('');
+  // ตำบลที่แจ้งเหตุบ่อย — ย้ายไปดึงจาก tumbol_stats (สะสมถาวร ไม่หายตอน archive) แทนการนับสดจาก tickets ในเครื่อง
+  // เรียกแยกเป็น async ผ่าน refreshTumbolStatsChart() ตอนเปิดแท็บ Dashboard (ดูใน switchTab)
 
   // อุปกรณ์ที่ทำให้ไฟดับบ่อย — ย้ายไปดึงจาก device_stats (สะสมถาวร ไม่หายตอน archive) แทนการนับสดจาก tickets ในเครื่อง
   // เรียกแยกเป็น async ผ่าน refreshEquipmentStatsChart() ตอนเปิดแท็บ Dashboard (ดูใน switchTab)
@@ -1509,7 +1755,9 @@ window.addEventListener('DOMContentLoaded', () => {
   updateTicketBadge();
   renderTicketDashboard();
   refreshAggregateStats();
+  buildStatsYearFilterUI();
   refreshEquipmentStatsChart();
+  refreshTumbolStatsChart();
 
   // ถ้ามาจากปุ่ม "แจ้งเหตุไฟดับ" ในหน้าข้อมูลผู้ใช้ไฟฟ้า พร้อม CA มาด้วย ให้เปิดฟอร์มและเติมข้อมูลอัตโนมัติ
   const params = new URLSearchParams(window.location.search);
