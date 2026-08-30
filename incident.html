@@ -813,11 +813,10 @@ async function syncDeviceStatsForTicket(ticket) {
   const db = window._db;
   const year = ticketYearBE(ticket);
   const monthKey = ticketYearMonthBE(ticket);
-  const combinedKey = year + '|' + monthKey;
   markStatsYearExists(year);
   for (const eq of ticket.equipment) {
     if(!eq.id) continue;
-    const seenKey = ticket.id + '::' + eq.tp + ':' + eq.id + '::' + combinedKey;
+    const seenKey = ticket.id + '::' + eq.tp + ':' + eq.id + '::' + year + '-' + monthKey;
     if(deviceStatsSyncSeen.has(seenKey)) continue; // เร่งความเร็ว client-side เฉยๆ
     const statRef = doc(db, "device_stats", String(eq.id)); // ใช้ PEANO เป็น document id
     try {
@@ -825,9 +824,12 @@ async function syncDeviceStatsForTicket(ticket) {
         const snap = await tx.get(statRef);
         const data = snap.exists() ? snap.data() : { outageCount:0, outageByYear:{}, outageByMonth:{}, countedKeys:{} };
         const countKey = ticket.id + ':' + eq.tp; // กันนับซ้ำจริงฝั่ง server ต่อ ticket+ประเภทอุปกรณ์
-        const already = data.countedKeys && data.countedKeys[countKey];
-        if(already === combinedKey) return; // นับครบทุกฟิลด์แล้ว (รูปแบบล่าสุด) ไม่ต้องทำอะไรอีก
-        const isNew = !already; // undefined = ไม่เคยนับมาก่อนเลย ต้องบวก outageCount ด้วย
+        const raw = data.countedKeys && data.countedKeys[countKey];
+        // entry ต้องเป็น object รูปแบบ {total,year,month} เท่านั้นถึงจะถือว่า "นับครบแล้วจริง"
+        // ค่าเก่าที่เป็น true/string (จากเวอร์ชันก่อนหน้า) ถือว่ายังนับไม่ครบ ต้องคำนวณใหม่ (แต่ปีเดือนของ ticket คงที่เสมอ จึงไม่มีทางบวกซ้ำผิดที่)
+        const entry = (raw && typeof raw === 'object') ? raw : null;
+        if(entry && entry.total && entry.year === year && entry.month === monthKey) return; // นับครบแล้วจริง ไม่ต้องทำอะไรอีก
+        const isNew = !raw; // ไม่เคยมี record นี้เลย (ไม่ใช่แค่ยังไม่ครบ) = ต้องบวก outageCount ด้วย
         const byYear = { ...(data.outageByYear || {}) };
         byYear[year] = (byYear[year] || 0) + 1;
         const byMonth = { ...(data.outageByMonth || {}) };
@@ -841,7 +843,7 @@ async function syncDeviceStatsForTicket(ticket) {
           outageByMonth: byMonth,
           lastAddr: ticket.addr || '',
           lastReportedAt: ticket.createdAt || Date.now(),
-          countedKeys: { ...(data.countedKeys || {}), [countKey]: combinedKey }
+          countedKeys: { ...(data.countedKeys || {}), [countKey]: { total:true, year, month:monthKey } }
         }, { merge:true });
       });
       deviceStatsSyncSeen.add(seenKey);
@@ -999,8 +1001,7 @@ async function syncTumbolStatsForTicket(ticket) {
   const tumbol = ticket.tumbol || 'ไม่ระบุ';
   const year = ticketYearBE(ticket);
   const monthKey = ticketYearMonthBE(ticket);
-  const combinedKey = year + '|' + monthKey;
-  const seenKey = 'tumbol::' + ticket.id + '::' + combinedKey;
+  const seenKey = 'tumbol::' + ticket.id + '::' + year + '-' + monthKey;
   if(deviceStatsSyncSeen.has(seenKey)) return; // เร่งความเร็ว client-side เฉยๆ
   const { doc, runTransaction } = window._fsLib;
   const db = window._db;
@@ -1010,9 +1011,10 @@ async function syncTumbolStatsForTicket(ticket) {
     await runTransaction(db, async (tx) => {
       const snap = await tx.get(statRef);
       const data = snap.exists() ? snap.data() : { reportCount:0, reportByYear:{}, reportByMonth:{}, countedKeys:{} };
-      const already = data.countedKeys && data.countedKeys[ticket.id];
-      if(already === combinedKey) return; // นับครบทุกฟิลด์แล้ว (รูปแบบล่าสุด) ไม่ต้องทำอะไรอีก
-      const isNew = !already;
+      const raw = data.countedKeys && data.countedKeys[ticket.id];
+      const entry = (raw && typeof raw === 'object') ? raw : null;
+      if(entry && entry.total && entry.year === year && entry.month === monthKey) return; // นับครบแล้วจริง ไม่ต้องทำอะไรอีก
+      const isNew = !raw;
       const byYear = { ...(data.reportByYear || {}) };
       byYear[year] = (byYear[year] || 0) + 1;
       const byMonth = { ...(data.reportByMonth || {}) };
@@ -1023,7 +1025,7 @@ async function syncTumbolStatsForTicket(ticket) {
         reportByYear: byYear,
         reportByMonth: byMonth,
         lastReportedAt: ticket.createdAt || Date.now(),
-        countedKeys: { ...(data.countedKeys || {}), [ticket.id]: combinedKey }
+        countedKeys: { ...(data.countedKeys || {}), [ticket.id]: { total:true, year, month:monthKey } }
       }, { merge:true });
     });
     deviceStatsSyncSeen.add(seenKey);
@@ -1069,35 +1071,73 @@ async function refreshTumbolStatsChart() {
 }
 window.refreshTumbolStatsChart = refreshTumbolStatsChart;
 
-// migration ย้อนหลังรวมทั้งอุปกรณ์และตำบลในปุ่มเดียว (เผื่อมีสถิติสะสมชนิดใหม่เพิ่มในอนาคต เรียกจากที่นี่ที่เดียว)
+// คำนวณสถิติอุปกรณ์+ตำบลใหม่ทั้งหมดจาก ticket ทุกใบ (active + archive) แบบ "เขียนทับ" ไม่ใช่ "บวกเพิ่ม"
+// ใช้แทนการ sync ย้อนหลังแบบ incremental เดิม เพราะแบบเดิมเสี่ยงนับซ้ำเวลาโครงสร้างข้อมูลเปลี่ยน (เจอบั๊กจริงไปแล้ว)
+// วิธีนี้ปลอดภัยกว่า: คำนวณทุกอย่างใหม่จากต้นทางเสมอ กดซ้ำกี่ครั้งก็ได้ผลลัพธ์ถูกต้องเท่ากันทุกครั้ง (ไม่มีทางนับซ้ำ)
 async function migrateAllStatsFromExisting() {
   if(!window._firebaseReady) { showToast('⚠️ ยังไม่เชื่อมต่อ Firestore', 'error'); return; }
-  if(!confirm('นับสถิติอุปกรณ์ + ตำบลย้อนหลังจากงานทั้งหมด (รวมที่จัดเก็บเข้าคลังไปแล้ว)?\n\nทำครั้งเดียวตอนเริ่มใช้ฟีเจอร์นี้ก็พอ ไม่ต้องกดซ้ำบ่อยๆ')) return;
-  const { collection, getDocs } = window._fsLib;
+  if(!confirm('คำนวณสถิติอุปกรณ์ + ตำบลใหม่ทั้งหมดจากงานทั้งหมด (รวมที่จัดเก็บเข้าคลังไปแล้ว)?\n\nจะเขียนทับตัวเลขเดิมด้วยค่าที่ถูกต้อง แก้ปัญหานับซ้ำที่เคยเกิดได้ด้วย กดซ้ำได้เสมอ')) return;
+  const { collection, getDocs, doc, setDoc } = window._fsLib;
   const db = window._db;
-  let count = 0;
   try {
-    for (const t of tickets) {
-      if(t.equipment && t.equipment.length) await syncDeviceStatsForTicket(t);
-      await syncTumbolStatsForTicket(t);
-      count++;
-    }
+    // รวบรวม ticket ทั้งหมด: ที่ active อยู่ (มีในเครื่องแล้ว) + ที่เคยจัดเก็บเข้าคลังไปแล้ว
+    const allTickets = [...tickets];
     const archiveSnap = await getDocs(collection(db, "tickets_archive"));
-    for (const d of archiveSnap.docs) {
-      const t = { id: d.id, ...d.data() };
-      if(t.equipment && t.equipment.length) await syncDeviceStatsForTicket(t);
-      await syncTumbolStatsForTicket(t);
-      count++;
+    archiveSnap.docs.forEach(d => allTickets.push({ id: d.id, ...d.data() }));
+
+    const deviceAgg = {};
+    const tumbolAgg = {};
+    const yearsSeen = {};
+
+    for (const t of allTickets) {
+      const year = ticketYearBE(t);
+      const monthKey = ticketYearMonthBE(t);
+      yearsSeen[year] = true;
+
+      // ตำบล: นับ 1 ครั้งต่อ ticket 1 ใบ
+      const tumbol = t.tumbol || 'ไม่ระบุ';
+      if(!tumbolAgg[tumbol]) tumbolAgg[tumbol] = { tumbol, reportCount:0, reportByYear:{}, reportByMonth:{}, lastReportedAt:0, countedKeys:{} };
+      const ta = tumbolAgg[tumbol];
+      ta.reportCount++;
+      ta.reportByYear[year] = (ta.reportByYear[year] || 0) + 1;
+      ta.reportByMonth[monthKey] = (ta.reportByMonth[monthKey] || 0) + 1;
+      ta.countedKeys[t.id] = { total:true, year, month:monthKey };
+      if((t.createdAt || 0) > ta.lastReportedAt) ta.lastReportedAt = t.createdAt || 0;
+
+      // อุปกรณ์: นับ 1 ครั้งต่อ ticket ต่อประเภทอุปกรณ์ (กันนับซ้ำถ้า ticket เดียวมีอุปกรณ์ประเภทเดียวกันหลาย record)
+      if(t.equipment && t.equipment.length) {
+        const seenTpInTicket = new Set();
+        for (const eq of t.equipment) {
+          if(!eq.id || seenTpInTicket.has(eq.tp)) continue;
+          seenTpInTicket.add(eq.tp);
+          if(!deviceAgg[eq.id]) deviceAgg[eq.id] = { peano:eq.id, label:eq.label||eq.tp, color:eq.color||'#a9bdd1', outageCount:0, outageByYear:{}, outageByMonth:{}, lastAddr:'', lastReportedAt:0, countedKeys:{} };
+          const da = deviceAgg[eq.id];
+          da.outageCount++;
+          da.outageByYear[year] = (da.outageByYear[year] || 0) + 1;
+          da.outageByMonth[monthKey] = (da.outageByMonth[monthKey] || 0) + 1;
+          da.countedKeys[t.id + ':' + eq.tp] = { total:true, year, month:monthKey };
+          if((t.createdAt || 0) > da.lastReportedAt) { da.lastReportedAt = t.createdAt || 0; da.lastAddr = t.addr || da.lastAddr; }
+        }
+      }
     }
-    showToast(`✅ นับสถิติย้อนหลังจาก ${count.toLocaleString()} ticket เรียบร้อย`, 'success');
+
+    let writes = 0;
+    for (const agg of Object.values(deviceAgg)) { await setDoc(doc(db, "device_stats", agg.peano), agg); writes++; }
+    for (const agg of Object.values(tumbolAgg)) { await setDoc(doc(db, "tumbol_stats", agg.tumbol), agg); writes++; }
+    await setDoc(doc(db, "stats_meta", "years"), yearsSeen); // เขียนทับให้ตรงกับข้อมูลจริงเป๊ะ ไม่ merge ของเก่า
+
+    showToast(`✅ คำนวณสถิติใหม่จาก ${allTickets.length.toLocaleString()} ticket เรียบร้อย (${writes} เอกสาร)`, 'success');
+    cachedStatsYearItems = null; // ล้างแคชปีเก่า ให้ดรอปดาวน์โหลดรายชื่อปีใหม่
+    buildStatsYearFilterUI();
     refreshEquipmentStatsChart();
     refreshTumbolStatsChart();
   } catch(e) {
     console.error("migrateAllStatsFromExisting error:", e);
-    showToast('เกิดข้อผิดพลาดระหว่างนับย้อนหลัง', 'error');
+    showToast('เกิดข้อผิดพลาดระหว่างคำนวณสถิติใหม่', 'error');
   }
 }
 window.migrateAllStatsFromExisting = migrateAllStatsFromExisting;
+
 
 
 // ======= TAB SWITCH =======
@@ -1380,7 +1420,10 @@ function renderTickets() {
   if(ticketListSearchTerm) {
     const term = ticketListSearchTerm;
     fullList = fullList.filter(t => {
-      const haystack = [t.name, t.ca, t.peano, t.addr, t.tel, t.callerTel, t.id]
+      // รวม PEANO/ชื่อของอุปกรณ์ที่ผูกไว้กับ ticket เข้าไปในคำค้นหาด้วย (คนละค่ากับ t.peano ที่เป็นมิเตอร์ผู้ใช้ไฟ)
+      // ไม่งั้นกดแถวจากกราฟ "อุปกรณ์ที่ทำให้ไฟดับบ่อย" จะค้นหาแล้วไม่เจอเลยสักรายการ
+      const equipmentIds = (t.equipment || []).map(eq => eq.id).join(' ');
+      const haystack = [t.name, t.ca, t.peano, t.addr, t.tel, t.callerTel, t.id, t.tumbol, equipmentIds]
         .map(v => (v ?? '') + '').join(' ').toLowerCase();
       return haystack.includes(term);
     });
