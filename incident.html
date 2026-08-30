@@ -124,8 +124,9 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .db-section-header { display:flex; align-items:baseline; gap:8px; padding-bottom:8px; border-bottom:1px solid var(--border); }
 .db-section-title { font-size:15px; font-weight:700; }
 .db-admin-box { background:var(--surface); border:1px dashed var(--border); border-radius:10px; padding:12px; display:flex; gap:8px; flex-wrap:wrap; }
-/* ดรอปดาวน์เลือกปีแบบ custom ล้วนๆ (ไม่ใช้ <select> ของเบราว์เซอร์) เพื่อคุมหน้าตาเมนูให้เข้าธีมได้เต็มที่ */
-.year-dropdown { position:relative; display:inline-block; }
+/* ดรอปดาวน์เลือกปีแบบ custom ล้วนๆ (ไม่ใช้ <select> ของเบราว์เซอร์) เพื่อคุมหน้าตาเมนูให้เข้าธีมได้เต็มที่
+   เมนูเป็น in-flow (ดันเนื้อหาลงเวลาเปิด) ไม่ใช้ position:absolute ลอยทับ เพื่อกันปัญหาไม่โผล่ในบางเบราว์เซอร์/ตัว scroll container */
+.year-dropdown { width:100%; }
 .year-select {
   display:inline-flex; align-items:center; gap:8px;
   padding:8px 14px;
@@ -136,15 +137,17 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   font-family:var(--sans);
   font-size:13px; font-weight:600;
   cursor:pointer;
+  margin-left:auto;
 }
+.year-select-row { display:flex; }
 .year-select:hover { background:var(--border); }
 .year-select .arrow { font-size:10px; color:var(--text2); transition:transform .15s; }
 .year-select.open .arrow { transform:rotate(180deg); }
 .year-dropdown-menu {
-  position:absolute; top:calc(100% + 6px); right:0; min-width:140px;
+  width:100%; box-sizing:border-box;
   background:var(--surface); border:1px solid var(--border); border-radius:12px;
-  box-shadow:0 10px 28px rgba(0,0,0,.35);
-  padding:6px; z-index:50;
+  margin-top:6px;
+  padding:6px;
   display:none; flex-direction:column; gap:2px;
 }
 .year-dropdown-menu.open { display:flex; }
@@ -844,7 +847,7 @@ async function buildStatsYearFilterUI() {
   ).join('');
   el.innerHTML =
     '<div class="year-dropdown">' +
-      '<button type="button" class="year-select" id="year-select-btn" onclick="toggleYearDropdown(event)">'+current.label+'<span class="arrow">▾</span></button>' +
+      '<div class="year-select-row"><button type="button" class="year-select" id="year-select-btn" onclick="toggleYearDropdown(event)">'+current.label+'<span class="arrow">▾</span></button></div>' +
       '<div class="year-dropdown-menu" id="year-dropdown-menu">'+itemsHtml+'</div>' +
     '</div>';
 }
