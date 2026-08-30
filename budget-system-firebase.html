@@ -495,6 +495,55 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 .r-page tfoot td{padding:12px 10px;font-weight:800;font-size:13.5px;border-top:2px solid #0f172a}
 .r-page tfoot td.r-amt{text-align:right;color:#0f172a}
 .r-footer{margin-top:26px;text-align:right;font-size:10.5px;color:var(--text2)}
+
+/* ===== Custom dropdown (แทนที่ <select> ทุกจุดในระบบ) ===== */
+.filter-dropdown-wrap{ position:relative; width:100%; }
+.filter-dropdown-btn{
+  width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px;
+  background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+  padding:10px 12px; color:var(--text); font-family:inherit; font-size:14px;
+  cursor:pointer; text-align:left; transition:border-color .15s;
+}
+.filter-dropdown-btn:active{ background:var(--border); }
+.filter-dropdown-btn.open{ border-color:var(--blue); }
+.filter-dropdown-btn .fdd-label{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); }
+.filter-dropdown-btn .fdd-label.fdd-placeholder{ color:var(--text2); }
+.filter-dropdown-btn .fdd-caret{ flex:none; font-size:11px; color:var(--text2); transition:transform .15s; }
+.filter-dropdown-btn.open .fdd-caret{ transform:rotate(180deg); color:var(--blue); }
+.filter-menu{
+  display:none; position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:60;
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.25); max-height:60vh; overflow-y:auto; padding:6px;
+}
+.filter-menu.open{ display:block; }
+.filter-menu-item{
+  display:flex; align-items:center; gap:10px; padding:10px; border-radius:8px;
+  cursor:pointer; font-size:14px; color:var(--text); user-select:none; -webkit-tap-highlight-color:transparent;
+}
+.filter-menu-item:active{ background:var(--surface2); }
+.filter-radio{
+  flex:none; width:18px; height:18px; border-radius:50%; border:2px solid var(--border);
+  position:relative; box-sizing:border-box;
+}
+.filter-radio.checked{ border-color:var(--blue); }
+.filter-radio.checked::after{
+  content:''; position:absolute; top:50%; left:50%; width:8px; height:8px;
+  transform:translate(-50%,-50%);
+  border-radius:50%; background:var(--blue);
+}
+.fdd-native-select{ display:none !important; }
+.year-badge.fdd-native-select{ display:none !important; }
+.year-badge-wrap{ width:auto; }
+.year-badge-btn{
+  display:flex; align-items:center; gap:6px;
+  background:var(--chip-bg); color:var(--blue-light); font-size:11px; font-weight:800;
+  padding:5px 10px; border-radius:8px; letter-spacing:1px; white-space:nowrap;
+  border:1px solid var(--chip-border); font-family:inherit; cursor:pointer;
+}
+.year-badge-btn:hover, .year-badge-btn.open{ border-color:var(--blue-light); }
+.year-badge-btn .fdd-caret{ font-size:9px; color:var(--blue-light); transition:transform .15s; }
+.year-badge-btn.open .fdd-caret{ transform:rotate(180deg); }
+.year-badge-wrap .filter-menu{ min-width:140px; left:auto; right:0; }
 </style>
 </head>
 <body>
@@ -1367,6 +1416,7 @@ function showDetail(code){
   if (isFuel) {
     // reset fuel form
     document.getElementById('fuel-vehicle').value='asset';
+    syncCustomSelect('fuel-vehicle');
     document.getElementById('fuel-price').value='';
     document.getElementById('fuel-liters').value='';
     document.getElementById('fuel-gross').value='0.00';
@@ -2256,13 +2306,15 @@ function populateReportAccountSelect(){
   const sel = document.getElementById('rpt-account-select');
   const sorted = [...data].sort((a,b)=>a.code.localeCompare(b.code));
   sel.innerHTML = sorted.map(a=>`<option value="${a.code}">${a.code} — ${a.name}</option>`).join('');
+  syncCustomSelect('rpt-account-select');
 }
 
 function onReportModeChange(){
   const mode = document.querySelector('input[name="rpt-mode"]:checked').value;
   document.getElementById('rpt-mode-all-wrap').classList.toggle('active', mode==='all');
   document.getElementById('rpt-mode-one-wrap').classList.toggle('active', mode==='one');
-  document.getElementById('rpt-account-select').style.display = (mode==='one') ? 'block' : 'none';
+  const wrap = document.getElementById('rpt-account-select-fdd-wrap');
+  if(wrap) wrap.style.display = (mode==='one') ? 'block' : 'none';
 }
 
 function getReportBody(){
@@ -2741,6 +2793,7 @@ async function updateYearBadge(){
   if (!window.listBudgetYears) {
     // Firebase ยังโหลดไม่เสร็จ/เข้าไม่ถึงเน็ต — โชว์แค่ปีปัจจุบันไปก่อน พอ Firestore พร้อมจะอัปเดตให้เอง
     sel.innerHTML = `<option value="${currentYear}">ปีงบ ${currentYear}</option>`;
+    syncCustomSelect('year-badge');
     return;
   }
   const years = await window.listBudgetYears();
@@ -2752,6 +2805,7 @@ async function updateYearBadge(){
   }
   sel.innerHTML = years.map(y=>`<option value="${y.year}">ปีงบ ${y.year}</option>`).join('');
   sel.value = String(currentYear);
+  syncCustomSelect('year-badge');
 }
 
 async function switchYear(yearStr){
@@ -2940,14 +2994,17 @@ window.confirmImportExcel = confirmImportExcel;
 async function populateYearManageSelect(){
   const sel = document.getElementById('ym-select');
   sel.innerHTML = '<option value="">🔄 กำลังโหลด...</option>';
+  syncCustomSelect('ym-select');
   const years = await window.listBudgetYears();
   if(years.length === 0){
     sel.innerHTML = '<option value="">-- ไม่มีข้อมูล --</option>';
     document.getElementById('ym-info').textContent = 'ยังไม่มีปีงบใดถูกบันทึกไว้';
+    syncCustomSelect('ym-select');
     return;
   }
   sel.innerHTML = years.map(y => `<option value="${y.year}">ปีงบ ${y.year}${y.year===String(currentYear)?' (ปีปัจจุบัน)':''}</option>`).join('');
   sel.dataset.years = JSON.stringify(years);
+  syncCustomSelect('ym-select');
   updateYearManageInfo();
 }
 window.populateYearManageSelect = populateYearManageSelect;
@@ -3023,6 +3080,94 @@ let currentYear = 2569;
 showDashboard();
 document.getElementById('loading-screen').style.display = 'none';
 document.getElementById('app-root').style.display = 'block';
+
+// ══════════════════════════ Custom dropdown (แทนที่ <select> ทุกจุดในระบบ) ══════════════════════════
+function fddCloseAll() {
+  document.querySelectorAll('.filter-menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.filter-dropdown-btn.open').forEach(b => b.classList.remove('open'));
+}
+function fddToggle(btn, menu) {
+  const willOpen = !menu.classList.contains('open');
+  fddCloseAll();
+  if (willOpen) { menu.classList.add('open'); btn.classList.add('open'); }
+}
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('.filter-dropdown-wrap')) fddCloseAll();
+});
+
+// สร้างดรอปดาวน์การ์ดลอยครอบ <select> เดิม (ซ่อนตัวเดิมไว้ ยังใช้ .value/.onchange ได้ตามปกติ)
+// อ่านตัวเลือกจาก sel.options สด ๆ ทุกครั้งที่เปิดเมนู รองรับกรณี options ถูกสร้างใหม่ทีหลัง (เช่นโหลดจาก Firestore)
+function buildCustomSelect(selectId, opts) {
+  opts = opts || {};
+  const sel = document.getElementById(selectId);
+  if (!sel || sel.dataset.fddBuilt) return;
+  sel.dataset.fddBuilt = '1';
+  sel.classList.add('fdd-native-select');
+
+  const wrap = document.createElement('div');
+  wrap.className = 'filter-dropdown-wrap' + (opts.wrapClass ? ' ' + opts.wrapClass : '');
+  wrap.id = selectId + '-fdd-wrap';
+  sel.insertAdjacentElement('afterend', wrap);
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'filter-dropdown-btn' + (opts.btnClass ? ' ' + opts.btnClass : '');
+  btn.id = selectId + '-fdd-btn';
+  btn.innerHTML = '<span class="fdd-label"></span><span class="fdd-caret">▾</span>';
+
+  const menu = document.createElement('div');
+  menu.className = 'filter-menu';
+  menu.id = selectId + '-fdd-menu';
+
+  function renderMenu() {
+    menu.innerHTML = '';
+    Array.from(sel.options).forEach(function (opt, idx) {
+      const item = document.createElement('div');
+      item.className = 'filter-menu-item';
+      item.innerHTML = '<span class="filter-radio"></span><span class="fdd-item-text"></span>';
+      item.querySelector('.fdd-item-text').textContent = opt.textContent;
+      if (idx === sel.selectedIndex) item.querySelector('.filter-radio').classList.add('checked');
+      item.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (sel.selectedIndex !== idx) {
+          sel.selectedIndex = idx;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        syncCustomSelect(selectId);
+        fddCloseAll();
+      });
+      menu.appendChild(item);
+    });
+  }
+
+  btn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    renderMenu();
+    fddToggle(btn, menu);
+  });
+
+  wrap.appendChild(btn);
+  wrap.appendChild(menu);
+  if (opts.initiallyHidden) wrap.style.display = 'none';
+  syncCustomSelect(selectId);
+}
+
+// อัปเดตหน้าตาปุ่มให้ตรงกับค่า select ปัจจุบัน — เรียกทุกครั้งที่มีการเซ็ตค่า select ด้วยโค้ด (ไม่ใช่จากการคลิกเมนู)
+function syncCustomSelect(selectId) {
+  const sel = document.getElementById(selectId);
+  const btn = document.getElementById(selectId + '-fdd-btn');
+  if (!sel || !btn) return;
+  const opt = sel.options[sel.selectedIndex];
+  const label = btn.querySelector('.fdd-label');
+  if (label) label.textContent = opt ? opt.textContent : '';
+}
+window.syncCustomSelect = syncCustomSelect;
+
+buildCustomSelect('year-badge', { wrapClass: 'year-badge-wrap', btnClass: 'year-badge-btn' });
+buildCustomSelect('ym-select');
+buildCustomSelect('rpt-account-select', { initiallyHidden: true });
+buildCustomSelect('fuel-vehicle');
+
 </script>
 </div><!-- end #app-root -->
 </body>
