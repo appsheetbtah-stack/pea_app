@@ -715,7 +715,8 @@ function renderReport() {
       return `<td class="num">${qty || 0}</td>`;
     }).join('');
     const washerStr = (eq.washer && eq.washer.qty) || 0;
-    const wireStr = eq.copperWire && eq.copperWire.qty ? `${eq.copperWire.lengthM}ม.×${eq.copperWire.qty}เส้น` : '-';
+    const wireQtyStr = (eq.copperWire && eq.copperWire.qty) || 0;
+    const wireLenStr = eq.copperWire && eq.copperWire.qty ? (eq.copperWire.qty * (eq.copperWire.lengthM || 0)) : 0;
     const coordStr = pt.lat != null ? `${pt.lat.toFixed(5)}, ${pt.lng.toFixed(5)}` : '-';
     return `
       <tr>
@@ -729,7 +730,8 @@ function renderReport() {
         <td class="num">${plank120}</td>
         ${boltCells}
         <td class="num">${washerStr}</td>
-        <td>${wireStr}</td>
+        <td class="num">${wireQtyStr}</td>
+        <td class="num">${wireLenStr}</td>
         <td style="white-space:nowrap; font-size:11px;">${coordStr}</td>
       </tr>`;
   }).join('');
@@ -746,13 +748,14 @@ function renderReport() {
             <th colspan="3">จำนวนไม้แป้น</th>
             <th colspan="4">จำนวนน็อต</th>
             <th rowspan="2">แหวน</th>
-            <th rowspan="2">สายทองแดง</th>
+            <th colspan="2">สายทองแดง</th>
             <th rowspan="2">พิกัด</th>
           </tr>
           <tr>
             <th>ด้าน A</th><th>ด้าน B</th>
             <th>20</th><th>60</th><th>120</th>
             <th>8″</th><th>10″</th><th>12″</th><th>14″</th>
+            <th>เส้น</th><th>รวม(ม.)</th>
           </tr>
         </thead>
         <tbody>${pointRows}</tbody>
@@ -765,7 +768,8 @@ function renderReport() {
     sumPlank120 ? `<tr><td>ไม้แป้น 120</td><td class="num">${sumPlank120}</td><td>แผ่น</td></tr>` : '',
     boltRows,
     sumWasher ? `<tr><td>แหวนสี่เหลี่ยม</td><td class="num">${sumWasher}</td><td>ตัว</td></tr>` : '',
-    sumWireQty ? `<tr><td>สายทองแดงขนาด 2×10 ตร.มม. (ยาวรวมประมาณ ${sumWireLength.toFixed(1)} ม.)</td><td class="num">${sumWireQty}</td><td>เส้น</td></tr>` : ''
+    sumWireQty ? `<tr><td>สายทองแดงขนาด 2×10 ตร.มม. (นับตามจำนวนเส้น)</td><td class="num">${sumWireQty}</td><td>เส้น</td></tr>` : '',
+    sumWireQty ? `<tr><td>สายทองแดงขนาด 2×10 ตร.มม. (นับตามความยาวรวม)</td><td class="num">${sumWireLength.toFixed(1)}</td><td>เมตร</td></tr>` : ''
   ].join('');
 
   document.getElementById('report-content').innerHTML = `
@@ -814,7 +818,7 @@ function exportReportToExcel() {
     'ที่', 'เสา (ม.)', 'ด้าน A', 'ด้าน B',
     'ไม้แป้น 20', 'ไม้แป้น 60', 'ไม้แป้น 120',
     'น็อต 8"', 'น็อต 10"', 'น็อต 12"', 'น็อต 14"',
-    'แหวน', 'สายทองแดง', 'ละติจูด', 'ลองจิจูด', 'สถานะ'
+    'แหวน', 'สายทองแดง (เส้น)', 'สายทองแดง รวม(ม.)', 'ละติจูด', 'ลองจิจูด', 'สถานะ'
   ];
   const rows = points.map(pt => {
     const eq = pt.equipment || {};
@@ -823,14 +827,15 @@ function exportReportToExcel() {
     const plank120 = (eq.plank120 && eq.plank120.qty) || 0;
     const boltCols = BOLT_SIZES.map(size => boltQtyForSize(eq, size));
     const washerStr = (eq.washer && eq.washer.qty) || 0;
-    const wireStr = eq.copperWire && eq.copperWire.qty ? `${eq.copperWire.lengthM}ม.x${eq.copperWire.qty}เส้น` : '-';
+    const wireQtyStr = (eq.copperWire && eq.copperWire.qty) || 0;
+    const wireLenStr = eq.copperWire && eq.copperWire.qty ? (eq.copperWire.qty * (eq.copperWire.lengthM || 0)) : 0;
     return [
       pt.pointNo,
       pt.poleSize || '',
       pt.sideA || 0,
       pt.sideB || 0,
       plank20, plank60, plank120,
-      ...boltCols, washerStr, wireStr,
+      ...boltCols, washerStr, wireQtyStr, wireLenStr,
       pt.lat != null ? Number(pt.lat.toFixed(5)) : '',
       pt.lng != null ? Number(pt.lng.toFixed(5)) : '',
       pt.status === 'surveyed' ? 'สำรวจแล้ว' : 'ยังไม่สำรวจ'
@@ -841,7 +846,7 @@ function exportReportToExcel() {
     { wch: 5 }, { wch: 9 }, { wch: 8 }, { wch: 8 },
     { wch: 11 }, { wch: 11 }, { wch: 12 },
     { wch: 9 }, { wch: 9 }, { wch: 9 }, { wch: 9 },
-    { wch: 8 }, { wch: 18 }, { wch: 11 }, { wch: 11 }, { wch: 12 }
+    { wch: 8 }, { wch: 15 }, { wch: 15 }, { wch: 11 }, { wch: 11 }, { wch: 12 }
   ];
 
   // ── ชีตที่ 2: สรุปอุปกรณ์รวมทั้งแผนงาน ──
@@ -870,7 +875,8 @@ function exportReportToExcel() {
   Object.keys(boltTotals).sort((a, b) => parseFloat(a) - parseFloat(b))
     .forEach(size => summaryRows.push([`น็อต ขนาด ${size} นิ้ว`, boltTotals[size], 'ตัว']));
   if (sumWasher) summaryRows.push(['แหวนสี่เหลี่ยม', sumWasher, 'ตัว']);
-  if (sumWireQty) summaryRows.push([`สายทองแดงขนาด 2x10 ตร.มม. (ยาวรวมประมาณ ${sumWireLength.toFixed(1)} ม.)`, sumWireQty, 'เส้น']);
+  if (sumWireQty) summaryRows.push(['สายทองแดงขนาด 2x10 ตร.มม. (นับตามจำนวนเส้น)', sumWireQty, 'เส้น']);
+  if (sumWireQty) summaryRows.push(['สายทองแดงขนาด 2x10 ตร.มม. (นับตามความยาวรวม)', Number(sumWireLength.toFixed(1)), 'เมตร']);
 
   const wsSummary = XLSX.utils.aoa_to_sheet([
     ['รายงานผลสำรวจปรับปรุงมิเตอร์'],
