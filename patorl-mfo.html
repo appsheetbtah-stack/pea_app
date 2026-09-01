@@ -91,6 +91,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .point-thumb { width:56px; height:56px; border-radius:10px; object-fit:cover; border:2px solid var(--accent); flex-shrink:0; }
 .point-meta-row { display:flex; flex-wrap:wrap; gap:8px; }
 .point-chip { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:5px 9px; font-family:var(--mono); font-size:12px; color:var(--text); }
+.point-chip-warn { background:rgba(230,126,34,0.15); border:1px solid rgba(230,126,34,0.5); color:#e67e22; font-weight:700; }
+.point-card-warn { border:1px solid rgba(230,126,34,0.55); box-shadow:0 0 0 1px rgba(230,126,34,0.15) inset; }
+.list-section-header { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:#e67e22; margin:4px 2px 2px; }
+.list-section-gap { margin-top:22px; }
 .status-badge { font-size:12px; font-weight:700; padding:4px 10px; border-radius:20px; white-space:nowrap; flex-shrink:0; }
 .point-delete-btn { background:rgba(231,76,60,0.15); border:1px solid rgba(231,76,60,0.4); color:var(--red); width:34px; height:34px; border-radius:8px; font-size:15px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
 .point-delete-btn:active { background:rgba(231,76,60,0.3); }
@@ -634,39 +638,68 @@ function statusInfo(id) {
   return STATUS_LIST.find(s => s.id === id) || STATUS_LIST[0];
 }
 
+function renderPointCard(pt) {
+  const st = statusInfo(pt.status);
+  const noCoord = pt.lat == null || pt.lng == null;
+  const thumb = `<img class="point-thumb" src="${STATUS_ICONS[pt.status] || STATUS_ICONS.no_survey}" style="object-fit:contain; padding:8px; background:var(--surface2);">`;
+  const taskCount = (pt.repairTasks || []).length;
+  return `
+    <div class="point-card ${noCoord ? 'point-card-warn' : ''}" onclick="openPointForm('${pt.planId}', ${pt.pointNo})">
+      <div class="point-top">
+        ${thumb}
+        <div style="flex:1; min-width:0;">
+          <div class="point-title">${esc(pt.peaNo || ('จุดที่ ' + pt.pointNo))}</div>
+          <div class="point-meta-row" style="margin-top:4px;">
+            <span class="point-chip">${esc(pt.feeder || '-')}</span>
+            <span class="point-chip">งานซ่อม ${taskCount} รายการ</span>
+            ${pt.sapNo ? `<span class="point-chip">SAP ${esc(pt.sapNo)}</span>` : ''}
+            ${noCoord ? `<span class="point-chip point-chip-warn">⚠️ ไม่มีพิกัด</span>` : ''}
+          </div>
+          <div class="point-meta-row" style="margin-top:4px;">
+            <span class="status-badge status-surveyed"><img src="${STATUS_ICONS[pt.status] || STATUS_ICONS.no_survey}" style="width:16px; height:16px; vertical-align:-3px; margin-right:4px;">${esc(st.label)}</span>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:row; gap:6px;">
+          <button class="point-delete-btn" title="${!noCoord ? 'นำทาง' : 'ยังไม่มีพิกัด กดเพื่อกรอก'}" style="background:rgba(59,158,222,0.15); border-color:rgba(59,158,222,0.4); color:var(--blue); ${noCoord ? 'opacity:0.45;' : ''}" onclick="event.stopPropagation(); navigateToPoint(${pt.lat}, ${pt.lng}, '${pt.planId}', ${pt.pointNo})">🧭</button>
+          <button class="point-delete-btn" title="ลบจุดนี้" onclick="event.stopPropagation(); quickDeletePoint('${pt.planId}', ${pt.pointNo})">🗑️</button>
+        </div>
+      </div>
+    </div>`;
+}
+
 function renderPointsList() {
   if (!currentPlanId) return;
   const wrap = document.getElementById('points-list');
-  const points = window.POINTS.filter(pt => pt.planId === currentPlanId).sort((a, b) => a.pointNo - b.pointNo);
+  const points = window.POINTS.filter(pt => pt.planId === currentPlanId);
   if (!points.length) {
     wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">📐</div>ยังไม่มีจุดสำรวจในแผนนี้<br>นำเข้าไฟล์ Excel หรือกดปุ่ม + เพื่อเพิ่มจุด</div>`;
     return;
   }
-  wrap.innerHTML = points.map(pt => {
-    const st = statusInfo(pt.status);
-    const thumb = `<img class="point-thumb" src="${STATUS_ICONS[pt.status] || STATUS_ICONS.no_survey}" style="object-fit:contain; padding:8px; background:var(--surface2);">`;
-    const taskCount = (pt.repairTasks || []).length;
-    return `
-      <div class="point-card" onclick="openPointForm('${pt.planId}', ${pt.pointNo})">
-        <div class="point-top">
-          ${thumb}
-          <div style="flex:1; min-width:0;">
-            <div class="point-title">${esc(pt.peaNo || ('จุดที่ ' + pt.pointNo))}</div>
-            <div class="point-meta-row" style="margin-top:4px;">
-              <span class="point-chip">${esc(pt.feeder || '-')}</span>
-              <span class="point-chip">งานซ่อม ${taskCount} รายการ</span>
-              ${pt.sapNo ? `<span class="point-chip">SAP ${esc(pt.sapNo)}</span>` : ''}
-            </div>
-            <div class="point-meta-row" style="margin-top:4px;">
-              <span class="status-badge status-surveyed"><img src="${STATUS_ICONS[pt.status] || STATUS_ICONS.no_survey}" style="width:16px; height:16px; vertical-align:-3px; margin-right:4px;">${esc(st.label)}</span>
-            </div>
-          </div>
-          <button class="point-delete-btn" title="ลบจุดนี้" onclick="event.stopPropagation(); quickDeletePoint('${pt.planId}', ${pt.pointNo})">🗑️</button>
-        </div>
-      </div>`;
-  }).join('');
+  const noCoordPoints = points.filter(pt => pt.lat == null || pt.lng == null).sort((a, b) => a.pointNo - b.pointNo);
+  const okPoints = points.filter(pt => pt.lat != null && pt.lng != null).sort((a, b) => a.pointNo - b.pointNo);
+
+  let html = '';
+  if (noCoordPoints.length) {
+    html += `<div class="list-section-header">⚠️ ยังไม่มีพิกัด (${noCoordPoints.length} จุด) — กรุณาเร่งตรวจสอบ</div>`;
+    html += noCoordPoints.map(renderPointCard).join('');
+  }
+  if (okPoints.length) {
+    html += `<div class="list-section-header ${noCoordPoints.length ? 'list-section-gap' : ''}" style="color:var(--text2);">📍 จุดที่มีพิกัดแล้ว (${okPoints.length} จุด)</div>`;
+    html += okPoints.map(renderPointCard).join('');
+  }
+  wrap.innerHTML = html;
 }
 window.renderPointsList = renderPointsList;
+
+function navigateToPoint(lat, lng, planId, pointNo) {
+  if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) {
+    showToast('จุดนี้ยังไม่มีพิกัด กำลังเปิดฟอร์มให้กรอก Lat, Lng ก่อน');
+    openPointForm(planId, pointNo);
+    return;
+  }
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+}
+window.navigateToPoint = navigateToPoint;
 
 // ══════════════════════════ รายงาน ══════════════════════════
 function formatThaiDate(d) {
