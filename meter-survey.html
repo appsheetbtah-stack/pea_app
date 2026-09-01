@@ -710,10 +710,10 @@ function renderReport() {
     const plank20 = (eq.plank20 && eq.plank20.qty) || 0;
     const plank60 = (eq.plank60 && eq.plank60.qty) || 0;
     const plank120 = (eq.plank120 && eq.plank120.qty) || 0;
-    const boltStr = [
-      eq.boltSmall && eq.boltSmall.qty ? `${eq.boltSmall.size}″×${eq.boltSmall.qty}` : '',
-      eq.boltLarge && eq.boltLarge.qty ? `${eq.boltLarge.size}″×${eq.boltLarge.qty}` : ''
-    ].filter(Boolean).join(', ') || '-';
+    const boltCells = BOLT_SIZES.map(size => {
+      const qty = boltQtyForSize(eq, size);
+      return `<td class="num">${qty || 0}</td>`;
+    }).join('');
     const washerStr = (eq.washer && eq.washer.qty) || 0;
     const wireStr = eq.copperWire && eq.copperWire.qty ? `${eq.copperWire.lengthM}ม.×${eq.copperWire.qty}เส้น` : '-';
     const coordStr = pt.lat != null ? `${pt.lat.toFixed(5)}, ${pt.lng.toFixed(5)}` : '-';
@@ -727,7 +727,7 @@ function renderReport() {
         <td class="num">${plank20}</td>
         <td class="num">${plank60}</td>
         <td class="num">${plank120}</td>
-        <td>${boltStr}</td>
+        ${boltCells}
         <td class="num">${washerStr}</td>
         <td>${wireStr}</td>
         <td style="white-space:nowrap; font-size:11px;">${coordStr}</td>
@@ -744,7 +744,7 @@ function renderReport() {
             <th rowspan="2">เสา (ม.)</th>
             <th colspan="2">จำนวนมิเตอร์</th>
             <th colspan="3">จำนวนไม้แป้น</th>
-            <th rowspan="2">น็อต</th>
+            <th colspan="4">จำนวนน็อต</th>
             <th rowspan="2">แหวน</th>
             <th rowspan="2">สายทองแดง</th>
             <th rowspan="2">พิกัด</th>
@@ -752,6 +752,7 @@ function renderReport() {
           <tr>
             <th>ด้าน A</th><th>ด้าน B</th>
             <th>20</th><th>60</th><th>120</th>
+            <th>8″</th><th>10″</th><th>12″</th><th>14″</th>
           </tr>
         </thead>
         <tbody>${pointRows}</tbody>
@@ -812,17 +813,15 @@ function exportReportToExcel() {
   const header = [
     'ที่', 'เสา (ม.)', 'ด้าน A', 'ด้าน B',
     'ไม้แป้น 20', 'ไม้แป้น 60', 'ไม้แป้น 120',
-    'น็อต', 'แหวน', 'สายทองแดง', 'ละติจูด', 'ลองจิจูด', 'สถานะ'
+    'น็อต 8"', 'น็อต 10"', 'น็อต 12"', 'น็อต 14"',
+    'แหวน', 'สายทองแดง', 'ละติจูด', 'ลองจิจูด', 'สถานะ'
   ];
   const rows = points.map(pt => {
     const eq = pt.equipment || {};
     const plank20 = (eq.plank20 && eq.plank20.qty) || 0;
     const plank60 = (eq.plank60 && eq.plank60.qty) || 0;
     const plank120 = (eq.plank120 && eq.plank120.qty) || 0;
-    const boltStr = [
-      eq.boltSmall && eq.boltSmall.qty ? `${eq.boltSmall.size}"x${eq.boltSmall.qty}` : '',
-      eq.boltLarge && eq.boltLarge.qty ? `${eq.boltLarge.size}"x${eq.boltLarge.qty}` : ''
-    ].filter(Boolean).join(', ') || '-';
+    const boltCols = BOLT_SIZES.map(size => boltQtyForSize(eq, size));
     const washerStr = (eq.washer && eq.washer.qty) || 0;
     const wireStr = eq.copperWire && eq.copperWire.qty ? `${eq.copperWire.lengthM}ม.x${eq.copperWire.qty}เส้น` : '-';
     return [
@@ -831,7 +830,7 @@ function exportReportToExcel() {
       pt.sideA || 0,
       pt.sideB || 0,
       plank20, plank60, plank120,
-      boltStr, washerStr, wireStr,
+      ...boltCols, washerStr, wireStr,
       pt.lat != null ? Number(pt.lat.toFixed(5)) : '',
       pt.lng != null ? Number(pt.lng.toFixed(5)) : '',
       pt.status === 'surveyed' ? 'สำรวจแล้ว' : 'ยังไม่สำรวจ'
@@ -841,7 +840,8 @@ function exportReportToExcel() {
   wsPoints['!cols'] = [
     { wch: 5 }, { wch: 9 }, { wch: 8 }, { wch: 8 },
     { wch: 11 }, { wch: 11 }, { wch: 12 },
-    { wch: 16 }, { wch: 8 }, { wch: 18 }, { wch: 11 }, { wch: 11 }, { wch: 12 }
+    { wch: 9 }, { wch: 9 }, { wch: 9 }, { wch: 9 },
+    { wch: 8 }, { wch: 18 }, { wch: 11 }, { wch: 11 }, { wch: 12 }
   ];
 
   // ── ชีตที่ 2: สรุปอุปกรณ์รวมทั้งแผนงาน ──
@@ -905,6 +905,16 @@ const BOLT_MAP = {
   '12':   { small: 10, large: 12 },
   '12.2': { small: 12, large: 14 }
 };
+
+// ขนาดน็อตที่เป็นไปได้ทั้งหมด (ใช้แยกคอลัมน์ในรายงาน/Excel เหมือนไม้แป้น 20/60/120)
+const BOLT_SIZES = [8, 10, 12, 14];
+// รวมจำนวนน็อตของขนาดที่ระบุ จาก equipment ของจุดสำรวจหนึ่งจุด
+function boltQtyForSize(eq, size) {
+  let total = 0;
+  if (eq.boltSmall && String(eq.boltSmall.size) === String(size)) total += eq.boltSmall.qty || 0;
+  if (eq.boltLarge && String(eq.boltLarge.size) === String(size)) total += eq.boltLarge.qty || 0;
+  return total;
+}
 
 // คำนวณอุปกรณ์ตั้งต้นจากขนาดเสา + จำนวนมิเตอร์แต่ละด้าน
 function calcEquipmentDefaults(poleSize, a, b) {
