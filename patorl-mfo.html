@@ -224,6 +224,54 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   .report-point-table tr, .report-point-table td, .report-point-table th { page-break-inside:avoid; }
   .no-print { display:none !important; }
 }
+
+/* ===== Custom dropdown (แทนที่ bottom-sheet ของสถานะ) ===== */
+.filter-dropdown-wrap{ position:relative; width:100%; }
+.filter-dropdown-btn{
+  width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px;
+  background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+  padding:10px 12px; color:var(--text); font-family:var(--sans); font-size:14px;
+  cursor:pointer; text-align:left; transition:border-color .15s;
+}
+.filter-dropdown-btn:active{ background:var(--border); }
+.filter-dropdown-btn.open{ border-color:var(--accent); }
+.filter-dropdown-btn .fdd-left{ display:flex; align-items:center; gap:10px; min-width:0; }
+.filter-dropdown-btn .fdd-label{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); }
+.filter-dropdown-btn .fdd-icon{ width:22px; height:22px; flex:0 0 auto; }
+.filter-dropdown-btn .fdd-caret{ flex:none; font-size:11px; color:var(--text2); transition:transform .15s; }
+.filter-dropdown-btn.open .fdd-caret{ transform:rotate(180deg); color:var(--accent); }
+.filter-menu{
+  display:none; position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:60;
+  background:var(--bg); border:1px solid var(--border); border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.35); max-height:60vh; overflow-y:auto; padding:6px;
+}
+.filter-menu.open{ display:block; }
+.filter-menu-item{
+  display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px;
+  cursor:pointer; font-size:14px; color:var(--text); user-select:none; -webkit-tap-highlight-color:transparent;
+}
+.filter-menu-item:active{ background:var(--surface2); }
+.filter-menu-item .fdd-icon{ width:26px; height:26px; flex:0 0 auto; }
+.filter-radio{
+  flex:none; width:18px; height:18px; border-radius:50%; border:2px solid var(--border);
+  position:relative; box-sizing:border-box;
+}
+.filter-radio.checked{ border-color:var(--accent); }
+.filter-radio.checked::after{
+  content:''; position:absolute; top:50%; left:50%; width:8px; height:8px;
+  transform:translate(-50%,-50%);
+  border-radius:50%; background:var(--accent);
+}
+
+/* ===== ปุ่มเลือกไฟล์ (แทน <input type=file> ดีฟอลต์ของเบราว์เซอร์) ===== */
+.file-upload-btn{
+  display:flex; align-items:center; gap:8px; width:100%;
+  background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+  padding:10px 12px; color:var(--text); font-family:var(--sans); font-size:14px;
+  cursor:pointer; transition:border-color .15s;
+}
+.file-upload-btn:hover, .file-upload-btn:active{ border-color:var(--accent); }
+.file-upload-btn .file-upload-icon{ flex:0 0 auto; font-size:16px; }
 </style>
 </head>
 <body>
@@ -272,15 +320,15 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     <div class="modal-body">
       <div>
         <label class="field-label">ชื่อแผนงาน *</label>
-        <input class="field-input" id="pf-plan-name" placeholder="เช่น หมู่ 5 บ้านทุ่ง ต.คุยม่วง">
-      </div>
-      <div>
-        <label class="field-label">พื้นที่ / สายป้อน (ไม่บังคับ)</label>
-        <input class="field-input" id="pf-plan-area" placeholder="เช่น สายป้อน คป.7">
+        <input class="field-input" id="pf-plan-name" placeholder="PATROL 25XX">
       </div>
       <div>
         <label class="field-label">นำเข้ารายชื่อจุดจาก Excel (.xlsx)</label>
-        <input type="file" class="field-input" id="pf-plan-excel" accept=".xlsx,.xls">
+        <label class="file-upload-btn" for="pf-plan-excel">
+          <span class="file-upload-icon">📎</span>
+          <span id="pf-plan-excel-label">เลือกไฟล์ Excel</span>
+        </label>
+        <input type="file" id="pf-plan-excel" accept=".xlsx,.xls" style="display:none" onchange="onPlanExcelChosen(this)">
         <div class="field-hint">ไฟล์ต้องมีคอลัมน์หัวตาราง "PEA หม้อแปลง", "ฟีดเดอร์", "สถานที่ติดตั้ง" ในแถวแรก ระบบจะสร้าง/อัปเดตจุดสำรวจให้อัตโนมัติ (นำเข้าซ้ำได้ไม่ซ้ำจุด)</div>
       </div>
     </div>
@@ -322,11 +370,16 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         </div>
         <div>
           <label class="field-label">สถานะ</label>
-          <button type="button" class="field-input" id="pt-status-display" onclick="openStatusPicker()"
-                  style="text-align:left; display:flex; align-items:center; gap:10px; cursor:pointer;">
-            <img id="pt-status-icon-preview" src="" style="width:22px; height:22px; flex:0 0 auto;">
-            <span id="pt-status-label-preview">เลือกสถานะ</span>
-          </button>
+          <div class="filter-dropdown-wrap" id="pt-status-wrap">
+            <button type="button" class="filter-dropdown-btn" id="pt-status-display" onclick="toggleStatusDropdown()">
+              <span class="fdd-left">
+                <img id="pt-status-icon-preview" class="fdd-icon" src="">
+                <span class="fdd-label" id="pt-status-label-preview">เลือกสถานะ</span>
+              </span>
+              <span class="fdd-caret">▾</span>
+            </button>
+            <div class="filter-menu" id="pt-status-menu"></div>
+          </div>
           <input type="hidden" id="pt-status" value="no_survey">
         </div>
         <div>
@@ -547,7 +600,8 @@ function openCreatePlan() {
   document.getElementById('btn-save-plan').textContent = 'สร้างแผนงาน';
   document.getElementById('btn-delete-plan').style.display = 'none';
   document.getElementById('pf-plan-name').value = '';
-  document.getElementById('pf-plan-area').value = '';
+  document.getElementById('pf-plan-excel').value = '';
+  document.getElementById('pf-plan-excel-label').textContent = 'เลือกไฟล์ Excel';
   openModal('plan-modal');
 }
 window.openCreatePlan = openCreatePlan;
@@ -560,14 +614,21 @@ function openEditPlan(planId) {
   document.getElementById('btn-save-plan').textContent = 'บันทึกการแก้ไข';
   document.getElementById('btn-delete-plan').style.display = 'block';
   document.getElementById('pf-plan-name').value = plan.planName || '';
-  document.getElementById('pf-plan-area').value = plan.area || '';
+  document.getElementById('pf-plan-excel').value = '';
+  document.getElementById('pf-plan-excel-label').textContent = 'เลือกไฟล์ Excel';
   openModal('plan-modal');
 }
 window.openEditPlan = openEditPlan;
 
+function onPlanExcelChosen(input) {
+  const label = document.getElementById('pf-plan-excel-label');
+  label.textContent = (input.files && input.files[0]) ? input.files[0].name : 'เลือกไฟล์ Excel';
+}
+window.onPlanExcelChosen = onPlanExcelChosen;
+
 async function savePlan() {
   const name = document.getElementById('pf-plan-name').value.trim();
-  const area = document.getElementById('pf-plan-area').value.trim();
+  const area = '';
   if (!name) { showToast('กรุณากรอกชื่อแผนงาน'); return; }
   const { doc, setDoc } = window._fsLib;
 
@@ -964,22 +1025,41 @@ function setStatusValue(id) {
   document.getElementById('pt-status-label-preview').textContent = s.label;
 }
 
-function openStatusPicker() {
+function openStatusDropdown() {
   const currentId = document.getElementById('pt-status').value;
-  const wrap = document.getElementById('status-picker-list');
+  const wrap = document.getElementById('pt-status-menu');
   wrap.innerHTML = STATUS_LIST.map(s => `
-    <div class="status-picker-row ${s.id === currentId ? 'active' : ''}" onclick="selectStatus('${s.id}')">
-      <img src="${STATUS_ICONS[s.id]}" style="width:28px; height:28px;">
+    <div class="filter-menu-item" onclick="selectStatus('${s.id}')">
+      <span class="filter-radio${s.id === currentId ? ' checked' : ''}"></span>
+      <img class="fdd-icon" src="${STATUS_ICONS[s.id]}">
       <span style="flex:1;">${esc(s.label)}</span>
-      <span class="status-picker-radio">${s.id === currentId ? '●' : '○'}</span>
     </div>`).join('');
-  openModal('status-modal');
 }
-window.openStatusPicker = openStatusPicker;
+
+function toggleStatusDropdown() {
+  const btn = document.getElementById('pt-status-display');
+  const menu = document.getElementById('pt-status-menu');
+  const willOpen = !menu.classList.contains('open');
+  fddCloseAll();
+  if (willOpen) {
+    openStatusDropdown();
+    menu.classList.add('open');
+    btn.classList.add('open');
+  }
+}
+window.toggleStatusDropdown = toggleStatusDropdown;
+
+function fddCloseAll() {
+  document.querySelectorAll('.filter-menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.filter-dropdown-btn.open').forEach(b => b.classList.remove('open'));
+}
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('.filter-dropdown-wrap')) fddCloseAll();
+});
 
 function selectStatus(id) {
   setStatusValue(id);
-  closeModal('status-modal');
+  fddCloseAll();
 }
 window.selectStatus = selectStatus;
 
