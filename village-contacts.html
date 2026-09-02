@@ -371,6 +371,18 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
 
   const MAIN_TAMBONS = ['ต.ชุมแสงสงคราม','ต.คุยม่วง','ต.บึงกอก','ต.นิคมพัฒนา','ต.หนองกุลา'];
 
+  // ค่าที่ถือว่า "ไม่มีข้อมูล" ในไฟล์ต้นฉบับ (ว่าง, "-", หรือคำว่า "รอข้อมูล")
+  function isEmptyValue(v) {
+    const s = (v == null ? '' : String(v)).trim();
+    return s === '' || s === '-' || s === 'รอข้อมูล';
+  }
+  function getTelDigits(d) {
+    return (d.tel || '').replace(/\D/g, '');
+  }
+  function isPending(d) {
+    return isEmptyValue(d.name) || getTelDigits(d) === '';
+  }
+
   function showToast(msg) {
     toastEl.textContent = msg;
     toastEl.classList.add('show');
@@ -428,7 +440,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
     const total = DATA.length;
     const kamnan = DATA.filter(d => d.role === 'กำนัน').length;
     const puyai = DATA.filter(d => d.role === 'ผู้ใหญ่บ้าน').length;
-    const pending = DATA.filter(d => d.name === 'รอข้อมูล' || !(d.tel || '').trim()).length;
+    const pending = DATA.filter(isPending).length;
 
     document.getElementById('stat-total').textContent = total.toLocaleString();
     document.getElementById('stat-kamnan').textContent = kamnan.toLocaleString();
@@ -493,17 +505,16 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
       return;
     }
 
-    const isPending = d => d.name === 'รอข้อมูล';
-
     listEl.innerHTML = filtered.map(d => {
       const isKamnan = d.role === 'กำนัน';
       const isExtra = !MAIN_TAMBONS.includes(d.tambon);
       const avatar = getAvatar(d);
       const fontSize = avatarFontSize(d.moo);
-      const telDigits = (d.tel||'').replace(/\D/g,'');
+      const telDigits = getTelDigits(d);
+      const noName = isEmptyValue(d.name);
       const callBtn = telDigits
         ? `<a class="call-btn" href="tel:${telDigits}">📞</a>`
-        : `<div class="call-btn no-tel" title="${isPending(d)?'รอข้อมูล':'ไม่มีเบอร์โทร'}">—</div>`;
+        : `<div class="call-btn no-tel" title="รอข้อมูล / ไม่มีเบอร์โทร">—</div>`;
       const location = isExtra
         ? `ม.${d.moo} บ้าน${d.village} ${d.tambon} ${d.amphoe||''} ${d.changwat||''}`
         : `ม.${d.moo} ${d.village} · ${d.tambon}`;
@@ -511,12 +522,12 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
         <div class="card${isPending(d)?' pending':''}">
           <div class="avatar ${isKamnan ? 'avatar-kamnan' : 'avatar-puyai'}" style="font-size:${fontSize};font-family:var(--mono);letter-spacing:-0.5px;">${avatar}</div>
           <div class="card-info">
-            <div class="card-name">${isPending(d) ? '<span style="color:var(--text2);font-style:italic;">รอข้อมูล</span>' : d.name}</div>
+            <div class="card-name">${noName ? '<span style="color:var(--text2);font-style:italic;">รอข้อมูล</span>' : d.name}</div>
             <div class="card-role-row">
               <span class="role-badge ${isKamnan ? 'role-kamnan' : 'role-puyai'}">${d.role}</span>
               <span class="card-moo">${location}</span>
             </div>
-            <div class="card-tel">${d.tel || (isPending(d) ? '— รอข้อมูล' : '—')}</div>
+            <div class="card-tel">${telDigits ? d.tel : '— รอข้อมูล'}</div>
           </div>
           ${callBtn}
         </div>`;
