@@ -357,7 +357,10 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
 
 <div class="toast" id="toast"></div>
 
-<script src="village-leaders-data.js"></script>
+<script>
+  // กันเบราว์เซอร์แคชไฟล์ข้อมูลเก่าไว้ — โหลดไฟล์ข้อมูลใหม่ทุกครั้งที่เข้าเว็บ (แคชได้สูงสุด 1 ชม.)
+  document.write('<script src="village-leaders-data.js?v=' + Math.floor(Date.now() / 3600000) + '"><\/script>');
+</script>
 <script>
   // ไฟล์นี้เป็น static site ล้วนๆ ไม่มีการเชื่อมต่อฐานข้อมูลใดๆ
   // ข้อมูลทั้งหมดมาจาก village-leaders-data.js (ตัวแปร SEED_DATA) ที่โหลดไว้ก่อนหน้านี้
