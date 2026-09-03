@@ -617,6 +617,8 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
           const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
           const tambonHtml = toHtmlTambon(sheetName);
           const fallbackMap = VILLAGE_FALLBACK[stripTambonPrefix(tambonHtml)] || {};
+          const isOutsideBangrakam = typeof MAIN_TAMBONS !== 'undefined' && !MAIN_TAMBONS.includes(tambonHtml);
+          let warnedMissingProvince = false;
 
           rows.forEach((row, idx) => {
             // รองรับหัวคอลัมน์หลายแบบ เผื่อสะกด/เว้นวรรคต่างกันเล็กน้อย
@@ -636,6 +638,10 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
             let village = String(get('ชื่อหมู่บ้าน', 'หมู่บ้าน', 'village')).trim();
             const tambonCol = String(get('ตำบล', 'tambon')).trim();
             const tambon = tambonCol ? toHtmlTambon(tambonCol) : tambonHtml;
+            const amphoeRaw = String(get('อำเภอ', 'amphoe')).trim();
+            const changwatRaw = String(get('จังหวัด', 'changwat')).trim();
+            const amphoe = amphoeRaw ? (amphoeRaw.startsWith('อ.') ? amphoeRaw : 'อ.' + amphoeRaw) : '';
+            const changwat = changwatRaw ? (changwatRaw.startsWith('จ.') ? changwatRaw : 'จ.' + changwatRaw) : '';
 
             if (!village && !isNaN(mooInt)) {
               village = fallbackMap[mooInt] || '';
@@ -645,7 +651,14 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
               return;
             }
 
-            records.push({ tambon, moo, village, name, role, tel });
+            const record = { tambon, moo, village, name, role, tel };
+            if (amphoe) record.amphoe = amphoe;
+            if (changwat) record.changwat = changwat;
+            if (isOutsideBangrakam && (!amphoe || !changwat) && !warnedMissingProvince) {
+              warnedMissingProvince = true;
+              warnings.push(`ชีท "${sheetName}" อยู่นอกพื้นที่บางระกำ แต่ไม่มีคอลัมน์ "อำเภอ"/"จังหวัด" ครบ — สถิติ "จังหวัด/อำเภอ" ในแดชบอร์ดอาจนับไม่ครบ`);
+            }
+            records.push(record);
           });
         });
 
