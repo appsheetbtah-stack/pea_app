@@ -1795,24 +1795,17 @@ function copyTextSync(text) {
   const ta = document.getElementById('etr-preview-text');
   if (!ta) return false;
 
-  const prevStart = ta.selectionStart;
-  const prevEnd = ta.selectionEnd;
-  const prevReadOnly = ta.readOnly;
-
   try {
-    ta.readOnly = false;
     ta.focus({ preventScroll: true });
     ta.select();
     ta.setSelectionRange(0, ta.value.length);
-
     const ok = document.execCommand('copy');
-
-    ta.setSelectionRange(prevStart, prevEnd);
-    ta.readOnly = prevReadOnly;
+    // สำคัญ: ไม่ restore selection/focus เดิม เพราะ Android WebView บางรุ่น
+    // อาจเก็บสถานะ selection ไว้แล้วมีปัญหาเมื่อกด "เปิด LINE" ต่อทันที
+    ta.blur();
     return ok;
   } catch (e) {
-    ta.readOnly = prevReadOnly;
-    try { ta.setSelectionRange(prevStart, prevEnd); } catch (_) {}
+    try { ta.blur(); } catch (_) {}
     console.warn('ETR copy failed:', e);
     return false;
   }
