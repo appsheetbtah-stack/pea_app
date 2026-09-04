@@ -1768,26 +1768,47 @@ function closeEtrPreview() {
 }
 window.closeEtrPreview = closeEtrPreview;
 
+// navigator.clipboard.writeText() บนมือถือบางรุ่น (โดยเฉพาะ WebView บางเวอร์ชัน) เจอบั๊กที่
+// promise ค้างตลอดกาล ไม่ resolve และไม่ reject เลย ทำให้โค้ดที่ await ตรงๆ ดูเหมือนกดปุ่มแล้วค้าง
+// ฟังก์ชันนี้ใส่ timeout กันไว้ (แข่งกับ Promise.race) ถ้าเกิน 1.5 วิยังไม่เสร็จ ให้ fallback ไปใช้
+// document.execCommand('copy') ผ่าน textarea แทน เพื่อให้ผู้ใช้ได้รับผลลัพธ์เสมอ ไม่ปล่อยให้ค้างเงียบๆ
+function copyTextRobust(text, timeoutMs = 1500) {
+  const viaClipboardApi = (navigator.clipboard && navigator.clipboard.writeText)
+    ? navigator.clipboard.writeText(text)
+    : Promise.reject(new Error('clipboard api unavailable'));
+  const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('clipboard timeout')), timeoutMs));
+
+  return Promise.race([viaClipboardApi, timeout]).then(
+    () => true,
+    () => {
+      // Fallback: เลือกข้อความในกล่อง etr-preview-text แล้วสั่งคัดลอกแบบเก่า (execCommand)
+      try {
+        const ta = document.getElementById('etr-preview-text');
+        const prevStart = ta.selectionStart, prevEnd = ta.selectionEnd;
+        ta.focus();
+        ta.select();
+        const ok = document.execCommand('copy');
+        ta.setSelectionRange(prevStart, prevEnd);
+        return ok;
+      } catch (e) {
+        return false;
+      }
+    }
+  );
+}
+
 document.getElementById('etr-copy-btn').addEventListener('click', async () => {
   const msg = document.getElementById('etr-preview-text').value;
-  try {
-    await navigator.clipboard.writeText(msg);
-    showToast('คัดลอกข้อความแล้ว ✓', 'success');
-  } catch(e) {
-    showToast('คัดลอกไม่สำเร็จ', 'error');
-  }
+  const ok = await copyTextRobust(msg);
+  showToast(ok ? 'คัดลอกข้อความแล้ว ✓' : 'คัดลอกไม่สำเร็จ', ok ? 'success' : 'error');
 });
 
 // แยกเป็นฟังก์ชัน async ต่างหาก และ "ไม่ await" ตอนเรียกจากปุ่ม
-// เพื่อไม่ให้การกดปุ่มค้าง หาก navigator.clipboard.writeText() หน่วง/ค้าง
+// เพื่อไม่ให้การกดปุ่มค้าง หาก clipboard หน่วง/ค้าง
 // (พบบ่อยบนมือถือเมื่อหน้าเว็บเพิ่งเสียโฟกัส เช่น กดปุ่มขณะ scroll list หรือ modal เพิ่งปิด)
 async function sendToEtrGroup(msg) {
-  try {
-    await navigator.clipboard.writeText(msg);
-    showToast('คัดลอกข้อความแล้ว ✓ กำลังเปิด LINE...', 'success');
-  } catch(e) {
-    showToast('กำลังเปิด LINE...', '');
-  }
+  const ok = await copyTextRobust(msg);
+  showToast(ok ? 'คัดลอกข้อความแล้ว ✓ กำลังเปิด LINE...' : 'คัดลอกไม่สำเร็จ กำลังเปิด LINE...', ok ? 'success' : 'error');
   const lineUrl = 'https://line.me/R/msg/text/?' + encodeURIComponent(msg);
   window.open(lineUrl, '_blank');
 }
