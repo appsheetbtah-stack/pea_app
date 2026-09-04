@@ -76,15 +76,16 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
 /* ── BOTTOM NAV ── */
 .bottom-nav {
-  position:fixed; bottom:0; left:0; right:0; height:var(--botnav); z-index:600;
+  position:fixed; bottom:0; left:0; right:0; height:var(--botnav); z-index:12000;
   background:var(--surface); border-top:1px solid var(--border);
-  display:flex;
+  display:flex; pointer-events:auto; isolation:isolate;
+  padding-bottom:env(safe-area-inset-bottom, 0px);
 }
 .nav-btn {
   flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
   gap:3px; background:none; border:none; color:var(--text2);
   cursor:pointer; font-family:var(--sans); transition:color .15s; padding:0;
-  position:relative;
+  position:relative; pointer-events:auto; touch-action:manipulation;
 }
 .nav-btn.active { color:var(--accent); }
 .nav-btn.active::after {
@@ -1304,6 +1305,17 @@ function switchTab(tab) {
     refreshTumbolStatsChart();
   }
 }
+
+// Android/PWA: ผูก event ให้ bottom navigation โดยตรงอีกชั้น
+// เพื่อไม่ให้ inline onclick เงียบหลังสลับกลับจาก LINE/WebView
+document.querySelectorAll('.bottom-nav .nav-btn').forEach(btn => {
+  btn.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const tab = btn.id.replace('btn-tab-', '');
+    try { switchTab(tab); } catch (e) { console.error('Bottom nav error:', e); }
+  }, { passive:false });
+});
 
 // (5) ให้ Firestore นับจำนวนให้ฝั่ง server แทนการดาวน์โหลดข้อมูลทั้งหมดมานับเองที่เครื่อง
 // เรียกเฉพาะตอนเปิดแท็บ Dashboard (ไม่ใช่ทุกครั้งที่มีข้อมูลเปลี่ยน) เพื่อประหยัด quota การอ่าน
