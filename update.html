@@ -367,8 +367,8 @@ body {
   <div class="popup-footer">
     <button class="popup-clear" onclick="closeEtrPreview()">ปิด</button>
     <div class="etr-footer-actions">
-      <button class="popup-done" id="etr-copy-btn">📋 คัดลอก</button>
-      <button class="popup-done" id="etr-send-btn" style="color:var(--accent2)">เปิด LINE →</button>
+      <button type="button" class="popup-done" id="etr-copy-btn">📋 คัดลอก</button>
+      <button type="button" class="popup-done" id="etr-send-btn" style="color:var(--accent2)">เปิด LINE →</button>
     </div>
   </div>
 </div>
@@ -1070,49 +1070,45 @@ body {
   }
 
   // ===== ข้อความรอบที่ 2: แจ้งไฟติด + วัสดุที่ใช้ =====
-  // สรุปวัสดุ/อุปกรณ์แบบสั้น รองรับวัสดุที่มีหลายขนาดในรายการเดียว (sizeBreakdown)
-  // เช่น "ฟิวส์แรงสูง 10 K 1 เส้น, ฟิวส์แรงสูง 15 K 1 เส้น"
-  function materialsShortSummary() {
-    if(!selectedMaterials.length) return '';
-    const parts = [];
-    selectedMaterials.forEach(m => {
-      if(m.sizeBreakdown) {
-        m.sizeBreakdown.forEach(b => {
-          parts.push(`${m.name}${b.size?' '+b.size:''} ${b.qty} ${m.unit}`);
-        });
-      } else {
-        parts.push(`${m.name} ${m.qty ?? 1} ${m.unit}`);
-      }
-    });
-    return parts.join(', ');
-  }
-
-  // ===== ข้อความรอบที่ 2: ตอบกลับแจ้งไฟติด (ใช้ reply แชทเดิมที่แจ้งไฟดับไว้ ไม่ต้องพิมพ์หัว/ที่อยู่ซ้ำ) =====
+  // แสดงเฉพาะวัสดุ/อุปกรณ์ที่ใช้ ตามรูปแบบข้อความตอบกลับแจ้งไฟติด
   function buildRestoreMessage() {
-    const matSummary = materialsShortSummary();
-    const fixSummary = selectedFixes.length ? selectedFixes.join(', ') : '';
-    const causeSummary = selectedCauses.length ? selectedCauses.join(', ') : '';
+    const materials = (selectedMaterials && selectedMaterials.length)
+      ? selectedMaterials.flatMap(m => {
+          if (m.sizeBreakdown && m.sizeBreakdown.length) {
+            return m.sizeBreakdown.map(b =>
+              `${m.name}${b.size ? ' ' + b.size : ''} ${b.qty ?? 1} ${m.unit || ''}`.trim()
+            );
+          }
+          return [`${m.name}${m.size ? ' ' + m.size : ''} ${m.qty ?? 1} ${m.unit || ''}`.trim()];
+        })
+      : [];
 
-    const parts = [];
-    if (matSummary || fixSummary) {
-      parts.push([matSummary, fixSummary].filter(Boolean).join(' '));
-    }
-    if (causeSummary) parts.push(causeSummary);
-    const detail = parts.length ? ' ' + parts.join(' ') : '';
+    const materialLines = materials.length
+      ? materials.map((item, i) => `    ${item}${i < materials.length - 1 ? ',' : ''}`).join('\n')
+      : '    -';
 
-    return `จ่ายไฟใช้ได้ปกติ${detail}`;
+    return `จ่ายไฟใช้ได้ปกติ\nวัสดุ/อุปกรณ์ที่ใช้\n${materialLines}`;
   }
 
-  async function sendToEtrGroup(msg) {
-    try {
-      await navigator.clipboard.writeText(msg);
-      showToast('คัดลอกข้อความแล้ว ✓ กำลังเปิด LINE...', 'success');
-    } catch (e) {
-      showToast('กำลังเปิด LINE...', '');
+  // เปิด LINE โดยไม่รอ Clipboard API และไม่ใช้ window.open
+  // เพื่อป้องกันอาการแอปค้างบน Android WebView/PWA
+  function sendToEtrGroup(msg) {
+    if (!msg) {
+      showToast('ไม่มีข้อความสำหรับส่ง LINE', 'error');
+      return;
     }
-    // เปิดหน้าต่างแชร์ของ LINE พร้อมข้อความ ให้ผู้ใช้เลือกส่งเข้ากลุ่ม ETR เอง
-    const lineUrl = 'https://line.me/R/msg/text/?' + encodeURIComponent(msg);
-    window.open(lineUrl, '_blank');
+
+    let lineUrl;
+    try {
+      lineUrl = 'https://line.me/R/msg/text/?' + encodeURIComponent(msg);
+    } catch (e) {
+      console.error('สร้างลิงก์ LINE ไม่สำเร็จ:', e);
+      showToast('สร้างลิงก์ LINE ไม่สำเร็จ', 'error');
+      return;
+    }
+
+    closeEtrPreview();
+    window.location.assign(lineUrl);
   }
 
   function openEtrOutagePreview() {
@@ -1157,20 +1153,64 @@ body {
   }
   window.closeEtrPreview = closeEtrPreview;
 
-  document.getElementById('etr-copy-btn').addEventListener('click', async () => {
-    const msg = document.getElementById('etr-preview-text').value;
+  // คัดลอกแบบ synchronous เพื่อไม่ให้ Promise ของ Clipboard API ค้างใน WebView/PWA
+  function copyTextSync(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text || '';
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    ta.style.top = '0';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+
+    const active = document.activeElement;
+    const selection = window.getSelection ? window.getSelection() : null;
+    const ranges = [];
+    if (selection) {
+      for (let i = 0; i < selection.rangeCount; i++) ranges.push(selection.getRangeAt(i));
+    }
+
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+
+    let ok = false;
     try {
-      await navigator.clipboard.writeText(msg);
-      showToast('คัดลอกข้อความแล้ว ✓', 'success');
+      ok = document.execCommand('copy');
     } catch (e) {
+      console.warn('copy failed:', e);
+    }
+
+    document.body.removeChild(ta);
+
+    try {
+      if (selection) {
+        selection.removeAllRanges();
+        ranges.forEach(r => selection.addRange(r));
+      }
+      if (active && typeof active.focus === 'function') active.focus();
+    } catch (_) {}
+
+    return ok;
+  }
+
+  document.getElementById('etr-copy-btn').addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const msg = document.getElementById('etr-preview-text').value;
+    if (copyTextSync(msg)) {
+      showToast('คัดลอกข้อความแล้ว ✓', 'success');
+    } else {
       showToast('คัดลอกไม่สำเร็จ', 'error');
     }
   });
 
-  document.getElementById('etr-send-btn').addEventListener('click', () => {
+  document.getElementById('etr-send-btn').addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     const msg = document.getElementById('etr-preview-text').value;
     sendToEtrGroup(msg);
-    closeEtrPreview();
   });
 
   let currentDocId = null;

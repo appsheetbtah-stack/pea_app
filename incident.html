@@ -607,10 +607,10 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
     <div class="etr-sheet-hint">แก้ไขข้อความก่อนส่งได้ตามต้องการ</div>
   </div>
   <div class="etr-sheet-footer">
-    <button class="btn btn-ghost" onclick="closeEtrPreview()">ปิด</button>
+    <button type="button" class="btn btn-ghost" onclick="closeEtrPreview()">ปิด</button>
     <div style="display:flex; gap:8px;">
-      <button class="btn btn-ghost" id="etr-copy-btn">📋 คัดลอก</button>
-      <button class="btn btn-etr" id="etr-send-btn">เปิด LINE →</button>
+      <button type="button" class="btn btn-ghost" id="etr-copy-btn">📋 คัดลอก</button>
+      <button type="button" class="btn btn-etr" id="etr-send-btn">เปิด LINE →</button>
     </div>
   </div>
 </div>
@@ -1716,31 +1716,29 @@ PEANO: ${t.peano}
 
 
 function buildRestoreMessage(t) {
-  // สรุปวัสดุ/อุปกรณ์แบบสั้น รองรับวัสดุที่มีหลายขนาดในรายการเดียว (sizeBreakdown)
-  // เช่น "ฟิวส์แรงสูง 10 K 1 เส้น, ฟิวส์แรงสูง 15 K 1 เส้น"
-  // (รองรับทิกเก็ตเก่าที่ยังเป็นรูปแบบ size/qty แบบเดี่ยวด้วย เพื่อไม่ให้ข้อความพังกับข้อมูลเก่า)
-  const matSummary = (t.materials && t.materials.length)
-    ? t.materials.map(m => {
+  // รูปแบบข้อความแจ้งไฟติดตามที่ต้องการ:
+  // จ่ายไฟใช้ได้ปกติ
+  // วัสดุ/อุปกรณ์ที่ใช้
+  //    รายการวัสดุแต่ละรายการแยกบรรทัด
+  // ไม่แสดงรายการ "ต่อสายใหม่/ซ่อมจุดต่อ", สาเหตุ หรือข้อความอื่นจาก fixes/causes
+  const materials = (t.materials && t.materials.length)
+    ? t.materials.flatMap(m => {
         if (m.sizeBreakdown && m.sizeBreakdown.length) {
-          return m.sizeBreakdown.map(b => `${m.name}${b.size?' '+b.size:''} ${b.qty ?? 1} ${m.unit}`).join(', ');
+          return m.sizeBreakdown.map(b =>
+            `${m.name}${b.size ? ' ' + b.size : ''} ${b.qty ?? 1} ${m.unit || ''}`.trim()
+          );
         }
-        return `${m.name}${m.size?' '+m.size:''} ${m.qty ?? 1} ${m.unit}`;
-      }).join(', ')
-    : '';
-  const fixSummary = (t.fixes && t.fixes.length) ? t.fixes.join(', ') : '';
-  const causeSummary = (t.causes && t.causes.length) ? t.causes.join(', ') : '';
+        return [
+          `${m.name}${m.size ? ' ' + m.size : ''} ${m.qty ?? 1} ${m.unit || ''}`.trim()
+        ];
+      })
+    : [];
 
-  // ประกอบเป็นประโยคสั้นๆ แบบเดียวกับที่ช่างพิมพ์ตอบกลับจริงใน LINE
-  // ไม่มีหัวข้อ/ที่อยู่/เวลาซ้ำ เพราะข้อความนี้ใช้ตอบกลับ (reply) แชทแจ้งไฟดับเดิมที่มีข้อมูลนั้นอยู่แล้ว
-  // เช่น "จ่ายไฟใช้ได้ปกติ ฟิวส์แรงสูง 15A 1 เส้นเคลียร์ ไม่พบสันนิษฐานว่าสัตว์"
-  const parts = [];
-  if (matSummary || fixSummary) {
-    parts.push([matSummary, fixSummary].filter(Boolean).join(' '));
-  }
-  if (causeSummary) parts.push(causeSummary);
-  const detail = parts.length ? ' ' + parts.join(' ') : '';
+  const materialLines = materials.length
+    ? materials.map((item, i) => `    ${item}${i < materials.length - 1 ? ',' : ''}`).join('\n')
+    : '    -';
 
-  return `จ่ายไฟใช้ได้ปกติ${detail}`;
+  return `จ่ายไฟใช้ได้ปกติ\nวัสดุ/อุปกรณ์ที่ใช้\n${materialLines}`;
 }
 
 function openEtrOutagePreview(id) {
@@ -1789,58 +1787,77 @@ function closeEtrPreview() {
 }
 window.closeEtrPreview = closeEtrPreview;
 
-// navigator.clipboard.writeText() บนมือถือบางรุ่น (โดยเฉพาะ WebView บางเวอร์ชัน) เจอบั๊กที่
-// promise ค้างตลอดกาล ไม่ resolve และไม่ reject เลย ทำให้โค้ดที่ await ตรงๆ ดูเหมือนกดปุ่มแล้วค้าง
-// ฟังก์ชันนี้ใส่ timeout กันไว้ (แข่งกับ Promise.race) ถ้าเกิน 1.5 วิยังไม่เสร็จ ให้ fallback ไปใช้
-// document.execCommand('copy') ผ่าน textarea แทน เพื่อให้ผู้ใช้ได้รับผลลัพธ์เสมอ ไม่ปล่อยให้ค้างเงียบๆ
-function copyTextRobust(text, timeoutMs = 1500) {
-  const viaClipboardApi = (navigator.clipboard && navigator.clipboard.writeText)
-    ? navigator.clipboard.writeText(text)
-    : Promise.reject(new Error('clipboard api unavailable'));
-  const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('clipboard timeout')), timeoutMs));
+// ===== ETR: คัดลอก / เปิด LINE =====
+// สำคัญ: อย่า await navigator.clipboard.writeText() ใน click handler บน Android/WebView/PWA
+// เพราะบาง WebView อาจปล่อย Promise ค้าง ทำให้เหมือนแอปค้างหลังแตะปุ่ม
+// ใช้ execCommand แบบ synchronous ก่อน ซึ่งทำงานทันทีภายใน user gesture
+function copyTextSync(text) {
+  const ta = document.getElementById('etr-preview-text');
+  if (!ta) return false;
 
-  return Promise.race([viaClipboardApi, timeout]).then(
-    () => true,
-    () => {
-      // Fallback: เลือกข้อความในกล่อง etr-preview-text แล้วสั่งคัดลอกแบบเก่า (execCommand)
-      try {
-        const ta = document.getElementById('etr-preview-text');
-        const prevStart = ta.selectionStart, prevEnd = ta.selectionEnd;
-        ta.focus();
-        ta.select();
-        const ok = document.execCommand('copy');
-        ta.setSelectionRange(prevStart, prevEnd);
-        return ok;
-      } catch (e) {
-        return false;
-      }
-    }
-  );
+  const prevStart = ta.selectionStart;
+  const prevEnd = ta.selectionEnd;
+  const prevReadOnly = ta.readOnly;
+
+  try {
+    ta.readOnly = false;
+    ta.focus({ preventScroll: true });
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+
+    const ok = document.execCommand('copy');
+
+    ta.setSelectionRange(prevStart, prevEnd);
+    ta.readOnly = prevReadOnly;
+    return ok;
+  } catch (e) {
+    ta.readOnly = prevReadOnly;
+    try { ta.setSelectionRange(prevStart, prevEnd); } catch (_) {}
+    console.warn('ETR copy failed:', e);
+    return false;
+  }
 }
 
-document.getElementById('etr-copy-btn').addEventListener('click', async () => {
-  const msg = document.getElementById('etr-preview-text').value;
-  const ok = await copyTextRobust(msg);
-  showToast(ok ? 'คัดลอกข้อความแล้ว ✓' : 'คัดลอกไม่สำเร็จ', ok ? 'success' : 'error');
+document.getElementById('etr-copy-btn').addEventListener('click', (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const msg = document.getElementById('etr-preview-text').value || '';
+  if (!msg) {
+    showToast('ไม่มีข้อความให้คัดลอก', 'error');
+    return;
+  }
+
+  // ทำงานแบบ synchronous: ไม่มี await / Promise / timeout ในจังหวะกดปุ่ม
+  const ok = copyTextSync(msg);
+  showToast(ok ? 'คัดลอกข้อความแล้ว ✓' : 'คัดลอกไม่สำเร็จ — แตะในกล่องข้อความแล้วเลือกคัดลอกอีกครั้ง', ok ? 'success' : 'error');
 });
 
-document.getElementById('etr-send-btn').addEventListener('click', () => {
-  const msg = document.getElementById('etr-preview-text').value;
-  const lineUrl = 'https://line.me/R/msg/text/?' + encodeURIComponent(msg);
+document.getElementById('etr-send-btn').addEventListener('click', (event) => {
+  event.preventDefault();
+  event.stopPropagation();
 
-  // เปิด LINE "ทันที" แบบ synchronous ในตัว click handler เลย ไม่รอ clipboard ก่อน
-  // สำคัญมากสำหรับแอปที่ติดตั้งเป็น PWA (มี manifest.json / apple-mobile-web-app-capable) —
-  // ถ้า window.open() ถูกเรียกหลัง await (มีการหน่วงแม้เสี้ยววินาที) เบราว์เซอร์/WebView บางตัว
-  // จะไม่นับว่าเป็นการกระทำที่มาจากผู้ใช้โดยตรงอีกต่อไป (user-activation หมดอายุ) ทำให้การเปิดแอป
-  // ภายนอกทำงานผิดปกติ หรือค้างครึ่งๆ กลางๆ ตอนสลับกลับมาจาก LINE
-  // 'noopener' กันไม่ให้หน้าต่างใหม่ถือ reference กลับมาที่หน้านี้ (กันปัญหาหน่วง/ค้างบางกรณีบน Android)
-  window.open(lineUrl, '_blank', 'noopener');
+  const msg = document.getElementById('etr-preview-text').value || '';
+  if (!msg) {
+    showToast('ไม่มีข้อความสำหรับส่ง LINE', 'error');
+    return;
+  }
+
+  let lineUrl;
+  try {
+    // LINE Universal Link — ใช้ navigation โดยตรงแทน window.open('_blank')
+    // เพราะ window.open ใน PWA/WebView บน Android บางรุ่นอาจเปิดหน้าต่าง/แท็บใหม่
+    // แล้วทำให้ WebView ดูเหมือนค้างเมื่อสลับไป LINE และกลับมา
+    lineUrl = 'https://line.me/R/msg/text/?' + encodeURIComponent(msg);
+  } catch (e) {
+    console.error('ETR LINE URL error:', e);
+    showToast('สร้างลิงก์ LINE ไม่สำเร็จ', 'error');
+    return;
+  }
+
+  // ปิด modal ก่อน แล้วเปลี่ยนหน้าโดยตรงใน user gesture เดียวกัน
   closeEtrPreview();
-
-  // คัดลอกข้อความแบบขนาน ไม่บล็อก ไม่หน่วงการเปิด LINE เลย
-  copyTextRobust(msg).then(ok => {
-    showToast(ok ? 'คัดลอกข้อความแล้ว ✓' : 'คัดลอกไม่สำเร็จ ลองกด "คัดลอก" อีกครั้ง', ok ? 'success' : 'error');
-  });
+  window.location.assign(lineUrl);
 });
 
 function updateTicketBadge() {
