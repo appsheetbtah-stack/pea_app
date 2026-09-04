@@ -640,6 +640,20 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
 
   // (5) จำกัดจำนวน ticket ที่ดึงมาแสดง/ทำงานด้วยฝั่ง client ไว้ที่ 1,000 รายการล่าสุด เป็นเพดานความปลอดภัย
   // (ใช้ร่วมกับข้อ 4 ที่ย้ายงานเก่าออกไป archive เรื่อยๆ ทำให้ 1,000 นี้พอเพียงสำหรับงานที่ยัง active อยู่จริง)
+
+  // ยิง Firestore transaction ทีละกลุ่มเล็กๆ (แทนการยิงพร้อมกันหมดทุกตัว) เพื่อไม่ให้ main thread/เครือข่าย
+  // โดนกระแทกพร้อมกันทีเดียว โดยเฉพาะตอนหน้าเว็บเพิ่งโหลดใหม่ (เช่น สลับกลับมาจาก LINE) ที่ต้อง sync
+  // ทุก ticket ใหม่หมดในคราวเดียว — ผลลัพธ์สุดท้ายเหมือนเดิมทุกประการ แค่ทยอยทำแทน
+  async function syncStatsInBatches(items, fn, batchSize = 3, delayMs = 60) {
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      await Promise.all(batch.map(item => fn(item)));
+      if (i + batchSize < items.length) {
+        await new Promise(r => setTimeout(r, delayMs));
+      }
+    }
+  }
+
   const q = query(collection(db, "tickets"), orderBy("createdAt", "desc"), limit(1000));
   onSnapshot(q, (snapshot) => {
     tickets = snapshot.docs.map(d => ({ _docId: d.id, ...d.data() }));
@@ -649,11 +663,18 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
     if (mapFull) renderTicketMarkers();
     // ซิงก์สถิติอุปกรณ์ + ตำบลสะสม ทุกครั้งที่มีข้อมูลใหม่/เปลี่ยนแปลงเข้ามา
     // ฟังก์ชันนี้กันนับซ้ำในตัวเองอยู่แล้ว (ทั้งฝั่ง client และฝั่ง server ผ่าน transaction) เรียกซ้ำได้อย่างปลอดภัย
+    //
+    // สำคัญ: "ทยอย" ยิงทีละกลุ่มเล็กๆ แทนการยิงพร้อมกันหมดทุก ticket ในครั้งเดียว
+    // เพราะตอนหน้าเว็บเพิ่งโหลดใหม่ (เช่น สลับไปเปิด LINE แล้วกลับมา — Android มักรีโหลดหน้าที่ถูกพักไว้นาน
+    // เพื่อประหยัดแรม) แคชกันซ้ำฝั่ง client จะว่างเปล่า ทำให้ทุก ticket ต้อง sync ใหม่หมด ถ้ายิง
+    // runTransaction (network round-trip) พร้อมกันหลายสิบตัวรวดเดียว จะทำให้เครื่อง/เครือข่ายอืดจนกดปุ่ม
+    // อื่นไม่ตอบสนองอยู่พักหนึ่ง — ทยอยยิงทีละไม่กี่ตัวแทน ผลลัพธ์สุดท้ายเหมือนเดิมทุกประการ แค่ไม่กระแทก
+    // main thread/เครือข่ายพร้อมกันทีเดียว
     if (window.syncDeviceStatsForTicket) {
-      tickets.forEach(t => { if (t.equipment && t.equipment.length) window.syncDeviceStatsForTicket(t); });
+      syncStatsInBatches(tickets.filter(t => t.equipment && t.equipment.length), window.syncDeviceStatsForTicket);
     }
     if (window.syncTumbolStatsForTicket) {
-      tickets.forEach(t => window.syncTumbolStatsForTicket(t));
+      syncStatsInBatches(tickets, window.syncTumbolStatsForTicket);
     }
     // เผื่อหน้าโหลดมาก่อน Firestore พร้อม — เรียกอีกครั้งตอนข้อมูลชุดแรกมาถึงจริง
     if (window.refreshAggregateStats) window.refreshAggregateStats();
@@ -1803,20 +1824,23 @@ document.getElementById('etr-copy-btn').addEventListener('click', async () => {
   showToast(ok ? 'คัดลอกข้อความแล้ว ✓' : 'คัดลอกไม่สำเร็จ', ok ? 'success' : 'error');
 });
 
-// แยกเป็นฟังก์ชัน async ต่างหาก และ "ไม่ await" ตอนเรียกจากปุ่ม
-// เพื่อไม่ให้การกดปุ่มค้าง หาก clipboard หน่วง/ค้าง
-// (พบบ่อยบนมือถือเมื่อหน้าเว็บเพิ่งเสียโฟกัส เช่น กดปุ่มขณะ scroll list หรือ modal เพิ่งปิด)
-async function sendToEtrGroup(msg) {
-  const ok = await copyTextRobust(msg);
-  showToast(ok ? 'คัดลอกข้อความแล้ว ✓ กำลังเปิด LINE...' : 'คัดลอกไม่สำเร็จ กำลังเปิด LINE...', ok ? 'success' : 'error');
-  const lineUrl = 'https://line.me/R/msg/text/?' + encodeURIComponent(msg);
-  window.open(lineUrl, '_blank');
-}
-
 document.getElementById('etr-send-btn').addEventListener('click', () => {
   const msg = document.getElementById('etr-preview-text').value;
-  sendToEtrGroup(msg);
+  const lineUrl = 'https://line.me/R/msg/text/?' + encodeURIComponent(msg);
+
+  // เปิด LINE "ทันที" แบบ synchronous ในตัว click handler เลย ไม่รอ clipboard ก่อน
+  // สำคัญมากสำหรับแอปที่ติดตั้งเป็น PWA (มี manifest.json / apple-mobile-web-app-capable) —
+  // ถ้า window.open() ถูกเรียกหลัง await (มีการหน่วงแม้เสี้ยววินาที) เบราว์เซอร์/WebView บางตัว
+  // จะไม่นับว่าเป็นการกระทำที่มาจากผู้ใช้โดยตรงอีกต่อไป (user-activation หมดอายุ) ทำให้การเปิดแอป
+  // ภายนอกทำงานผิดปกติ หรือค้างครึ่งๆ กลางๆ ตอนสลับกลับมาจาก LINE
+  // 'noopener' กันไม่ให้หน้าต่างใหม่ถือ reference กลับมาที่หน้านี้ (กันปัญหาหน่วง/ค้างบางกรณีบน Android)
+  window.open(lineUrl, '_blank', 'noopener');
   closeEtrPreview();
+
+  // คัดลอกข้อความแบบขนาน ไม่บล็อก ไม่หน่วงการเปิด LINE เลย
+  copyTextRobust(msg).then(ok => {
+    showToast(ok ? 'คัดลอกข้อความแล้ว ✓' : 'คัดลอกไม่สำเร็จ ลองกด "คัดลอก" อีกครั้ง', ok ? 'success' : 'error');
+  });
 });
 
 function updateTicketBadge() {
