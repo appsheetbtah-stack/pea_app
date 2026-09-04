@@ -1778,8 +1778,10 @@ document.getElementById('etr-copy-btn').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('etr-send-btn').addEventListener('click', async () => {
-  const msg = document.getElementById('etr-preview-text').value;
+// แยกเป็นฟังก์ชัน async ต่างหาก และ "ไม่ await" ตอนเรียกจากปุ่ม
+// เพื่อไม่ให้การกดปุ่มค้าง หาก navigator.clipboard.writeText() หน่วง/ค้าง
+// (พบบ่อยบนมือถือเมื่อหน้าเว็บเพิ่งเสียโฟกัส เช่น กดปุ่มขณะ scroll list หรือ modal เพิ่งปิด)
+async function sendToEtrGroup(msg) {
   try {
     await navigator.clipboard.writeText(msg);
     showToast('คัดลอกข้อความแล้ว ✓ กำลังเปิด LINE...', 'success');
@@ -1788,6 +1790,11 @@ document.getElementById('etr-send-btn').addEventListener('click', async () => {
   }
   const lineUrl = 'https://line.me/R/msg/text/?' + encodeURIComponent(msg);
   window.open(lineUrl, '_blank');
+}
+
+document.getElementById('etr-send-btn').addEventListener('click', () => {
+  const msg = document.getElementById('etr-preview-text').value;
+  sendToEtrGroup(msg);
   closeEtrPreview();
 });
 
