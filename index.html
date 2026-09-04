@@ -9,6 +9,10 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f1923">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PEA">
 <script>
   // Apply saved theme before paint to avoid flash of wrong theme
   (function(){
@@ -230,17 +234,14 @@ html[data-theme="light"] .theme-toggle .icon-sun { display:block; }
 
 <script>
   var toggleBtn = document.getElementById('themeToggle');
-  var themeColorMeta = document.querySelector('meta[name="theme-color"]');
-  function applyThemeColor(theme) {
-    if (themeColorMeta) themeColorMeta.setAttribute('content', theme === 'light' ? '#f4f6f9' : '#0f1923');
-  }
-  applyThemeColor(document.documentElement.getAttribute('data-theme'));
   toggleBtn.addEventListener('click', function () {
     var root = document.documentElement;
     var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
     root.setAttribute('data-theme', next);
     localStorage.setItem('pea-theme', next);
-    applyThemeColor(next);
+    // Keep the Android/PWA status bar dark, matching the previous app.
+    var themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeColorMeta) themeColorMeta.setAttribute('content', '#0f1923');
   });
 </script>
 
