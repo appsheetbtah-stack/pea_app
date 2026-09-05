@@ -20,7 +20,7 @@
 :root {
   --bg: #0f1923; --surface: #162030; --surface2: #1e2d3d; --border: #2a3f55;
   --accent: #f5a623; --blue: #3b9ede; --green: #2ecc71; --text: #e8f0f8; --text2: #a9bdd1;
-  --sans: 'Sarabun', sans-serif; --mono: 'IBM Plex Mono', monospace;
+  --sans: 'Sarabun', 'Noto Sans Thai', 'Leelawadee UI', 'Tahoma', sans-serif; --mono: 'IBM Plex Mono', monospace;
 }
 html[data-theme="light"] {
   --bg:#e7ebf1;
@@ -33,7 +33,7 @@ html[data-theme="light"] {
 }
 
 * { box-sizing: border-box; margin:0; padding:0; }
-body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); line-height:1.5; min-height: 100vh; }
 
 /* === TOP BAR === */
 .topbar {

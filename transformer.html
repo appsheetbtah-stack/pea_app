@@ -61,9 +61,10 @@ html[data-theme="light"] input[type="time"] {
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    font-family: 'Sarabun', sans-serif;
+    font-family: 'Sarabun', 'Noto Sans Thai', 'Leelawadee UI', 'Tahoma', sans-serif;
     background: var(--bg);
     color: var(--text-primary);
+    line-height: 1.5;
     min-height: 100vh;
     padding-bottom: 40px;
   }
@@ -149,7 +150,7 @@ html[data-theme="light"] input[type="time"] {
     border: none;
     background: transparent;
     color: var(--text-secondary);
-    font-family: 'Sarabun', sans-serif;
+    font-family: 'Sarabun', 'Noto Sans Thai', 'Leelawadee UI', 'Tahoma', sans-serif;
     font-size:14px;
     font-weight: 500;
     border-radius: 9px;
@@ -202,7 +203,7 @@ html[data-theme="light"] input[type="time"] {
   }
   input[type="text"]::placeholder, input[type="number"]::placeholder {
     color: var(--text-muted);
-    font-family: 'Sarabun', sans-serif;
+    font-family: 'Sarabun', 'Noto Sans Thai', 'Leelawadee UI', 'Tahoma', sans-serif;
     font-size:14px;
   }
   input[type="text"]:focus, input[type="number"]:focus {
@@ -379,7 +380,7 @@ html[data-theme="light"] input[type="time"] {
     padding: 13px;
     border-radius: 12px;
     border: none;
-    font-family: 'Sarabun', sans-serif;
+    font-family: 'Sarabun', 'Noto Sans Thai', 'Leelawadee UI', 'Tahoma', sans-serif;
     font-size:14px;
     font-weight: 600;
     cursor: pointer;
@@ -499,7 +500,7 @@ html[data-theme="light"] input[type="time"] {
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 12px 14px;
-    font-family: 'Sarabun', sans-serif;
+    font-family: 'Sarabun', 'Noto Sans Thai', 'Leelawadee UI', 'Tahoma', sans-serif;
     font-size:14px;
     color: var(--text-primary);
     transition: all 0.2s;
@@ -1311,7 +1312,7 @@ function buildReportHTML(d) {
   }
 
   return `
-  <div id="reportCanvas" style="width:900px;background:#e4e8f0;padding:28px;font-family:'Sarabun',sans-serif;box-sizing:border-box">
+  <div id="reportCanvas" style="width:900px;background:#e4e8f0;padding:28px;font-family:'Sarabun','Noto Sans Thai','Leelawadee UI','Tahoma',sans-serif;box-sizing:border-box">
 
     <!-- Header -->
     <div style="background:linear-gradient(135deg,#1565c0,#1976d2,#42a5f5);border-radius:16px;padding:24px 28px 20px;margin-bottom:20px;color:#fff;position:relative;overflow:hidden">

@@ -26,7 +26,7 @@
   --accent:#f5a623; --accent2:#e05c2a; --blue:#3b9ede; --green:#2ecc71;
   --red:#e74c3c; --yellow:#f39c12;
   --text:#e8f0f8; --text2:#a9bdd1;
-  --mono:'IBM Plex Mono',monospace; --sans:'Sarabun',sans-serif;
+  --mono:'IBM Plex Mono',monospace; --sans:'Sarabun','Noto Sans Thai','Leelawadee UI','Tahoma',sans-serif;
 }
 html[data-theme="light"] {
   --bg:#e7ebf1;
@@ -39,7 +39,7 @@ html[data-theme="light"] {
 }
 
 * { box-sizing:border-box; margin:0; padding:0; }
-body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:15px; min-height:100vh; }
+body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:15px; line-height:1.5; min-height:100vh; }
 
 /* ── TOPBAR ── */
 :root { --topbar:52px; --botnav:56px; }
@@ -191,7 +191,8 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 }
 .filter-radio.checked { border-color:var(--accent); }
 .filter-radio.checked::after {
-  content:''; position:absolute; left:3px; top:3px; width:9px; height:9px;
+  content:''; position:absolute; left:50%; top:50%; width:9px; height:9px;
+  transform:translate(-50%,-50%);
   border-radius:50%; background:var(--accent);
 }
 .filter-menu-item .leg-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
@@ -445,12 +446,27 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       </div>
       <div id="worktype-wrap" style="display:none">
         <label class="field-label">ลักษณะงาน</label>
-        <select class="field-select" id="f-worktype">
-          <option value="01.1">01.1 — PEA ลงทุน แล้วเป็นทรัพย์สิน PEA</option>
-          <option value="02.1">02.1 — ผู้ใช้ไฟฟ้าลงทุน แล้วเป็นทรัพย์สิน PEA</option>
-          <option value="02.2">02.2 — ผู้ใช้ไฟฟ้าลงทุน แล้วเป็นทรัพย์สิน ผู้ใช้ไฟฟ้า</option>
-          <option value="03.1">03.1 — ผู้ใช้ไฟกับ PEA ลงทุนคนละครึ่ง แล้วเป็นทรัพย์สิน PEA</option>
-        </select>
+        <input type="hidden" id="f-worktype" value="01.1">
+        <div class="filter-dropdown-wrap" id="f-worktype-wrap">
+          <button type="button" class="filter-dropdown-btn" id="f-worktype-btn" onclick="toggleDropdown('f-worktype')" style="padding-left:12px;">
+            <span id="f-worktype-label">01.1 — PEA ลงทุน แล้วเป็นทรัพย์สิน PEA</span>
+            <span class="filter-caret">▾</span>
+          </button>
+          <div class="filter-menu" id="f-worktype-menu">
+            <div class="filter-menu-item" onclick="selectWorktype(this,'01.1','01.1 — PEA ลงทุน แล้วเป็นทรัพย์สิน PEA')">
+              <span class="filter-radio checked"></span><span>01.1 — PEA ลงทุน แล้วเป็นทรัพย์สิน PEA</span>
+            </div>
+            <div class="filter-menu-item" onclick="selectWorktype(this,'02.1','02.1 — ผู้ใช้ไฟฟ้าลงทุน แล้วเป็นทรัพย์สิน PEA')">
+              <span class="filter-radio"></span><span>02.1 — ผู้ใช้ไฟฟ้าลงทุน แล้วเป็นทรัพย์สิน PEA</span>
+            </div>
+            <div class="filter-menu-item" onclick="selectWorktype(this,'02.2','02.2 — ผู้ใช้ไฟฟ้าลงทุน แล้วเป็นทรัพย์สิน ผู้ใช้ไฟฟ้า')">
+              <span class="filter-radio"></span><span>02.2 — ผู้ใช้ไฟฟ้าลงทุน แล้วเป็นทรัพย์สิน ผู้ใช้ไฟฟ้า</span>
+            </div>
+            <div class="filter-menu-item" onclick="selectWorktype(this,'03.1','03.1 — ผู้ใช้ไฟกับ PEA ลงทุนคนละครึ่ง แล้วเป็นทรัพย์สิน PEA')">
+              <span class="filter-radio"></span><span>03.1 — ผู้ใช้ไฟกับ PEA ลงทุนคนละครึ่ง แล้วเป็นทรัพย์สิน PEA</span>
+            </div>
+          </div>
+        </div>
       </div>
       <div>
         <label class="field-label">เลข WBS</label>
@@ -825,6 +841,29 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     closeDropdownWrap(el);
   };
 
+  const WORKTYPE_LABELS = {
+    '01.1': '01.1 — PEA ลงทุน แล้วเป็นทรัพย์สิน PEA',
+    '02.1': '02.1 — ผู้ใช้ไฟฟ้าลงทุน แล้วเป็นทรัพย์สิน PEA',
+    '02.2': '02.2 — ผู้ใช้ไฟฟ้าลงทุน แล้วเป็นทรัพย์สิน ผู้ใช้ไฟฟ้า',
+    '03.1': '03.1 — ผู้ใช้ไฟกับ PEA ลงทุนคนละครึ่ง แล้วเป็นทรัพย์สิน PEA'
+  };
+  window.setWorktypeUI = function(value) {
+    const v = value || '01.1';
+    const input = document.getElementById('f-worktype');
+    input.value = v;
+    document.getElementById('f-worktype-label').textContent = WORKTYPE_LABELS[v] || WORKTYPE_LABELS['01.1'];
+    const menu = document.getElementById('f-worktype-menu');
+    const keys = ['01.1', '02.1', '02.2', '03.1'];
+    menu.querySelectorAll('.filter-menu-item').forEach((item, i) => {
+      item.querySelector('.filter-radio').classList.toggle('checked', keys[i] === v);
+    });
+  };
+  window.selectWorktype = function(el, value, label) {
+    setWorktypeUI(value);
+    document.getElementById('f-worktype').dispatchEvent(new Event('change', { bubbles: true }));
+    closeDropdownWrap(el);
+  };
+
   // ── GENERIC CUSTOM DROPDOWN ──
   window.toggleDropdown = function(id) {
     const menu = document.getElementById(id + '-menu');
@@ -884,6 +923,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     if (currentCat === 'expansion') {
       worktypeWrap.style.display = 'block';
       worktypeSelect.value = '01.1';
+      setWorktypeUI('01.1');
       syncWbsFromDrawing();
       wbsInput.readOnly = false;
       wbsHint.textContent = 'สร้างอัตโนมัติตามเลขผัง (เลขวิ่งเดียวกัน) — แก้ไขเองได้ หรือเลือกลักษณะงานด้านบนเพื่อสร้างใหม่';
