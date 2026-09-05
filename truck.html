@@ -666,6 +666,57 @@ html[data-theme="light"] {
   .bottom-nav-btn.active{color:var(--accent)}
   .bottom-nav-btn.active .bn-icon{filter:drop-shadow(0 0 4px rgba(245,166,35,0.5))}
 
+  .pdf-share-actions .pdf-btn{font-size:13px;padding:10px 8px;line-height:1.3}
+  .pdf-share-actions .pdf-line-btn{background:#06c755;color:#fff}
+  .pdf-share-actions .pdf-btn:disabled{opacity:.55;cursor:wait}
+  body.pdf-export-mode #view-inspect{display:block!important;background:#fff!important}
+  body.pdf-export-mode .header-actions,
+  body.pdf-export-mode .tabs,
+  body.pdf-export-mode .legend,
+  body.pdf-export-mode .bottom-nav{display:none!important}
+  body.pdf-export-mode .tab-content{display:block!important}
+  body.pdf-export-mode .form-card{box-shadow:none}
+  /* ===== PDF progress modal ===== */
+  /* ใช้ fixed + absolute center แทน flex เพื่อป้องกัน Android WebView/Chrome
+     คำนวณตำแหน่ง dialog ใหม่ตอน address bar หรือ download sheet เปลี่ยนขนาด viewport */
+  #pdf-progress-modal{
+    position:fixed!important;
+    left:0!important;top:0!important;
+    width:100vw!important;height:100vh!important;
+    width:100dvw!important;height:100dvh!important;
+    z-index:5000!important;
+    display:block!important;visibility:hidden;opacity:0;pointer-events:none;
+    background:rgba(0,0,0,.62);
+    padding:0!important;margin:0!important;
+    box-sizing:border-box;
+    overflow:hidden;
+    transition:opacity .18s ease, visibility 0s linear .18s;
+    -webkit-backdrop-filter:none;backdrop-filter:none;
+    transform:none!important;
+  }
+  #pdf-progress-modal.show{
+    visibility:visible;opacity:1;pointer-events:auto;
+    transition:opacity .18s ease;
+  }
+  .pdf-progress-card{
+    position:absolute!important;
+    left:50%!important;top:50%!important;
+    transform:translate(-50%,-50%)!important;
+    width:min(360px,calc(100vw - 48px));
+    max-width:calc(100dvw - 48px);
+    box-sizing:border-box;
+    background:var(--surface);color:var(--text);
+    border:1px solid var(--border);border-radius:16px;padding:24px 20px 20px;
+    box-shadow:0 18px 50px rgba(0,0,0,.35);text-align:center;
+    will-change:transform;
+  }
+  .pdf-progress-icon{font-size:42px;line-height:1;margin-bottom:10px}
+  .pdf-progress-title{font-size:18px;font-weight:700;margin-bottom:7px}
+  .pdf-progress-text{font-size:13px;color:var(--text2);min-height:20px}
+  .pdf-progress-bar{height:8px;background:var(--bg);border-radius:99px;overflow:hidden;margin:16px 0 8px;border:1px solid var(--border)}
+  .pdf-progress-fill{height:100%;width:8%;border-radius:99px;background:var(--accent);transition:width .25s ease}
+  .pdf-progress-percent{font-size:11px;color:var(--text2)}
+  .pdf-progress-card.done .pdf-progress-icon{font-size:38px}
   /* ===== Report sheet (dark theme) ===== */
   .report-btn{background:var(--bg) !important;border:1px solid var(--border) !important;color:var(--text) !important}
   .report-btn:hover{background:var(--surface2) !important}
@@ -808,6 +859,8 @@ html[data-theme="light"] {
   }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -1849,8 +1902,24 @@ function printWithTitle(){
           </div>
         </div>
         <button class="usage-save-btn" style="margin-top:14px;width:100%;justify-content:center" id="pr-btn" onclick="printSpecificDayReport()">🖨 พิมพ์รายงาน</button>
+        <div class="pdf-share-actions" id="pdf-share-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+          <button class="usage-save-btn pdf-btn" type="button" id="pr-pdf-btn" onclick="saveInspectionPDF(false)">📄 บันทึกเป็น PDF</button>
+          <button class="usage-save-btn pdf-btn pdf-line-btn" type="button" id="pr-pdf-line-btn" onclick="saveInspectionPDF(true)">📤 PDF + แชร์ LINE</button>
+        </div>
+        <div id="pdf-share-hint" style="margin-top:7px;font-size:11px;color:var(--text2);text-align:center">เลือกวันที่และเวร แล้วกดปุ่ม PDF ได้เลย · ตอนแชร์ให้เลือก LINE และเลือกกลุ่มปลายทาง</div>
         <div id="pr-status" style="margin-top:10px;font-size:12px;color:var(--text2);text-align:center"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- PDF progress modal: สร้าง PDF โดยไม่เปลี่ยนหน้าไปหน้าตรวจรถ -->
+  <div id="pdf-progress-modal" role="dialog" aria-modal="true" aria-live="polite">
+    <div class="pdf-progress-card" id="pdf-progress-card">
+      <div class="pdf-progress-icon" id="pdf-progress-icon">📄</div>
+      <div class="pdf-progress-title" id="pdf-progress-title">กำลังสร้าง PDF</div>
+      <div class="pdf-progress-text" id="pdf-progress-text">กำลังเตรียมข้อมูล...</div>
+      <div class="pdf-progress-bar"><div class="pdf-progress-fill" id="pdf-progress-fill"></div></div>
+      <div class="pdf-progress-percent" id="pdf-progress-percent">0%</div>
     </div>
   </div>
 
@@ -2564,6 +2633,399 @@ async function printSpecificDayReport(){
 
   window._returnToReportAfterPrint = true; // แจ้งให้กลับไปหน้าออกรายงานอัตโนมัติหลังพิมพ์เสร็จ
   setTimeout(()=>{ printWithTitle(); }, 150); // เว้นจังหวะสั้นๆ ให้ DOM อัปเดตก่อนพิมพ์
+}
+
+// ===== PDF EXPORT + SHARE (Android/Web Share) =====
+function getInspectionPdfFileName(){
+  const dateVal = document.getElementById('pr-date').value || document.getElementById('checkdate').value || '';
+  const shift = document.getElementById('pr-shift').value || document.getElementById('shift').value || '';
+  let datePart = dateVal;
+  if(dateVal){
+    const [y,m,d] = dateVal.split('-');
+    const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    datePart = `${d}-${months[parseInt(m,10)-1]}-${parseInt(y,10)+543}`;
+  }
+  const shiftPart = shift.includes('เช้า') ? 'เวรเช้า' : (shift.includes('เย็น') ? 'เวรเย็น' : 'เวร');
+  return `รายงานตรวจรถแก้ไฟ_${datePart}_${shiftPart}.pdf`;
+}
+
+function downloadBlob(blob, fileName){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1500);
+}
+
+async function buildInspectionPDF(){
+  if(typeof html2canvas === 'undefined' || !window.jspdf || !window.jspdf.jsPDF){
+    throw new Error('ไม่พบโมดูลสร้าง PDF กรุณาเปิดอินเทอร์เน็ตแล้วลองใหม่');
+  }
+  const view = document.getElementById('view-inspect');
+  if(!view) throw new Error('ไม่พบหน้ารายงานตรวจรถ');
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({orientation:'p', unit:'mm', format:'a4', compress:true});
+  const pageW = 210, pageH = 297;
+  const marginX = 10, marginY = 10;
+  const contentWmm = pageW - marginX*2;
+  const contentHmm = pageH - marginY*2;
+  const stageW = 794; // CSS px ≈ A4 at 96dpi
+  const headerH = 72;
+  const bodyMaxH = 860; // เผื่อพื้นที่ให้หัวตารางอยู่ในหน้าเดียวกันเสมอ ไม่ให้ capturePage ต้องตัดกลาง chunk
+  let pageNo = 0;
+
+  const dateVal = document.getElementById('pr-date').value || document.getElementById('checkdate').value || '';
+  const shift = document.getElementById('pr-shift').value || document.getElementById('shift').value || '';
+  const dateText = (()=>{
+    if(!dateVal) return '-';
+    const [y,m,d]=dateVal.split('-');
+    const months=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    return `${parseInt(d,10)} ${months[parseInt(m,10)-1]} ${parseInt(y,10)+543}`;
+  })();
+
+  function cleanClone(root){
+    root.querySelectorAll('button,.tabs,.legend,.header-actions,.bottom-nav,.no-print,.pdf-share-actions').forEach(el=>el.remove());
+    root.querySelectorAll('input,select,textarea').forEach(el=>{
+      if(el.type==='hidden') { el.remove(); return; }
+      let value='';
+      if(el.tagName==='SELECT') value=el.options[el.selectedIndex]?.text || el.value || '-';
+      else value=el.value || el.getAttribute('value') || '-';
+      const span=document.createElement('span');
+      span.className='pdf-field-value';
+      span.textContent=value || '-';
+      el.replaceWith(span);
+    });
+    return root;
+  }
+
+  function makeStage(){
+    const stage=document.createElement('div');
+    stage.style.cssText=`position:fixed;left:-10000px;top:0;width:${stageW}px;background:#fff!important;color:#222!important;font-family:Sarabun,'Noto Sans Thai','Leelawadee UI',Tahoma,sans-serif;font-size:13px;line-height:1.4;padding:0;z-index:-1;`;
+    document.body.appendChild(stage);
+    return stage;
+  }
+
+  function makePageShell(sectionTitle){
+    const page=document.createElement('div');
+    page.style.cssText=`width:${stageW}px;background:#fff;box-sizing:border-box;padding:24px 24px 20px;`;
+    page.innerHTML=`
+      <div style="border-bottom:3px solid #1a237e;padding-bottom:10px;margin-bottom:12px">
+        <div style="font-size:20px;font-weight:700;color:#1a237e">📋 รายงานการตรวจรถแก้กระแสไฟฟ้าขัดข้อง</div>
+        <div style="font-size:12px;color:#555;margin-top:3px">รถ กฟส.ทอห. 82-3116 พล. (HINO) · วันที่ ${dateText} · ${shift || '-'}</div>
+      </div>
+      ${sectionTitle ? `<div style="font-size:17px;font-weight:700;color:#1a237e;border-left:5px solid #1a237e;padding:5px 0 5px 10px;margin:4px 0 12px">${sectionTitle}</div>` : ''}`;
+    return page;
+  }
+
+  async function capturePage(page){
+    // วัดจริงก่อนจับภาพ เพื่อไม่ให้ส่วนล่างโดนตัด
+    document.body.appendChild(page);
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    const h=Math.ceil(page.getBoundingClientRect().height);
+    const canvas=await html2canvas(page,{scale:2,useCORS:true,backgroundColor:'#fff',logging:false,width:stageW,height:h,windowWidth:stageW});
+    page.remove();
+    const pxPerMm=canvas.width/contentWmm;
+    const maxCanvasH=Math.floor(contentHmm*pxPerMm);
+    if(canvas.height>maxCanvasH){
+      // fallback: แบ่งภาพตามขอบเขตหน้า ไม่ใช้วิธีนี้กับตาราง เพราะตารางถูกแบ่งเป็นแถวด้านล่าง
+      let off=0;
+      while(off<canvas.height){
+        const hh=Math.min(maxCanvasH,canvas.height-off);
+        const slice=document.createElement('canvas'); slice.width=canvas.width; slice.height=hh;
+        slice.getContext('2d').drawImage(canvas,0,off,canvas.width,hh,0,0,canvas.width,hh);
+        if(pageNo>0) pdf.addPage();
+        pdf.addImage(slice.toDataURL('image/jpeg',0.94),'JPEG',marginX,marginY,contentWmm,hh/pxPerMm,undefined,'FAST');
+        pageNo++; off+=hh;
+      }
+    }else{
+      if(pageNo>0) pdf.addPage();
+      pdf.addImage(canvas.toDataURL('image/jpeg',0.94),'JPEG',marginX,marginY,contentWmm,canvas.height/pxPerMm,undefined,'FAST');
+      pageNo++;
+    }
+  }
+
+  async function appendInfoCard(){
+    const card=view.querySelector('.form-card');
+    if(!card) return;
+    const clone=cleanClone(card.cloneNode(true));
+    clone.style.cssText='background:#fff!important;border:1px solid #d9dee8;border-radius:8px;box-shadow:none!important;margin:0;padding:0;overflow:hidden;width:100%;';
+    clone.querySelectorAll('.form-card-header').forEach(h=>{h.style.cssText='background:#1a237e!important;color:#fff!important;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;';});
+    clone.querySelectorAll('.form-card-body').forEach(b=>{b.style.cssText='padding:14px 16px;background:#fff!important;color:#222!important;';});
+    clone.querySelectorAll('.field').forEach(f=>{f.style.cssText='margin-bottom:10px;';});
+    clone.querySelectorAll('.field label').forEach(l=>{l.style.cssText='display:block;font-weight:700;color:#555;margin-bottom:4px;font-size:12px;';});
+    clone.querySelectorAll('.pdf-field-value').forEach(v=>{v.style.cssText='display:block;border:1px solid #d9dee8;border-radius:6px;padding:7px 9px;background:#f7f8fa;color:#222;min-height:18px;';});
+    clone.querySelectorAll('#day-status-box').forEach(v=>{v.style.cssText='border:1px solid #d9dee8!important;border-radius:6px;padding:7px 9px;background:#f7f8fa!important;color:#222!important;min-height:18px;display:flex;align-items:center;gap:6px;';});
+    const page=makePageShell('ข้อมูลทั่วไป');
+    page.appendChild(clone);
+    const stage=makeStage();
+    stage.appendChild(page);
+    await capturePage(page);
+    stage.remove();
+  }
+
+  async function appendSection(sectionId, title){
+    const src=document.getElementById(sectionId);
+    if(!src) return;
+    const table=src.querySelector('table');
+    if(!table) return;
+    const rows=[...table.querySelectorAll('tbody tr')];
+    const thead=table.querySelector('thead');
+    const stage=makeStage();
+    const usableTableStyle='width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px;color:#222;background:#fff;';
+
+    // แบ่งเป็นชุดแถว โดยวัดความสูงจริงทุกครั้ง ป้องกันแถวถูกตัดกลางหน้า
+    let currentRows=[];
+    const chunks=[];
+    const buildMeasurePage=(rowsChunk)=>{
+      const page=makePageShell(title);
+      const tableClone=document.createElement('table');
+      tableClone.style.cssText=usableTableStyle;
+      if(thead) tableClone.appendChild(thead.cloneNode(true));
+      const tb=document.createElement('tbody');
+      rowsChunk.forEach(r=>tb.appendChild(r.cloneNode(true)));
+      tableClone.appendChild(tb);
+      cleanClone(tableClone);
+      // PDF ต้องใช้สีของเอกสารกระดาษ ไม่ให้ CSS ของหน้าเว็บ (ธีมเข้ม/สีสถานะ) ไหลเข้ามา
+      // โดยเฉพาะข้อความใน .item-name และ cell state ที่อาจมี color/background แบบ inline
+      tableClone.querySelectorAll('th').forEach(th=>{
+        th.style.setProperty('border','1px solid #bfc5cf','important');
+        th.style.setProperty('background','#e9edf5','important');
+        th.style.setProperty('color','#222','important');
+        th.style.setProperty('padding','6px 5px','important');
+        th.style.setProperty('text-align','center','important');
+        th.style.setProperty('font-weight','700','important');
+      });
+      tableClone.querySelectorAll('td').forEach(td=>{
+        td.style.setProperty('border','1px solid #d7dce5','important');
+        td.style.setProperty('background','#fff','important');
+        td.style.setProperty('color','#222','important');
+        td.style.setProperty('padding','5px 5px','important');
+        td.style.setProperty('vertical-align','middle','important');
+      });
+      // บังคับสีข้อความของข้อมูลทุกชั้น เพื่อไม่ให้สีจาก CSS เดิมทำให้ตัวหนังสือจมหาย
+      tableClone.querySelectorAll('td:not(.item-status):not(.item-mat-status) *, td.item-name, td.item-no, td.item-qty, td.item-count, td.item-recv, td.item-add, td.item-remain').forEach(el=>{
+        el.style.setProperty('color','#222','important');
+      });
+      // คอลัมน์สถานะ: ให้ความกว้างพอดีกับข้อความจริง แทนการบีบไว้ที่ 90px
+      // วัด badge แบบไม่ถูกจำกัดความกว้างก่อน แล้วค่อยกำหนดความกว้างคอลัมน์
+      const statusCells = [...tableClone.querySelectorAll('td.item-status, td.item-mat-status')];
+      const statusBadges = [...tableClone.querySelectorAll('td.item-status .status-badge, td.item-mat-status .status-badge')];
+      statusCells.forEach(td=>{
+        td.style.setProperty('background','#fff','important');
+        td.style.setProperty('min-width','0','important');
+        td.style.setProperty('overflow','hidden','important');
+        td.style.setProperty('box-sizing','border-box','important');
+        td.style.setProperty('white-space','nowrap','important');
+      });
+      statusBadges.forEach(b=>{
+        b.style.setProperty('display','inline-block','important');
+        b.style.setProperty('width','max-content','important');
+        b.style.setProperty('max-width','none','important');
+        b.style.setProperty('box-sizing','border-box','important');
+        b.style.setProperty('white-space','nowrap','important');
+        b.style.setProperty('overflow','visible','important');
+        b.style.setProperty('font-size','10px','important');
+        b.style.setProperty('line-height','1.25','important');
+        b.style.setProperty('padding','2px 7px','important');
+      });
+
+      // วัดความกว้างข้อความสถานะจริงจาก badge ที่ clone มา
+      let naturalStatusW = 0;
+      statusBadges.forEach(b=>{ naturalStatusW = Math.max(naturalStatusW, Math.ceil(b.getBoundingClientRect().width)); });
+      // เผื่อพื้นที่เส้นขอบ/ระยะหายใจอีกเล็กน้อย แต่ไม่ให้คอลัมน์อื่นถูกเบียดจนเกินไป
+      naturalStatusW = Math.max(78, naturalStatusW + 10);
+
+      // ความกว้างตารางจริงของหน้า PDF (ประมาณ 746px) และความกว้างคอลัมน์คงที่อื่น ๆ
+      // เว้นพื้นที่ให้คอลัมน์รายการอย่างน้อย 180px แล้วให้สถานะใช้เท่าที่ข้อความต้องการ
+      const tableW = 746;
+      const isMatTable = statusCells.some(td=>td.classList.contains('item-mat-status'));
+      const fixedOtherW = isMatTable ? (36+70+90+90+90) : (36+70+90);
+      const maxStatusW = Math.max(100, tableW - fixedOtherW - 180);
+      const statusW = Math.min(Math.ceil(naturalStatusW), maxStatusW);
+
+      // ใส่ colgroup เพื่อให้ความกว้างคอลัมน์ถูกล็อกอย่างสม่ำเสมอทุกหน้า
+      const colCount = tableClone.querySelectorAll('thead tr:first-child th').length;
+      const colgroup = document.createElement('colgroup');
+      const widths = isMatTable
+        ? [36, null, 70, 90, 90, 90, statusW]
+        : [36, null, 70, 90, statusW];
+      widths.forEach(w=>{
+        const col=document.createElement('col');
+        if(w) col.style.width=w+'px';
+        colgroup.appendChild(col);
+      });
+      tableClone.insertBefore(colgroup, tableClone.firstChild);
+      tableClone.style.setProperty('table-layout','fixed','important');
+      tableClone.querySelectorAll('th.col-status, th.col-mat-status').forEach(th=>{
+        th.style.setProperty('width',statusW+'px','important');
+        th.style.setProperty('min-width',statusW+'px','important');
+        th.style.setProperty('max-width',statusW+'px','important');
+      });
+      statusCells.forEach(td=>{
+        td.style.setProperty('width',statusW+'px','important');
+        td.style.setProperty('min-width',statusW+'px','important');
+        td.style.setProperty('max-width',statusW+'px','important');
+      });
+      page.appendChild(tableClone);
+      return page;
+    };
+
+    for(const row of rows){
+      const test=[...currentRows,row];
+      const testPage=buildMeasurePage(test);
+      stage.appendChild(testPage);
+      await new Promise(r=>requestAnimationFrame(r));
+      const tooTall=testPage.getBoundingClientRect().height>bodyMaxH;
+      testPage.remove();
+      if(tooTall && currentRows.length){
+        chunks.push(currentRows);
+        currentRows=[row];
+      }else{
+        currentRows=test;
+      }
+    }
+    if(currentRows.length) chunks.push(currentRows);
+
+    // ถ้าไม่มีข้อมูล ให้สร้างหน้าเดียวจากหัวตาราง/ข้อความเดิม
+    if(!chunks.length) chunks.push([]);
+
+    for(const chunk of chunks){
+      const page=buildMeasurePage(chunk);
+      stage.appendChild(page);
+      await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+      await capturePage(page);
+    }
+    stage.remove();
+  }
+
+  document.body.classList.add('pdf-export-mode');
+  try{
+    // สร้างเอกสารใหม่จากส่วนรายงานโดยเฉพาะ ไม่จับทั้งหน้าเว็บ จึงไม่ติดธีมมืด/ปุ่ม/เมนู
+    await appendInfoCard();
+    await appendSection('tab-vehicle','🚗 ตรวจสอบยานพาหนะ');
+    await appendSection('tab-tools','🔧 ตรวจสอบเครื่องมือ/อุปกรณ์');
+    await appendSection('tab-materials','📦 วัสดุ/อุปกรณ์บนรถ');
+    await appendSection('tab-defects','⚠️ สรุปข้อบกพร่อง');
+    return pdf.output('blob');
+  } finally {
+    document.body.classList.remove('pdf-export-mode');
+  }
+}
+
+async function saveInspectionPDF(shareLine){
+  const date = document.getElementById('pr-date').value;
+  const shift = document.getElementById('pr-shift').value;
+  const statusEl = document.getElementById('pr-status');
+  const buttons = [document.getElementById('pr-pdf-btn'), document.getElementById('pr-pdf-line-btn')].filter(Boolean);
+  if(!date){ statusEl.textContent='⚠️ กรุณาเลือกวันที่'; statusEl.style.color='var(--red)'; return; }
+  if(!shift){ statusEl.textContent='⚠️ กรุณาเลือกเวร'; statusEl.style.color='var(--red)'; return; }
+
+  const modal=document.getElementById('pdf-progress-modal');
+  const card=document.getElementById('pdf-progress-card');
+  const icon=document.getElementById('pdf-progress-icon');
+  const title=document.getElementById('pdf-progress-title');
+  const text=document.getElementById('pdf-progress-text');
+  const fill=document.getElementById('pdf-progress-fill');
+  const percent=document.getElementById('pdf-progress-percent');
+  const setProgress=(pct,msg)=>{
+    if(fill) fill.style.width=Math.max(0,Math.min(100,pct))+'%';
+    if(percent) percent.textContent=Math.round(pct)+'%';
+    if(text) text.textContent=msg;
+  };
+  const showProgress=()=>{
+    card?.classList.remove('done');
+    if(icon) icon.textContent=shareLine?'📤':'📄';
+    if(title) title.textContent=shareLine?'กำลังสร้าง PDF และเตรียมแชร์':'กำลังสร้าง PDF';
+    setProgress(8,'กำลังเตรียมข้อมูล...');
+    // ล็อกการเลื่อนของหน้าไว้ชั่วคราว เพื่อไม่ให้ dialog กระโดดเมื่อ viewport มือถือเปลี่ยน
+    document.documentElement.style.overflow='hidden';
+    document.body.style.overflow='hidden';
+    modal?.classList.add('show');
+  };
+  const finishProgress=(ok,msg)=>{
+    card?.classList.toggle('done',!!ok);
+    if(icon) icon.textContent=ok?'✅':'❌';
+    if(title) title.textContent=ok?'เสร็จเรียบร้อย':'เกิดข้อผิดพลาด';
+    setProgress(ok?100:100,msg);
+  };
+  const closeProgress=()=>{ modal?.classList.remove('show'); document.documentElement.style.overflow=''; document.body.style.overflow=''; };
+
+  buttons.forEach(b=>b.disabled=true);
+  statusEl.textContent = shareLine ? 'กำลังสร้าง PDF และเตรียมแชร์...' : 'กำลังสร้างไฟล์ PDF...';
+  statusEl.style.color = 'var(--text2)';
+  showProgress();
+  try{
+    setProgress(18,'กำลังโหลดข้อมูลของวันที่และเวรที่เลือก...');
+    setDateInputValue('checkdate', date, false);
+    document.getElementById('shift').value = shift;
+    await loadDayData(date);
+
+    setProgress(35,'กำลังจัดรูปแบบรายงาน...');
+    await new Promise(r=>requestAnimationFrame(r));
+    setProgress(48,'กำลังสร้างหน้ารายงาน...');
+    const blob = await buildInspectionPDF();
+
+    setProgress(88,'สร้าง PDF สำเร็จ กำลังบันทึกไฟล์...');
+    const fileName = getInspectionPdfFileName();
+    downloadBlob(blob, fileName);
+
+    if(shareLine){
+      const file = new File([blob], fileName, {type:'application/pdf'});
+      setProgress(94,'กำลังเปิดหน้าต่างแชร์...');
+      // เตรียมกลับเมนูออกรายงานไว้ก่อนเปิด share sheet
+      if(typeof closePrintReportPanel === 'function') closePrintReportPanel();
+      if(typeof switchView === 'function') switchView('report');
+      if(navigator.canShare && navigator.canShare({files:[file]}) && navigator.share){
+        // ให้หน้าต่างแชร์ของ Android/LINE เปิดต่อจากเมนูออกรายงาน
+        closeProgress();
+        try{
+          await navigator.share({files:[file], title:'รายงานตรวจรถแก้ไฟ', text:fileName});
+          statusEl.textContent='✅ บันทึก PDF แล้ว และเปิดเมนูแชร์เรียบร้อย';
+        }catch(shareErr){
+          if(shareErr?.name==='AbortError') statusEl.textContent='✅ บันทึก PDF แล้ว · ยกเลิกการแชร์';
+          else throw shareErr;
+        }
+      } else if(navigator.share){
+        closeProgress();
+        try{
+          await navigator.share({title:'รายงานตรวจรถแก้ไฟ', text:`บันทึกไฟล์ ${fileName} แล้ว กรุณาแนบ PDF ใน LINE`});
+          statusEl.textContent='✅ บันทึก PDF แล้ว · เปิดเมนูแชร์แล้ว';
+        }catch(shareErr){
+          if(shareErr?.name==='AbortError') statusEl.textContent='✅ บันทึก PDF แล้ว · ยกเลิกการแชร์';
+          else throw shareErr;
+        }
+      } else {
+        finishProgress(true,'บันทึก PDF แล้ว · เบราว์เซอร์นี้ไม่มีระบบแชร์ไฟล์');
+        await new Promise(r=>setTimeout(r,900));
+        closeProgress();
+        statusEl.textContent='✅ บันทึก PDF แล้ว · กรุณาเปิด LINE แล้วแนบไฟล์';
+      }
+    } else {
+      finishProgress(true,'บันทึกไฟล์ PDF เรียบร้อย');
+      await new Promise(r=>setTimeout(r,900));
+      closeProgress();
+      if(typeof closePrintReportPanel === 'function') closePrintReportPanel();
+      if(typeof switchView === 'function') switchView('report');
+      statusEl.textContent='✅ บันทึก PDF เรียบร้อย';
+    }
+    statusEl.style.color='var(--green)';
+  }catch(err){
+    console.error(err);
+    finishProgress(false,'สร้าง/แชร์ PDF ไม่สำเร็จ');
+    statusEl.textContent='❌ สร้าง/แชร์ PDF ไม่สำเร็จ: '+(err?.message||err);
+    statusEl.style.color='var(--red)';
+    await new Promise(r=>setTimeout(r,1200));
+    closeProgress();
+    // แม้เกิดข้อผิดพลาดก็กลับเมนูออกรายงาน ไม่ปล่อยให้ค้างอยู่หน้าตรวจรถ
+    if(typeof closePrintReportPanel === 'function') closePrintReportPanel();
+    if(typeof switchView === 'function') switchView('report');
+  }finally{
+    buttons.forEach(b=>b.disabled=false);
+  }
 }
 
 // หลังปิดหน้าต่างพิมพ์/บันทึก PDF แล้ว ถ้าพิมพ์มาจากเมนู "ออกรายงาน" ให้กลับไปหน้าเมนูออกรายงานให้อัตโนมัติ
