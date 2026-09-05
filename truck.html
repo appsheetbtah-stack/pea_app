@@ -2772,8 +2772,13 @@ async function buildInspectionPDF(){
     if(!src) return;
     const table=src.querySelector('table');
     if(!table) return;
-    const rows=[...table.querySelectorAll('tbody tr')];
-    const thead=table.querySelector('thead');
+    // ตารางต้นฉบับของหน้านี้สร้างแถวหัวตารางไว้ใน <tbody> โดยตรง
+    // จึงต้องแยก 1-2 แถวแรกออกมาเป็น <thead> เอง เพื่อให้หัวตารางถูกทำซ้ำทุกหน้า PDF
+    const allRows=[...table.querySelectorAll('tr')];
+    const headerRowCount = sectionId === 'tab-materials' || sectionId === 'tab-tools' ? 2 : 1;
+    const headerRows = allRows.slice(0, headerRowCount);
+    const rows = allRows.slice(headerRowCount);
+
     const stage=makeStage();
     const usableTableStyle='width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px;color:#222;background:#fff;';
 
@@ -2784,7 +2789,11 @@ async function buildInspectionPDF(){
       const page=makePageShell(title);
       const tableClone=document.createElement('table');
       tableClone.style.cssText=usableTableStyle;
-      if(thead) tableClone.appendChild(thead.cloneNode(true));
+      if(headerRows.length){
+        const thd=document.createElement('thead');
+        headerRows.forEach(r=>thd.appendChild(r.cloneNode(true)));
+        tableClone.appendChild(thd);
+      }
       const tb=document.createElement('tbody');
       rowsChunk.forEach(r=>tb.appendChild(r.cloneNode(true)));
       tableClone.appendChild(tb);
@@ -2843,16 +2852,16 @@ async function buildInspectionPDF(){
       // เว้นพื้นที่ให้คอลัมน์รายการอย่างน้อย 180px แล้วให้สถานะใช้เท่าที่ข้อความต้องการ
       const tableW = 746;
       const isMatTable = statusCells.some(td=>td.classList.contains('item-mat-status'));
-      const fixedOtherW = isMatTable ? (36+70+90+90+90) : (36+70+90);
-      const maxStatusW = Math.max(100, tableW - fixedOtherW - 180);
-      const statusW = Math.min(Math.ceil(naturalStatusW), maxStatusW);
+      const fixedOtherW = isMatTable ? (36+65+78+78+78) : (36+65+82);
+      const maxStatusW = Math.max(112, tableW - fixedOtherW - 170);
+      const statusW = Math.min(Math.max(Math.ceil(naturalStatusW), 112), maxStatusW);
 
       // ใส่ colgroup เพื่อให้ความกว้างคอลัมน์ถูกล็อกอย่างสม่ำเสมอทุกหน้า
       const colCount = tableClone.querySelectorAll('thead tr:first-child th').length;
       const colgroup = document.createElement('colgroup');
       const widths = isMatTable
-        ? [36, null, 70, 90, 90, 90, statusW]
-        : [36, null, 70, 90, statusW];
+        ? [36, null, 65, 78, 78, 78, statusW]
+        : [36, null, 65, 82, statusW];
       widths.forEach(w=>{
         const col=document.createElement('col');
         if(w) col.style.width=w+'px';
