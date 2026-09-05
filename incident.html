@@ -29,7 +29,7 @@
   --bg:#0f1923; --surface:#162030; --surface2:#1e2d3d; --border:#2a3f55;
   --accent:#f5a623; --accent2:#e05c2a; --blue:#3b9ede; --green:#2ecc71; --red:#e74c3c;
   --yellow:#f39c12; --text:#e8f0f8; --text2:#a9bdd1;
-  --mono:'IBM Plex Mono',monospace; --sans:'Sarabun',sans-serif;
+  --mono:'IBM Plex Mono',monospace; --sans:'Sarabun','Noto Sans Thai','Leelawadee UI','Tahoma',sans-serif;
   --topbar:52px; --botnav:56px;
   --shimmer-color:rgba(255,255,255,0.5);
 }
@@ -45,7 +45,7 @@ html[data-theme="light"] {
 }
 
 * { box-sizing:border-box; margin:0; padding:0; }
-body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:15px; }
+body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:15px; line-height:1.5; }
 
 /* ── TOPBAR ── */
 .topbar {
@@ -153,7 +153,8 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 }
 .filter-radio.checked { border-color:var(--accent); }
 .filter-radio.checked::after {
-  content:''; position:absolute; left:3px; top:3px; width:9px; height:9px;
+  content:''; position:absolute; left:50%; top:50%; width:9px; height:9px;
+  transform:translate(-50%,-50%);
   border-radius:50%; background:var(--accent);
 }
 .chart-title { font-size:13px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:12px; }
@@ -201,7 +202,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .form-control {
   background:var(--surface2); border:1px solid var(--border);
   border-radius:8px; padding:10px 12px; color:var(--text);
-  font-family:var(--sans); font-size:14px; outline:none; -webkit-appearance:none;
+  font-family:var(--sans); font-size:14px; line-height:1.5; outline:none; -webkit-appearance:none;
 }
 .form-control:focus { border-color:var(--accent); }
 textarea.form-control { resize:vertical; min-height:70px; }
@@ -543,7 +544,7 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
 <div class="tab-pane" id="pane-ticketlist">
   <div class="ticket-wrap">
     <div class="ticket-list-title">รายการแจ้งเหตุ</div>
-    <input type="text" id="ticket-list-search" placeholder="🔍 ค้นหาชื่อ / CA / PEANO / ที่อยู่" oninput="onTicketListSearchInput()" style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:8px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;font-family:var(--sans);">
+    <input type="text" id="ticket-list-search" placeholder="🔍 ค้นหาชื่อ / CA / PEANO / ที่อยู่" oninput="onTicketListSearchInput()" style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:8px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;font-family:var(--sans);line-height:1.5;">
     <div class="ticket-filter-row">
       <span class="ticket-status-legend" style="display:flex;align-items:center;gap:14px;font-size:13px;opacity:0.8;padding:6px 4px;">
         <span>🔴 รอดำเนินการ</span>
