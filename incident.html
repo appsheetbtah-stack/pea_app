@@ -121,10 +121,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .chart-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
 .chart-card.full { grid-column:1 / -1; }
 /* หัวข้อเซกชันในหน้าแดชบอร์ด — ใช้แบ่งกลุ่มข้อมูลที่ความหมายต่างกันให้เห็นชัด */
-.db-section { display:flex; flex-direction:column; gap:12px; }
+.db-section { display:flex; flex-direction:column; gap:12px; border:1px dashed var(--border); border-radius:12px; padding:14px; }
 .db-section-header { display:flex; align-items:baseline; gap:8px; padding-bottom:8px; border-bottom:1px solid var(--border); }
 .db-section-title { font-size:15px; font-weight:700; }
-.db-admin-box { background:var(--surface); border:1px dashed var(--border); border-radius:10px; padding:12px; display:flex; gap:8px; flex-wrap:wrap; }
+.db-admin-box { background:var(--surface); border-radius:10px; padding:0; display:flex; gap:8px; flex-wrap:wrap; }
 /* ── ANCHORED FLOATING DROPDOWN (เข้าธีมเดียวกับแอปอื่น) ── */
 .filter-dropdown-wrap { position:relative; margin-left:auto; }
 .filter-dropdown-btn {
@@ -391,9 +391,7 @@ html[data-theme="light"] .toast.error { background:#fdeceb; }
         <div class="db-section-title">🔧 สถิติสะสมเพื่อการบำรุงรักษา</div>
       </div>
       <div class="charts-row">
-        <div class="chart-card full" style="padding-bottom:4px;">
-          <div id="stats-year-filter" class="ticket-filter-row" style="margin-bottom:2px;justify-content:flex-end;"></div>
-        </div>
+        <div id="stats-year-filter" class="ticket-filter-row" style="justify-content:flex-end;"></div>
         <div class="chart-card full">
           <div class="chart-title">ตำบลที่แจ้งเหตุบ่อย</div>
           <span class="chart-period-label" id="chart-amphoe-period"></span>
