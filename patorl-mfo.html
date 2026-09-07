@@ -324,6 +324,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         <input class="field-input" id="pf-plan-name" placeholder="PATROL 25XX">
       </div>
       <div>
+        <label class="field-label">ปีงบประมาณ (พ.ศ.) *</label>
+        <input class="field-input" id="pf-plan-year" type="number" placeholder="เช่น 2569" min="2500" max="2700">
+        <div class="field-hint">ใช้สร้างชื่อจุด Patrol อัตโนมัติ เช่น ปี 2569 → PATROL69_LV_...</div>
+      </div>
+      <div>
         <label class="field-label">นำเข้ารายชื่อจุดจาก Excel (.xlsx)</label>
         <label class="file-upload-btn" for="pf-plan-excel">
           <span class="file-upload-icon">📎</span>
@@ -601,6 +606,7 @@ function openCreatePlan() {
   document.getElementById('btn-save-plan').textContent = 'สร้างแผนงาน';
   document.getElementById('btn-delete-plan').style.display = 'none';
   document.getElementById('pf-plan-name').value = '';
+  document.getElementById('pf-plan-year').value = new Date().getFullYear() + 543; // ค่าเริ่มต้น = ปี พ.ศ. ปัจจุบัน
   document.getElementById('pf-plan-excel').value = '';
   document.getElementById('pf-plan-excel-label').textContent = 'เลือกไฟล์ Excel';
   openModal('plan-modal');
@@ -615,6 +621,7 @@ function openEditPlan(planId) {
   document.getElementById('btn-save-plan').textContent = 'บันทึกการแก้ไข';
   document.getElementById('btn-delete-plan').style.display = 'block';
   document.getElementById('pf-plan-name').value = plan.planName || '';
+  document.getElementById('pf-plan-year').value = plan.planYear || (new Date().getFullYear() + 543);
   document.getElementById('pf-plan-excel').value = '';
   document.getElementById('pf-plan-excel-label').textContent = 'เลือกไฟล์ Excel';
   openModal('plan-modal');
@@ -630,13 +637,15 @@ window.onPlanExcelChosen = onPlanExcelChosen;
 async function savePlan() {
   const name = document.getElementById('pf-plan-name').value.trim();
   const area = '';
+  const planYear = parseInt(document.getElementById('pf-plan-year').value, 10);
   if (!name) { showToast('กรุณากรอกชื่อแผนงาน'); return; }
+  if (!planYear || planYear < 2500 || planYear > 2700) { showToast('กรุณากรอกปีงบประมาณ (พ.ศ.) ให้ถูกต้อง'); return; }
   const { doc, setDoc } = window._fsLib;
 
   if (editingPlanId) {
     const existing = window.PLANS.find(p => p.planId === editingPlanId) || {};
     await setDoc(doc(window._db, 'patorl_plans', editingPlanId), {
-      ...existing, planId: editingPlanId, planName: name, area, updatedAt: Date.now()
+      ...existing, planId: editingPlanId, planName: name, area, planYear, updatedAt: Date.now()
     });
     await importExcelIfSelected(editingPlanId);
     closeModal('plan-modal');
@@ -647,7 +656,7 @@ async function savePlan() {
   } else {
     const planId = genId();
     await setDoc(doc(window._db, 'patorl_plans', planId), {
-      planId, planName: name, area, status: 'active',
+      planId, planName: name, area, planYear, status: 'active',
       createdAt: Date.now(), updatedAt: Date.now()
     });
     await importExcelIfSelected(planId);
@@ -977,7 +986,7 @@ async function importExcelIfSelected(planId) {
         const pointNo = nextNo++;
         await setDoc(doc(window._db, 'patorl_points', `${planId}_${pointNo}`), {
           planId, pointNo, peaNo, feeder, location,
-          patrolName: generatePatrolName(peaNo),
+          patrolName: generatePatrolName(peaNo, planId),
           status: 'no_survey', sapNo: '',
           repairTasks: [], materials: [],
           lat: found ? found.lat : null, lng: found ? found.lng : null,
@@ -1006,14 +1015,22 @@ function lookupLatLng(peaNoRaw) {
   } catch (e) { return null; }
 }
 
-function generatePatrolName(peaNo) {
+// ── ดึงเลขปี พ.ศ. 2 หลักท้ายของแผนงาน (planYear) เพื่อใช้ตั้งชื่อจุด Patrol ──
+function getPlanYearShort(planId) {
+  const plan = window.PLANS.find(p => p.planId === planId);
+  const year = plan && plan.planYear ? plan.planYear : (new Date().getFullYear() + 543);
+  return String(year).slice(-2);
+}
+
+function generatePatrolName(peaNo, planId) {
   const clean = String(peaNo || '').trim();
-  return clean ? `PATROL69_LV_${clean}` : '';
+  const yy = getPlanYearShort(planId);
+  return clean ? `PATROL${yy}_LV_${clean}` : '';
 }
 
 function onPeaNoChanged() {
   const peaNo = document.getElementById('pt-pea-no').value.trim();
-  document.getElementById('pt-patrol-name').value = generatePatrolName(peaNo);
+  document.getElementById('pt-patrol-name').value = generatePatrolName(peaNo, currentPlanId);
   const latlngEl = document.getElementById('pt-latlng');
   if (!latlngEl.value.trim()) {
     const found = lookupLatLng(peaNo);
@@ -1198,7 +1215,7 @@ function openPointForm(planId, pointNo) {
   document.getElementById('pt-pea-no').value = pt ? (pt.peaNo || '') : '';
   document.getElementById('pt-feeder').value = pt ? (pt.feeder || '') : '';
   document.getElementById('pt-location').value = pt ? (pt.location || '') : '';
-  document.getElementById('pt-patrol-name').value = pt ? (pt.patrolName || generatePatrolName(pt.peaNo)) : '';
+  document.getElementById('pt-patrol-name').value = pt ? (pt.patrolName || generatePatrolName(pt.peaNo, planId)) : '';
   document.getElementById('pt-sap-no').value = pt ? (pt.sapNo || '') : '';
 
   const latlngEl = document.getElementById('pt-latlng');
@@ -1266,7 +1283,7 @@ async function savePoint() {
     peaNo,
     feeder: document.getElementById('pt-feeder').value.trim(),
     location: document.getElementById('pt-location').value.trim(),
-    patrolName: generatePatrolName(peaNo),
+    patrolName: generatePatrolName(peaNo, currentPlanId),
     status: document.getElementById('pt-status').value,
     sapNo: document.getElementById('pt-sap-no').value.trim(),
     repairTasks: readRepairTasksFromForm(),
