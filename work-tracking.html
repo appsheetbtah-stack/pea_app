@@ -316,7 +316,20 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   pointer-events:none;
 }
 .toast.show { opacity:1; }
-</style>
+.field-input:focus { border-color:var(--accent); }
+
+.job-name-textarea {
+  width: 100%;
+  min-height: 64px;
+  height: 64px;
+  max-height: 120px;
+  resize: vertical;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  font-family: var(--sans);
+  display: block;
+}\n</style>
 </head>
 <body>
 
@@ -438,7 +451,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       </div>
       <div>
         <label class="field-label">ชื่องาน</label>
-        <input class="field-input" id="f-job" placeholder="เช่น C140ม. บ.หนองอ้อ (นายเอกชัย ต้นน้อย) หรือ งานปรับปรุงไฟตก บ้าน..." spellcheck="false" autocomplete="off" autocorrect="off">
+        <textarea class="field-input job-name-textarea" id="f-job" name="pea_work_description" rows="3" maxlength="500" placeholder="เช่น C140ม. บ.หนองอ้อ (นายเอกชัย ต้นน้อย) หรือ งานปรับปรุงไฟตก บ้าน..." spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="none" data-lpignore="true" data-1p-ignore="true"></textarea>
       </div>
       <div>
         <label class="field-label">เบอร์โทร</label>
@@ -886,6 +899,22 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   });
 
   // ── MODAL FORM ──
+  // รีเซ็ตช่องชื่องานทุกครั้งที่กด + เพิ่มงานใหม่
+  // เพื่อไม่ให้ค่าจากงานก่อนหน้า / browser autofill ติดมาด้วย
+  function resetNewWorkFields() {
+    const jobInput = document.getElementById('f-job');
+    const phoneInput = document.getElementById('f-phone');
+    if (jobInput) {
+      jobInput.value = '';
+      jobInput.defaultValue = '';
+      jobInput.textContent = '';
+      jobInput.setAttribute('autocomplete', 'off');
+    }
+    if (phoneInput) {
+      phoneInput.value = '';
+    }
+  }
+
   window.openForm = function() {
     editingId = null;
     document.getElementById('modal-title').textContent = 'เพิ่มงานใหม่';
@@ -893,8 +922,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     drawingInput.value = generateDrawingNo(currentCat);
     drawingInput.readOnly = false;
     document.getElementById('f-drawing-hint').textContent = 'สร้างอัตโนมัติ — แก้ไขได้หากต้องการ';
-    document.getElementById('f-job').value = '';
-    document.getElementById('f-phone').value = '';
+    resetNewWorkFields();
     document.getElementById('f-job').placeholder = (currentCat === 'improvement')
       ? 'เช่น งานปรับปรุงไฟตก บ้าน...'
       : 'เช่น C140ม. บ.หนองอ้อ (นายเอกชัย ต้นน้อย)';
@@ -943,6 +971,15 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       drawingInput.oninput = null;
     }
     overlay.classList.add('open');
+
+    // โฟกัสช่องชื่องานหลัง modal แสดงผล เพื่อให้ผู้ใช้เริ่มพิมพ์ได้ทันที
+    requestAnimationFrame(() => {
+      const jobInput = document.getElementById('f-job');
+      if (jobInput) {
+        jobInput.focus();
+        jobInput.setSelectionRange(0, 0);
+      }
+    });
   };
 
   window.closeForm = function() {
@@ -959,7 +996,9 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     drawingInput.readOnly = false;
     drawingInput.oninput = null; // ปิดการ sync อัตโนมัติของงานใหม่ ไม่ให้มาแก้ WBS ทับตอนแก้ไขงานเดิม
     document.getElementById('f-drawing-hint').textContent = 'แก้ไขเลขผังได้หากจำเป็น';
-    document.getElementById('f-job').value = w.jobName || '';
+    const jobInput = document.getElementById('f-job');
+    jobInput.value = w.jobName || '';
+    jobInput.setAttribute('autocomplete', 'new-password');
     document.getElementById('f-phone').value = w.phone || '';
     setFStatusUI(w.status || 'survey');
     const drawingLinkInput = document.getElementById('f-drawinglink');
