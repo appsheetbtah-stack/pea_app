@@ -376,7 +376,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   <div class="filter-row" id="filter-row">
     <div class="search-input-wrap">
       <span class="search-icon">🔍</span>
-      <input type="text" id="search-input" class="search-input" placeholder="ค้นหางาน...">
+      <input type="text" id="search-input" class="search-input" placeholder="ค้นหางาน..." spellcheck="false" autocomplete="off" autocorrect="off">
     </div>
     <div class="status-select-wrap filter-dropdown-wrap">
       <span class="status-dot" id="status-select-dot"></span>
@@ -433,16 +433,16 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     <div class="modal-body">
       <div>
         <label class="field-label">เลขผัง</label>
-        <input class="field-input" id="f-drawing" placeholder="เช่น PD30-011/69">
+        <input class="field-input" id="f-drawing" placeholder="เช่น PD30-011/69" spellcheck="false" autocomplete="off" autocorrect="off">
         <div class="field-hint" id="f-drawing-hint"></div>
       </div>
       <div>
         <label class="field-label">ชื่องาน</label>
-        <input class="field-input" id="f-job" placeholder="เช่น C140ม. บ.หนองอ้อ (นายเอกชัย ต้นน้อย) หรือ งานปรับปรุงไฟตก บ้าน...">
+        <input class="field-input" id="f-job" placeholder="เช่น C140ม. บ.หนองอ้อ (นายเอกชัย ต้นน้อย) หรือ งานปรับปรุงไฟตก บ้าน..." spellcheck="false" autocomplete="off" autocorrect="off">
       </div>
       <div>
         <label class="field-label">เบอร์โทร</label>
-        <input class="field-input" id="f-phone" type="tel" inputmode="tel" placeholder="เช่น 081-234-5678">
+        <input class="field-input" id="f-phone" type="tel" inputmode="tel" placeholder="เช่น 081-234-5678" autocomplete="off">
       </div>
       <div id="worktype-wrap" style="display:none">
         <label class="field-label">ลักษณะงาน</label>
@@ -470,7 +470,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       </div>
       <div>
         <label class="field-label">เลข WBS</label>
-        <input class="field-input" id="f-wbs" placeholder="เช่น C-69-B-BRKCM.0XXX.XX.X">
+        <input class="field-input" id="f-wbs" placeholder="เช่น C-69-B-BRKCM.0XXX.XX.X" spellcheck="false" autocomplete="off" autocorrect="off">
         <div class="field-hint" id="f-wbs-hint"></div>
       </div>
       <div>
@@ -490,7 +490,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
           <button type="button" class="btn btn-danger" style="width:100%; margin-top:8px;" onclick="deleteDrawingFile()">🗑️ ลบไฟล์</button>
         </div>
 
-        <input class="field-input" id="f-drawinglink" placeholder="หรือวางลิงก์ Google Drive เองที่นี่" inputmode="url" style="margin-top:8px;" oninput="renderDrawingLinkPreview()">
+        <input class="field-input" id="f-drawinglink" placeholder="หรือวางลิงก์ Google Drive เองที่นี่" inputmode="url" style="margin-top:8px;" oninput="renderDrawingLinkPreview()" spellcheck="false" autocomplete="off" autocorrect="off">
         <div class="field-hint" id="drawinglink-hint">อัปโหลดผ่านปุ่มด้านบน ระบบจะขอเชื่อมต่อ Google Drive ของคุณ (ครั้งแรกเท่านั้น) แล้วเก็บไฟล์และตั้งค่าแชร์ให้อัตโนมัติ หรือจะวางลิงก์ที่มีอยู่แล้วเองก็ได้</div>
         <div class="field-hint" id="drive-account-info"></div>
         <button type="button" class="btn btn-ghost" id="btn-request-permission" style="display:none; width:100%; margin-top:8px;" onclick="onRequestPermissionClick()">🔑 ขอสิทธิ์เชื่อมต่อ Google Drive</button>
