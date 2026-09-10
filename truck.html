@@ -2692,8 +2692,16 @@ async function buildInspectionPDF(){
     root.querySelectorAll('input,select,textarea').forEach(el=>{
       if(el.type==='hidden') { el.remove(); return; }
       let value='';
-      if(el.tagName==='SELECT') value=el.options[el.selectedIndex]?.text || el.value || '-';
-      else value=el.value || el.getAttribute('value') || '-';
+      if(el.tagName==='SELECT'){
+        // FIX: อ่านค่าจาก select ตัวจริงบนหน้าเว็บ (ไม่ใช่จากสำเนาที่ clone มา)
+        // เพราะสำเนาบางครั้งไม่ sync สถานะ selectedIndex ให้ตรงกับของจริง (ทำให้ PDF โชว์ placeholder เช่น "เลือกเวร")
+        const live = el.id ? document.getElementById(el.id) : null;
+        const src = (live && live.tagName === 'SELECT') ? live : el;
+        // ถ้า select ยังไม่ได้เลือกค่าจริงๆ (value ว่าง) ให้โชว์ '-' แทนข้อความ placeholder ของ option แรก
+        value = src.value ? (src.options[src.selectedIndex]?.text || src.value) : '-';
+      } else {
+        value = el.value || el.getAttribute('value') || '-';
+      }
       const span=document.createElement('span');
       span.className='pdf-field-value';
       span.textContent=value || '-';
@@ -2724,8 +2732,23 @@ async function buildInspectionPDF(){
   async function capturePage(page){
     // วัดจริงก่อนจับภาพ เพื่อไม่ให้ส่วนล่างโดนตัด
     document.body.appendChild(page);
+    // FIX: รอฟอนต์โหลดเสร็จก่อน (ฟอนต์ Sarabun/Noto Sans Thai) ไม่งั้นบางเครื่อง/บางจังหวะ (เช่น เพิ่งพลิกจอ)
+    // จะวัดความสูงจากฟอนต์สำรอง (fallback) ที่ตัวเล็ก/ใหญ่กว่าจริง ทำให้ตัดเนื้อหาส่วนล่างหายไปจาก PDF
+    if(document.fonts && document.fonts.ready){ try{ await document.fonts.ready; }catch(e){} }
+    // เผื่อเวลาจริง (ไม่ใช่แค่ animation frame) ให้ font/เว็บฟอนต์โหลดผ่านเน็ตและจัด layout เสร็จสมบูรณ์
+    await new Promise(r=>setTimeout(r, 150));
     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-    const h=Math.ceil(page.getBoundingClientRect().height);
+    // วัดความสูงจริงของเนื้อหา ใช้ค่ามากสุดระหว่าง getBoundingClientRect กับ scrollHeight
+    // (scrollHeight จะจับความสูงเนื้อหาจริงได้แม่นกว่าในบางกรณีที่ getBoundingClientRect ยังไม่นิ่ง)
+    const measure=()=>Math.max(Math.ceil(page.getBoundingClientRect().height), page.scrollHeight);
+    let h = measure();
+    for(let i=0;i<8;i++){
+      await new Promise(r=>requestAnimationFrame(r));
+      const h2 = measure();
+      if(h2<=h) continue;
+      h = h2;
+    }
+    h += 12; // เผื่อ safety margin กันตัดขอบล่างพอดีเกินไปจนโดนตัดเนื้อหา
     const canvas=await html2canvas(page,{scale:2,useCORS:true,backgroundColor:'#fff',logging:false,width:stageW,height:h,windowWidth:stageW});
     page.remove();
     const pxPerMm=canvas.width/contentWmm;
@@ -2759,6 +2782,10 @@ async function buildInspectionPDF(){
     clone.querySelectorAll('.field label').forEach(l=>{l.style.cssText='display:block;font-weight:700;color:#555;margin-bottom:4px;font-size:12px;';});
     clone.querySelectorAll('.pdf-field-value').forEach(v=>{v.style.cssText='display:block;border:1px solid #d9dee8;border-radius:6px;padding:7px 9px;background:#f7f8fa;color:#222;min-height:18px;';});
     clone.querySelectorAll('#day-status-box').forEach(v=>{v.style.cssText='border:1px solid #d9dee8!important;border-radius:6px;padding:7px 9px;background:#f7f8fa!important;color:#222!important;min-height:18px;display:flex;align-items:center;gap:6px;';});
+    // FIX: ช่อง "วัน เดือน ปี" ใช้ CSS variable ตามธีมมืด/สว่างของเครื่อง (var(--bg), var(--text))
+    // ถ้าไม่บังคับสีตรงนี้ ตอนเครื่องอยู่ธีมมืดจะได้กล่องพื้นดำ/ตัวอักษรขาวติดไปใน PDF
+    clone.querySelectorAll('.date-picker-btn').forEach(v=>{v.style.cssText='display:flex;align-items:center;gap:8px;background:#f7f8fa!important;border:1px solid #d9dee8!important;border-radius:8px;padding:9px 12px;min-height:18px;';});
+    clone.querySelectorAll('.date-picker-text').forEach(v=>{v.style.setProperty('color','#222','important');});
     const page=makePageShell('ข้อมูลทั่วไป');
     page.appendChild(clone);
     const stage=makeStage();
