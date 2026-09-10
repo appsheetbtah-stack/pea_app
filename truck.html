@@ -1668,6 +1668,7 @@ async function loadDayData(dateStr) {
   buildAll();
   updateDefects();
   updateDayStatus();
+  return data;
 }
 
 // FIX 3.1: เปลี่ยนชื่อตัวแปรและ callback ให้ถูกต้องตาม Backend จริง (GAS ไม่ใช่ Firebase)
@@ -2636,9 +2637,11 @@ async function printSpecificDayReport(){
 }
 
 // ===== PDF EXPORT + SHARE (Android/Web Share) =====
-function getInspectionPdfFileName(){
+function getInspectionPdfFileName(meta={}){
   const dateVal = document.getElementById('pr-date').value || document.getElementById('checkdate').value || '';
-  const shift = document.getElementById('pr-shift').value || document.getElementById('shift').value || '';
+  // ใช้ค่าที่ saveInspectionPDF() ยืนยันแล้วเป็นแหล่งข้อมูลหลัก
+  // ป้องกัน custom-select / mobile timing ทำให้ช่องเวร ผู้ตรวจสอบ และหัวหน้าเวรกลายเป็น placeholder
+  const shift = meta.shiftText || document.getElementById('shift').value || document.getElementById('pr-shift').value || '';
   let datePart = dateVal;
   if(dateVal){
     const [y,m,d] = dateVal.split('-');
@@ -2660,7 +2663,7 @@ function downloadBlob(blob, fileName){
   setTimeout(()=>URL.revokeObjectURL(url), 1500);
 }
 
-async function buildInspectionPDF(){
+async function buildInspectionPDF(meta={}){
   if(typeof html2canvas === 'undefined' || !window.jspdf || !window.jspdf.jsPDF){
     throw new Error('ไม่พบโมดูลสร้าง PDF กรุณาเปิดอินเทอร์เน็ตแล้วลองใหม่');
   }
@@ -2752,6 +2755,26 @@ async function buildInspectionPDF(){
     const card=view.querySelector('.form-card');
     if(!card) return;
     const clone=cleanClone(card.cloneNode(true));
+
+    // PDF ต้องยึดค่าที่ resolver ของ saveInspectionPDF() หาได้โดยตรง
+    // ไม่พึ่งสถานะของ custom-select ที่อาจอัปเดตไม่ทันบนมือถือ
+    const pdfMeta = {
+      shiftText: meta.shiftText || '',
+      inspector: meta.inspector || '',
+      supervisor: meta.supervisor || ''
+    };
+    clone.querySelectorAll('.field').forEach(f=>{
+      const label=(f.querySelector('label')?.textContent || '').trim();
+      const value = label === 'ช่วงเวลา (เวร)' ? pdfMeta.shiftText
+                  : label === 'ผู้ตรวจสอบ' ? pdfMeta.inspector
+                  : label === 'ช่างหัวหน้าเวร' ? pdfMeta.supervisor
+                  : null;
+      if(value !== null){
+        const v=f.querySelector('.pdf-field-value');
+        if(v) v.textContent=value || '-';
+      }
+    });
+
     clone.style.cssText='background:#fff!important;border:1px solid #d9dee8;border-radius:8px;box-shadow:none!important;margin:0;padding:0;overflow:hidden;width:100%;';
     clone.querySelectorAll('.form-card-header').forEach(h=>{h.style.cssText='background:#1a237e!important;color:#fff!important;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;';});
     clone.querySelectorAll('.form-card-body').forEach(b=>{b.style.cssText='padding:14px 16px;background:#fff!important;color:#222!important;';});
@@ -2969,20 +2992,52 @@ async function saveInspectionPDF(shareLine){
   showProgress();
   try{
     setProgress(18,'กำลังโหลดข้อมูลของวันที่และเวรที่เลือก...');
+
+    // เก็บค่าจากฟอร์มหลักไว้ก่อนโหลดใหม่ เผื่อมือถือเพิ่งเลือกข้อมูลและ Cloud ยังบันทึกไม่ทัน
+    const previousDate = getSelectedDate();
+    const previousShift = getSelectedShift();
+    const previousInspector = document.getElementById('inspector')?.value || '';
+    const previousSupervisor = document.getElementById('supervisor')?.value || '';
+
     setDateInputValue('checkdate', date, false);
     document.getElementById('shift').value = shift;
-    await loadDayData(date);
-    // โหลดข้อมูลวัน/เวรเสร็จแล้ว ต้องคืนค่าผู้ตรวจสอบและช่างหัวหน้าเวร
-    // จาก inspectorData ตามวันที่และเวรที่ผู้ใช้เลือก ก่อนสร้าง PDF
+    const loadedData = await loadDayData(date);
+
+    // สำคัญสำหรับมือถือ: ใช้ inspectorData จากข้อมูลที่เพิ่งโหลดโดยตรง ไม่พึ่งเฉพาะ global state
+    const selectedSh = shift.includes('เช้า') ? 'am' : (shift.includes('เย็น') ? 'pm' : null);
+    const loadedInspectorData = loadedData?.inspectorData || {};
+    const loadedInspector = selectedSh ? (loadedInspectorData[date+'_'+selectedSh] || inspectorData[date+'_'+selectedSh] || '') : '';
+    const loadedSupervisor = selectedSh ? (loadedInspectorData['sup_'+date+'_'+selectedSh] || inspectorData['sup_'+date+'_'+selectedSh] || '') : '';
+
+    const sameSelection = previousDate === date && previousShift === selectedSh;
+    const inspectorValue = loadedInspector || (sameSelection ? previousInspector : '');
+    const supervisorValue = loadedSupervisor || (sameSelection ? previousSupervisor : '');
+
+    const inspectorEl = document.getElementById('inspector');
+    const supervisorEl = document.getElementById('supervisor');
+    if(inspectorEl) inspectorEl.value = inspectorValue;
+    if(supervisorEl) supervisorEl.value = supervisorValue;
+
+    // ยืนยันค่าอีกครั้งหลัง custom-select อัปเดต UI
     restoreShiftFields();
+    if(inspectorValue && inspectorEl?.value !== inspectorValue) inspectorEl.value = inspectorValue;
+    if(supervisorValue && supervisorEl?.value !== supervisorValue) supervisorEl.value = supervisorValue;
 
     setProgress(35,'กำลังจัดรูปแบบรายงาน...');
     await new Promise(r=>requestAnimationFrame(r));
     setProgress(48,'กำลังสร้างหน้ารายงาน...');
-    const blob = await buildInspectionPDF();
+    const blob = await buildInspectionPDF({
+      shiftText: shift,
+      inspector: inspectorValue,
+      supervisor: supervisorValue
+    });
 
     setProgress(88,'สร้าง PDF สำเร็จ กำลังบันทึกไฟล์...');
-    const fileName = getInspectionPdfFileName();
+    const fileName = getInspectionPdfFileName({
+      shiftText: shift,
+      inspector: inspectorValue,
+      supervisor: supervisorValue
+    });
     downloadBlob(blob, fileName);
 
     if(shareLine){
