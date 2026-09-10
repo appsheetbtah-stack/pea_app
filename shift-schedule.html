@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ตารางเวรและค่าแรง - PEA บ้านทุ่งอ้ายโห้</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; min-height: 100%; background: #0f1923; }
+  * { box-sizing: border-box; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useMemo } = React;
+// ---------- constants ----------
+const THAI_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+const THAI_MONTHS_FULL = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+const THAI_DAYS_SHORT = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
+const THAI_DAYS_FULL = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
+const SHIFT_LABELS = ["00:00 - 08:00", "08:00 - 16:00", "16:00 - 24:00"];
+const WORKER_COLORS = ["#F2A93B", "#3FB88F", "#7C8CF8", "#E85D42", "#4FC3E0", "#C97BD1"];
+const SSO_RATE = 0.05;
+
+const pad2 = (n) => String(n).padStart(2, "0");
+const dateKey = (y, m, d) => `${y}-${pad2(m)}-${pad2(d)}`;
+const daysInMonth = (y, m) => new Date(y, m, 0).getDate();
+const isSunday = (y, m, d) => new Date(y, m - 1, d).getDay() === 0;
+const weekdayOf = (y, m, d) => new Date(y, m - 1, d).getDay();
+const uid = () => Math.random().toString(36).slice(2, 9);
+
+const ROTATION_EPOCH = new Date(2026, 0, 1);
+const daysBetween = (a, b) => Math.round((b - a) / 86400000);
+
+// ---------- default teams ----------
+function defaultTeams() {
+  return [
+    {
+      id: "outage",
+      name: "ทีมแก้ไฟฯ",
+      type: "rotation", // 3-shift rotating team
+      workers: [
+        { id: uid(), name: "นายชารี ราชอ่อง", dailyRate: 436, contractorRate: 548 },
+        { id: uid(), name: "นายประเสริฐ ทิมทอง", dailyRate: 436, contractorRate: 604 },
+        { id: uid(), name: "นายดนุภพ คำมาเปียง", dailyRate: 455, contractorRate: 548 },
+      ],
+      schedule: {}, // dateKey -> { shifts:[id,id,id], holiday:'none'|'worked'|'off' }
+      docSettings: {
+        companyName: "บริษัท สยามราชธานี จำกัด",
+        contractNo: "จ.น2.-172/2566",
+        teamName: "นายอนลัส เลี่ยมสกุล",
+        siteName: "กฟส.บ้านทุ่งอ้ายโห้",
+      },
+    },
+    {
+      id: "maintenance",
+      name: "ทีมซ่อมบำรุงฯ",
+      type: "weekday", // simple whole-team workday/holiday
+      workers: [
+        { id: uid(), name: "นายสุกนต์ธี สุขแม้น", dailyRate: 407, contractorRate: 548 },
+        { id: uid(), name: "นายพุฒิพงษ์ มั่นคง", dailyRate: 396, contractorRate: 488 },
+        { id: uid(), name: "นายจักรพันธ์ ราชอ่อง", dailyRate: 368, contractorRate: 488 },
+      ],
+      schedule: {}, // dateKey -> { worked: bool (optional, default = Mon-Fri), holiday: bool }
+      docSettings: {
+        companyName: "บริษัท สยามราชธานี จำกัด",
+        contractNo: "จ.น2.-172/2566",
+        teamName: "นายชาคริต บุญม่วง",
+        siteName: "กฟส.บ้านทุ่งอ้ายโห้",
+      },
+    },
+    {
+      id: "meter",
+      name: "ทีมมิเตอร์",
+      type: "weekday", // simple whole-team workday/holiday
+      workers: [
+        { id: uid(), name: "นายธนภัทร์ วิสิทธิ์", dailyRate: 366, contractorRate: 488 },
+      ],
+      schedule: {},
+      docSettings: {
+        companyName: "บริษัท สยามราชธานี จำกัด",
+        contractNo: "จ.น.2-46/2567",
+        teamName: "นายนิติพัฒน์ พุกสุข",
+        siteName: "กฟส.บ้านทุ่งอ้ายโห้",
+      },
+    },
+  ];
+}
+
+// ---------- main app ----------
+function App() {
+  const [teams, setTeams] = useState(defaultTeams());
+  const [activeTeamId, setActiveTeamId] = useState("outage");
+  const [year, setYear] = useState(2026);
+  const [month, setMonth] = useState(1);
+  const [tab, setTab] = useState("schedule");
+  const [selectedDay, setSelectedDay] = useState(null);
+
+  const team = teams.find((t) => t.id === activeTeamId);
+  const workers = team.workers;
+  const schedule = team.schedule;
+  const docSettings = team.docSettings;
+  const dim = daysInMonth(year, month);
+
+  const updateTeam = (patch) => {
+    setTeams((prev) => prev.map((t) => (t.id === activeTeamId ? { ...t, ...(typeof patch === "function" ? patch(t) : patch) } : t)));
+  };
+  const setDocSettings = (fn) => updateTeam((t) => ({ docSettings: fn(t.docSettings) }));
+  const setWorkers = (fn) => updateTeam((t) => ({ workers: fn(t.workers) }));
+  const setSchedule = (fn) => updateTeam((t) => ({ schedule: fn(t.schedule) }));
+
+  const workerColor = (id) => {
+    const idx = workers.findIndex((w) => w.id === id);
+    return idx >= 0 ? WORKER_COLORS[idx % WORKER_COLORS.length] : "#555";
+  };
+  const workerName = (id) => workers.find((w) => w.id === id)?.name ?? "";
+  const firstNameOf = (fullName) => {
+    const noTitle = fullName.replace(/^(นางสาว|นาง|นาย|น\.ส\.)/, "").trim();
+    return noTitle.split(" ")[0] || fullName;
+  };
+
+  // ===================== ROTATION TEAM HELPERS =====================
+  const emptyRotationEntry = () => ({ shifts: [null, null, null], holiday: "none" });
+  const getEntry = (key) => schedule[key] || emptyRotationEntry();
+  const updateEntry = (key, patch) => setSchedule((prev) => ({ ...prev, [key]: { ...emptyRotationEntry(), ...prev[key], ...patch } }));
+
+  const rotationShiftsForDate = (date) => {
+    const n = workers.length;
+    if (n === 0) return [null, null, null];
+    const r = ((daysBetween(ROTATION_EPOCH, date) % n) + n) % n;
+    return [workers[r].id, workers[(r + 2) % n].id, workers[(r + 1) % n].id];
+  };
+
+  const setShift = (key, shiftIdx, workerId) => {
+    const entry = getEntry(key);
+    const shifts = [...entry.shifts];
+    shifts[shiftIdx] = workerId || null;
+    updateEntry(key, { shifts });
+  };
+
+  const setRotationHoliday = (key, holiday) => {
+    const entry = getEntry(key);
+    if (holiday === "worked") {
+      const [y, m, d] = key.split("-").map(Number);
+      const [s1, s2, s3] = rotationShiftsForDate(new Date(y, m - 1, d));
+      const shifts = [...entry.shifts];
+      if (!shifts[0]) shifts[0] = s1;
+      if (!shifts[1]) shifts[1] = s2;
+      if (!shifts[2]) shifts[2] = s3;
+      updateEntry(key, { holiday, shifts });
+    } else if (holiday === "off") {
+      updateEntry(key, { holiday, shifts: [null, null, null] });
+    } else {
+      updateEntry(key, { holiday });
+    }
+  };
+
+  const autoFillMonth = () => {
+    if (workers.length === 0) return;
+    setSchedule((prev) => {
+      const next = { ...prev };
+      for (let d = 1; d <= dim; d++) {
+        const key = dateKey(year, month, d);
+        const thisDate = new Date(year, month - 1, d);
+        const weekday = thisDate.getDay();
+        const isWeekend = weekday === 0 || weekday === 6;
+        const existing = next[key] || emptyRotationEntry();
+        const fillShift2 = isWeekend || existing.holiday === "worked";
+        const [s1, s2, s3] = rotationShiftsForDate(thisDate);
+        next[key] = { ...existing, shifts: [s1, fillShift2 ? s2 : null, s3] };
+      }
+      return next;
+    });
+  };
+
+  function dayMultiplierRotation(entry) {
+    if (entry.holiday === "off") return { mode: "off", mult: 1 };
+    const mult = entry.holiday === "worked" ? 2 : 1;
+    return { mode: "normal", mult };
+  }
+
+  // ===================== WEEKDAY TEAM HELPERS =====================
+  const getWeekdayEntry = (key) => schedule[key] || {};
+  const defaultWorked = (y, m, d) => {
+    const wd = weekdayOf(y, m, d);
+    return wd >= 1 && wd <= 5;
+  };
+  const effectiveWorked = (y, m, d) => {
+    const entry = getWeekdayEntry(dateKey(y, m, d));
+    return entry.worked === undefined ? defaultWorked(y, m, d) : entry.worked;
+  };
+  const toggleWorked = (y, m, d) => {
+    const key = dateKey(y, m, d);
+    const current = effectiveWorked(y, m, d);
+    setSchedule((prev) => ({ ...prev, [key]: { ...prev[key], worked: !current } }));
+  };
+  const toggleHolidayFlag = (y, m, d) => {
+    const key = dateKey(y, m, d);
+    const entry = getWeekdayEntry(key);
+    setSchedule((prev) => ({ ...prev, [key]: { ...prev[key], holiday: !entry.holiday } }));
+  };
+  const resetMonthWeekday = () => {
+    setSchedule((prev) => {
+      const next = { ...prev };
+      for (let d = 1; d <= dim; d++) delete next[dateKey(year, month, d)];
+      return next;
+    });
+  };
+
+  // ===================== GENERIC (shared) UNITS-PER-DAY =====================
+  // Returns { workerId: units(0/1/2) } for one day, regardless of team type.
+  function unitsForDay(y, m, d) {
+    const units = {};
+    if (team.type === "rotation") {
+      const entry = getEntry(dateKey(y, m, d));
+      const { mode, mult } = dayMultiplierRotation(entry);
+      if (mode === "off") {
+        workers.forEach((w) => (units[w.id] = 1));
+        return units;
+      }
+      const workedToday = new Set(entry.shifts.filter(Boolean));
+      workers.forEach((w) => (units[w.id] = workedToday.has(w.id) ? mult : 0));
+      return units;
+    }
+    // weekday team: whole team shares the same value
+    const entry = getWeekdayEntry(dateKey(y, m, d));
+    const worked = effectiveWorked(y, m, d);
+    const holiday = !!entry.holiday;
+    const value = holiday ? (worked ? 2 : 1) : worked ? 1 : 0;
+    workers.forEach((w) => (units[w.id] = value));
+    return units;
+  }
+
+  function computePeriod(fromDay, toDay) {
+    const totals = {};
+    workers.forEach((w) => (totals[w.id] = 0));
+    for (let d = fromDay; d <= toDay; d++) {
+      const u = unitsForDay(year, month, d);
+      workers.forEach((w) => (totals[w.id] += u[w.id] || 0));
+    }
+    return totals;
+  }
+
+  const period1 = useMemo(() => computePeriod(1, Math.min(15, dim)), [teams, activeTeamId, year, month]);
+  const period2 = useMemo(() => computePeriod(16, dim), [teams, activeTeamId, year, month]);
+
+  const yearlyTotals = useMemo(() => {
+    const totals = {};
+    workers.forEach((w) => (totals[w.id] = { net: 0, contractor: 0 }));
+    for (let m = 1; m <= 12; m++) {
+      const dm = daysInMonth(year, m);
+      [
+        [1, Math.min(15, dm)],
+        [16, dm],
+      ].forEach(([from, to]) => {
+        const perWorker = {};
+        workers.forEach((w) => (perWorker[w.id] = 0));
+        for (let d = from; d <= to; d++) {
+          const key = dateKey(year, m, d);
+          let u;
+          if (team.type === "rotation") {
+            const entry = schedule[key] || emptyRotationEntry();
+            const { mode, mult } = dayMultiplierRotation(entry);
+            u = {};
+            if (mode === "off") workers.forEach((w) => (u[w.id] = 1));
+            else {
+              const workedToday = new Set(entry.shifts.filter(Boolean));
+              workers.forEach((w) => (u[w.id] = workedToday.has(w.id) ? mult : 0));
+            }
+          } else {
+            const entry = schedule[key] || {};
+            const wd = weekdayOf(year, m, d);
+            const worked = entry.worked === undefined ? wd >= 1 && wd <= 5 : entry.worked;
+            const holiday = !!entry.holiday;
+            const value = holiday ? (worked ? 2 : 1) : worked ? 1 : 0;
+            u = {};
+            workers.forEach((w) => (u[w.id] = value));
+          }
+          workers.forEach((w) => (perWorker[w.id] += u[w.id] || 0));
+        }
+        workers.forEach((w) => {
+          const units = perWorker[w.id];
+          const gross = units * w.dailyRate;
+          const net = gross - gross * SSO_RATE;
+          totals[w.id].net += net;
+          totals[w.id].contractor += units * w.contractorRate;
+        });
+      });
+    }
+    return totals;
+  }, [teams, activeTeamId, year]);
+
+  const leadingBlanks = weekdayOf(year, month, 1);
+  const cells = [];
+  for (let i = 0; i < leadingBlanks; i++) cells.push(null);
+  for (let d = 1; d <= dim; d++) cells.push(d);
+
+  const money = (n) => n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // ===================== EXPORT: PAYROLL EXCEL (generic across team types) =====================
+  function periodRows(fromDay, toDay) {
+    const days = [];
+    for (let d = fromDay; d <= toDay; d++) days.push(d);
+    const header = ["ลำดับ", "ชื่อ - สกุล", ...days.map((d) => String(d)), "รวม", "ค่าจ้างวันละ", "รวมเป็นเงิน", "หักประกันสังคม (5%)", "จ่ายสุทธิ", "อัตราผู้รับจ้าง (วันละ)", "รวมจ่ายให้ผู้รับจ้าง"];
+    const rows = [header];
+    let sumUnits = 0, sumGross = 0, sumSso = 0, sumNet = 0, sumContractor = 0;
+    workers.forEach((w, i) => {
+      let units = 0;
+      const dayVals = days.map((d) => {
+        const u = unitsForDay(year, month, d)[w.id] || 0;
+        units += u;
+        return u;
+      });
+      const gross = units * w.dailyRate;
+      const sso = gross * SSO_RATE;
+      const net = gross - sso;
+      const contractor = units * w.contractorRate;
+      sumUnits += units; sumGross += gross; sumSso += sso; sumNet += net; sumContractor += contractor;
+      rows.push([i + 1, w.name, ...dayVals, units, w.dailyRate, gross, Number(sso.toFixed(2)), Number(net.toFixed(2)), w.contractorRate, contractor]);
+    });
+    rows.push(["", "รวม", ...days.map(() => ""), sumUnits, "", sumGross, Number(sumSso.toFixed(2)), Number(sumNet.toFixed(2)), "", sumContractor]);
+    rows.push([]);
+    rows.push(["", "รวมเงินจ่ายให้ผู้รับจ้าง", "", "", "", "", "", "", "", "", sumContractor]);
+    return rows;
+  }
+
+  function exportExcelMonth() {
+    const wb = XLSX.utils.book_new();
+    const p1 = periodRows(1, Math.min(15, dim));
+    const p2 = periodRows(16, dim);
+    const titleBlock = [
+      [docSettings.companyName],
+      ["สรุปค่าแรงและค่าจ้าง", "", "", "", "", `ตามสัญญาจ้างเลขที่ ${docSettings.contractNo}`],
+      [`สถานที่ปฏิบัติงาน: ${docSettings.siteName}`],
+      [`ทีม ${docSettings.teamName}`],
+      [],
+    ];
+    const aoa = [
+      ...titleBlock,
+      [`ประจำงวดที่ 1 - ${Math.min(15, dim)} ${THAI_MONTHS_FULL[month - 1]} ${year + 543}`],
+      ...p1,
+      [],
+      [`ประจำงวดที่ 16 - ${dim} ${THAI_MONTHS_FULL[month - 1]} ${year + 543}`],
+      ...p2,
+      [],
+      ["ลงชื่อ.......................................... ตัวแทนผู้รับจ้าง", "", "", "", "", "ลงชื่อ.......................................... พบช. ผู้คุมงบคู่สัญญา"],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"] = [{ wch: 6 }, { wch: 26 }];
+    XLSX.utils.book_append_sheet(wb, ws, `${THAI_MONTHS[month - 1]}${year + 543}`.slice(0, 31));
+    XLSX.writeFile(wb, `ค่าแรง_${team.name}_${THAI_MONTHS[month - 1]}${year + 543}.xlsx`);
+  }
+
+  // ===================== EXPORT: SCHEDULE EXCEL (differs per team type) =====================
+  function exportScheduleExcel() {
+    const wb = XLSX.utils.book_new();
+    const rows = [];
+
+    if (team.type === "rotation") {
+      const shift1Count = {}, shift2Count = {}, shift3Count = {};
+      workers.forEach((w) => { shift1Count[w.id] = 0; shift2Count[w.id] = 0; shift3Count[w.id] = 0; });
+      for (let d = 1; d <= dim; d++) {
+        const entry = getEntry(dateKey(year, month, d));
+        if (entry.shifts[0] && shift1Count[entry.shifts[0]] !== undefined) shift1Count[entry.shifts[0]]++;
+        if (entry.shifts[1] && shift2Count[entry.shifts[1]] !== undefined) shift2Count[entry.shifts[1]]++;
+        if (entry.shifts[2] && shift3Count[entry.shifts[2]] !== undefined) shift3Count[entry.shifts[2]]++;
+      }
+      rows.push([`ตารางการปฏิบัติงานประจำวัน ของ คนงาน ${docSettings.siteName}`, "", "", "", "", "", ...workers.map((w) => w.name)]);
+      rows.push([`ประจำเดือน ${THAI_MONTHS_FULL[month - 1]}  พ.ศ.  ${year + 543}`, "", "", "", "", "เวลา 00:30 น. - 08:30 น.", ...workers.map((w) => shift1Count[w.id])]);
+      rows.push(["วัน", "ที่", "เวลา 00:00 น. - 08:00 น.", "เวลา 08:00 น. - 16:00 น.", "เวลา 16:00 น. - 24:00 น.", "เวลา 08:30 น. - 16:30 น.", ...workers.map((w) => shift2Count[w.id])]);
+      for (let d = 1; d <= dim; d++) {
+        const entry = getEntry(dateKey(year, month, d));
+        const weekday = new Date(year, month - 1, d).getDay();
+        const row = [THAI_DAYS_FULL[weekday], d, workerName(entry.shifts[0]) || "", workerName(entry.shifts[1]) || "", workerName(entry.shifts[2]) || ""];
+        if (d === 1) row.push("เวลา 16:30 น. - 00:30 น.", ...workers.map((w) => shift3Count[w.id]));
+        else if (d === 2) row.push("รวม", ...workers.map((w) => shift1Count[w.id] + shift2Count[w.id] + shift3Count[w.id]));
+        rows.push(row);
+      }
+    } else {
+      rows.push([`ตารางการปฏิบัติงานประจำวัน ของ คนงาน ${docSettings.siteName}`]);
+      rows.push([`ประจำเดือน ${THAI_MONTHS_FULL[month - 1]}  พ.ศ.  ${year + 543}`]);
+      rows.push(["วัน", "ที่", "เวลา 08:00 น. - 17:00 น.", "", ""]);
+      for (let d = 1; d <= dim; d++) {
+        const weekday = new Date(year, month - 1, d).getDay();
+        const worked = effectiveWorked(year, month, d);
+        const row = [THAI_DAYS_FULL[weekday], d, ...workers.map((w) => (worked ? w.name : "-"))];
+        rows.push(row);
+      }
+    }
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = [{ wch: 10 }, { wch: 5 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 24 }];
+    XLSX.utils.book_append_sheet(wb, ws, `${THAI_MONTHS[month - 1]}${year + 543}`.slice(0, 31));
+    XLSX.writeFile(wb, `ตารางเวร_${team.name}_${THAI_MONTHS[month - 1]}${year + 543}.xlsx`);
+  }
+
+  return (
+    <div className="app-root">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+
+        .app-root {
+          --bg: #0f1923;
+          --panel: #162030;
+          --panel-2: #1e2d3d;
+          --border: #2a3f55;
+          --text: #e8f0f8;
+          --muted: #8aa0b8;
+          --amber: #f5a623;
+          --teal: #2ecc71;
+          --red: #e74c3c;
+          font-family: 'Sarabun', sans-serif;
+          background: var(--bg);
+          color: var(--text);
+          min-height: 100%;
+          padding: 24px 20px 60px;
+          box-sizing: border-box;
+        }
+        .app-root * { box-sizing: border-box; }
+        .mono { font-family: 'IBM Plex Mono', monospace; }
+
+        .header { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+        .header-title { font-size: 22px; font-weight: 700; letter-spacing: 0.2px; }
+        .header-sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+        .team-switch { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+        .team-btn { background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-family: inherit; padding: 10px 16px; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.15s; }
+        .team-btn.active { border-color: var(--amber); color: var(--amber); background: rgba(245,166,35,0.1); }
+        .team-btn:hover:not(.active) { color: var(--text); border-color: var(--muted); }
+
+        .tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 4px; width: fit-content; margin-bottom: 20px; }
+        .tab-btn { background: transparent; border: none; color: var(--muted); font-family: inherit; padding: 8px 16px; border-radius: 7px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.15s, color 0.15s; }
+        .tab-btn.active { background: var(--panel-2); color: var(--amber); }
+        .tab-btn:hover:not(.active) { color: var(--text); }
+
+        .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+        .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .btn { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); font-family: inherit; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+        .btn:hover { border-color: var(--amber); }
+        .btn.primary { background: var(--amber); color: #0f1923; border-color: var(--amber); font-weight: 600; }
+        .btn.danger { color: var(--red); }
+        .btn.small { padding: 4px 10px; font-size: 12px; }
+
+        .month-nav { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; }
+        .month-label { min-width: 150px; text-align: center; }
+
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 14px; }
+        .cal-dow { text-align: center; color: var(--muted); font-size: 12px; padding-bottom: 4px; }
+        .cal-cell { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; min-height: 84px; padding: 6px; cursor: pointer; font-size: 11px; position: relative; display: flex; flex-direction: column; gap: 3px; }
+        .cal-cell.empty { background: transparent; border: none; cursor: default; }
+        .cal-cell.selected { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber); }
+        .cal-cell.worked { border-color: rgba(46,204,113,0.4); }
+        .cal-cell.off { opacity: 0.55; }
+        .cal-date { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+        .cal-badge { font-size: 9px; padding: 1px 5px; border-radius: 4px; display: inline-block; width: fit-content; }
+        .badge-sunday { background: rgba(138,160,184,0.18); color: var(--muted); }
+        .badge-off { background: rgba(231,76,60,0.18); color: var(--red); }
+        .badge-worked { background: rgba(231,76,60,0.18); color: var(--red); }
+        .badge-status-work { background: rgba(46,204,113,0.18); color: var(--teal); }
+        .badge-status-off { background: rgba(138,160,184,0.15); color: var(--muted); }
+        .shift-chip { font-size: 9.5px; padding: 1px 4px; border-radius: 3px; color: #0f1923; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .holiday-star { cursor: pointer; font-size: 12px; opacity: 0.5; }
+        .holiday-star.active { opacity: 1; }
+
+        .editor-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
+        .editor-shift-row { display: flex; align-items: center; gap: 10px; }
+        .editor-shift-time { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); width: 130px; }
+        select, input[type=text], input[type=number] { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: inherit; padding: 7px 10px; border-radius: 7px; font-size: 13px; flex: 1; }
+        .holiday-options { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+        .holiday-opt { border: 1px solid var(--border); border-radius: 7px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; color: var(--muted); }
+        .holiday-opt.active { border-color: var(--amber); color: var(--amber); background: rgba(245,166,35,0.1); }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { padding: 9px 10px; text-align: right; border-bottom: 1px solid var(--border); }
+        th:first-child, td:first-child { text-align: left; }
+        th { color: var(--muted); font-weight: 500; font-size: 12px; }
+        tr.total-row td { font-weight: 700; color: var(--amber); border-top: 1px solid var(--border); border-bottom: none; }
+        .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--muted); }
+        .legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+
+        .worker-row { display: grid; grid-template-columns: auto 1fr 110px 130px 40px; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+        .worker-row:last-child { border-bottom: none; }
+        .swatch { width: 12px; height: 12px; border-radius: 50%; }
+        .section-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+        .section-sub { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
+        .empty-state { color: var(--muted); font-size: 13px; text-align: center; padding: 30px 0; }
+
+        .print-only { display: none; }
+        @media print {
+          body * { visibility: hidden; }
+          #printable-area, #printable-area * { visibility: visible; }
+          #printable-area { display: block !important; position: absolute; left: 0; top: 0; width: 100%; color: #000; background: #fff; padding: 10px; }
+          #printable-area table { width: 100%; border-collapse: collapse; font-size: 10px; }
+          #printable-area th, #printable-area td { border: 1px solid #999; padding: 3px 4px; text-align: center; }
+          #printable-area td:nth-child(2), #printable-area th:nth-child(2) { text-align: left; }
+          #printable-area h2 { font-size: 14px; margin: 4px 0; }
+          #printable-area .doc-head { font-size: 12px; margin-bottom: 2px; }
+          #printable-area .period-block { margin-bottom: 18px; page-break-inside: avoid; }
+          #printable-area .sign-row { display: flex; justify-content: space-between; margin-top: 24px; font-size: 12px; }
+        }
+      `}</style>
+
+      <div className="header">
+        <div>
+          <a href="index.html" style={{ display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none", marginBottom: 8 }}>
+            <span style={{ background: "var(--amber)", color: "#000", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 12, padding: "2px 7px", borderRadius: 3 }}>PEA</span>
+            <span style={{ color: "var(--muted)", fontSize: 13 }}>← กลับหน้าหลัก</span>
+          </a>
+          <div className="header-title">จัดเวร แก้ไฟฯ / ซ่อมบำรุงฯ — ตารางเวรและค่าแรง</div>
+          <div className="header-sub">การไฟฟ้าส่วนภูมิภาคสาขาบ้านทุ่งอ้ายโห้ · ข้อมูลเก็บชั่วคราวในเบราว์เซอร์นี้เท่านั้น — รีเฟรชหน้าจะหาย</div>
+        </div>
+      </div>
+
+      <div className="team-switch">
+        {teams.map((t) => (
+          <button key={t.id} className={`team-btn ${t.id === activeTeamId ? "active" : ""}`} onClick={() => { setActiveTeamId(t.id); setSelectedDay(null); }}>
+            {t.name}
+          </button>
+        ))}
+      </div>
+
+      <div className="tabs">
+        <button className={`tab-btn ${tab === "schedule" ? "active" : ""}`} onClick={() => setTab("schedule")}>ตารางเวร</button>
+        <button className={`tab-btn ${tab === "workers" ? "active" : ""}`} onClick={() => setTab("workers")}>คนงาน</button>
+        <button className={`tab-btn ${tab === "payroll" ? "active" : ""}`} onClick={() => setTab("payroll")}>สรุปค่าแรง</button>
+        <button className={`tab-btn ${tab === "yearly" ? "active" : ""}`} onClick={() => setTab("yearly")}>สรุปรายปี</button>
+      </div>
+
+      {tab === "schedule" && (
+        <>
+          <div className="card">
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <div className="month-nav">
+                <button className="btn small" onClick={() => setMonth((m) => (m === 1 ? (setYear((y) => y - 1), 12) : m - 1))}>‹</button>
+                <div className="month-label mono">{THAI_MONTHS_FULL[month - 1]} {year + 543}</div>
+                <button className="btn small" onClick={() => setMonth((m) => (m === 12 ? (setYear((y) => y + 1), 1) : m + 1))}>›</button>
+              </div>
+              <div className="row">
+                {team.type === "rotation" ? (
+                  <>
+                    <button className="btn" onClick={autoFillMonth}>เติมเวรตามแพทเทิร์นจริง (หมุน 3 คน)</button>
+                    <button className="btn danger" onClick={() => { setSchedule((prev) => { const next = { ...prev }; for (let d = 1; d <= dim; d++) delete next[dateKey(year, month, d)]; return next; }); setSelectedDay(null); }}>ล้างเวรเดือนนี้</button>
+                  </>
+                ) : (
+                  <button className="btn danger" onClick={resetMonthWeekday}>รีเซ็ตเดือนนี้ (ทำงานจันทร์-ศุกร์ตามปกติ)</button>
+                )}
+                <button className="btn primary" onClick={exportScheduleExcel}>ดาวน์โหลดตารางเวร (Excel)</button>
+              </div>
+            </div>
+
+            {team.type === "weekday" && (
+              <div className="section-sub" style={{ marginTop: 10 }}>
+                คลิกวันที่เพื่อสลับสถานะ ทำงาน/หยุด ของทั้งทีม · คลิกไอคอน ⭐ มุมขวาบนของวันเพื่อประกาศเป็นวันหยุดพิเศษของบริษัท (ไม่ทำงาน = ได้ 1 แรงฟรี, มาทำงาน = ได้ 2 แรง)
+              </div>
+            )}
+
+            <div className="cal-grid">
+              {THAI_DAYS_SHORT.map((d) => <div key={d} className="cal-dow">{d}</div>)}
+              {cells.map((d, i) => {
+                if (d === null) return <div key={i} className="cal-cell empty" />;
+                const key = dateKey(year, month, d);
+                const sunday = isSunday(year, month, d);
+                const isSelected = selectedDay === d;
+
+                if (team.type === "rotation") {
+                  const entry = getEntry(key);
+                  return (
+                    <div key={i} className={`cal-cell ${isSelected ? "selected" : ""}`} onClick={() => setSelectedDay(d)}>
+                      <div className="cal-date">{d}</div>
+                      {entry.holiday === "off" && <span className="cal-badge badge-off">หยุด+1</span>}
+                      {entry.holiday === "worked" && <span className="cal-badge badge-worked">หยุดทำงาน x2</span>}
+                      {entry.holiday === "none" && sunday && <span className="cal-badge badge-sunday">อาทิตย์</span>}
+                      {entry.holiday !== "off" && entry.shifts.map((wid, si) =>
+                        wid ? <div key={si} className="shift-chip" style={{ background: workerColor(wid) }}>{firstNameOf(workerName(wid))}</div> : null
+                      )}
+                    </div>
+                  );
+                }
+
+                // weekday team
+                const wentry = getWeekdayEntry(key);
+                const worked = effectiveWorked(year, month, d);
+                const holiday = !!wentry.holiday;
+                return (
+                  <div
+                    key={i}
+                    className={`cal-cell ${isSelected ? "selected" : ""} ${worked ? "worked" : "off"}`}
+                    onClick={() => { setSelectedDay(d); toggleWorked(year, month, d); }}
+                  >
+                    <div className="cal-date">
+                      <span>{d}</span>
+                      <span className={`holiday-star ${holiday ? "active" : ""}`} onClick={(e) => { e.stopPropagation(); toggleHolidayFlag(year, month, d); }}>⭐</span>
+                    </div>
+                    {holiday && <span className="cal-badge badge-worked">วันหยุดพิเศษ</span>}
+                    <span className={`cal-badge ${worked ? "badge-status-work" : "badge-status-off"}`}>{worked ? "ทำงาน" : "หยุด"}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="legend">
+              {workers.map((w) => (
+                <span key={w.id}><span className="legend-dot" style={{ background: workerColor(w.id) }} />{w.name}</span>
+              ))}
+            </div>
+          </div>
+
+          {team.type === "rotation" && selectedDay && (
+            <div className="card">
+              <div className="section-title">แก้ไขวันที่ {selectedDay} {THAI_MONTHS_FULL[month - 1]} {year + 543}
+                {isSunday(year, month, selectedDay) && <span style={{ color: "var(--muted)", fontWeight: 400, fontSize: 13 }}> (วันอาทิตย์ — จ่าย 1 แรงเท่าปกติ)</span>}
+              </div>
+              <div className="section-sub">เลือกคนเข้าเวรแต่ละกะ และประเภทของวัน</div>
+
+              <div className="editor-grid">
+                {SHIFT_LABELS.map((label, si) => {
+                  const entry = getEntry(dateKey(year, month, selectedDay));
+                  return (
+                    <div key={si} className="editor-shift-row">
+                      <div className="editor-shift-time mono">{label} น.</div>
+                      <select
+                        value={entry.shifts[si] || ""}
+                        onChange={(e) => setShift(dateKey(year, month, selectedDay), si, e.target.value)}
+                        disabled={entry.holiday === "off"}
+                      >
+                        <option value="">— ว่าง —</option>
+                        {workers.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="holiday-options">
+                {[
+                  ["none", "ปกติ (รวมวันอาทิตย์ทั่วไป — ได้ 1 แรงเท่าเดิม)"],
+                  ["worked", "วันหยุดพิเศษที่บริษัทประกาศ — มาทำงาน (x2)"],
+                  ["off", "วันหยุดพิเศษที่บริษัทประกาศ — ไม่ทำงาน (ทุกคนได้ 1 แรง)"],
+                ].map(([val, label]) => (
+                  <div
+                    key={val}
+                    className={`holiday-opt ${getEntry(dateKey(year, month, selectedDay)).holiday === val ? "active" : ""}`}
+                    onClick={() => setRotationHoliday(dateKey(year, month, selectedDay), val)}
+                  >
+                    {label}
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <button className="btn small" onClick={() => setSelectedDay(null)}>ปิด</button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === "workers" && (
+        <div className="card">
+          <div className="section-title">คนงานและอัตราค่าจ้าง — {team.name}</div>
+          <div className="section-sub">ค่าจ้างวันละ = อัตราที่ลูกจ้างได้รับจริง · อัตราผู้รับจ้าง = อัตราที่เรียกเก็บ/จ่ายให้บริษัทผู้รับเหมาต่อแรงงาน 1 หน่วย</div>
+
+          <div className="worker-row" style={{ color: "var(--muted)", fontSize: 12 }}>
+            <div></div><div>ชื่อ</div><div>ค่าจ้างวันละ</div><div>อัตราผู้รับจ้าง</div><div></div>
+          </div>
+          {workers.map((w) => (
+            <div className="worker-row" key={w.id}>
+              <div className="swatch" style={{ background: workerColor(w.id) }} />
+              <input type="text" value={w.name} onChange={(e) => setWorkers((prev) => prev.map((x) => x.id === w.id ? { ...x, name: e.target.value } : x))} />
+              <input type="number" className="mono" value={w.dailyRate} onChange={(e) => setWorkers((prev) => prev.map((x) => x.id === w.id ? { ...x, dailyRate: Number(e.target.value) } : x))} />
+              <input type="number" className="mono" value={w.contractorRate} onChange={(e) => setWorkers((prev) => prev.map((x) => x.id === w.id ? { ...x, contractorRate: Number(e.target.value) } : x))} />
+              <button className="btn small danger" onClick={() => setWorkers((prev) => prev.filter((x) => x.id !== w.id))}>ลบ</button>
+            </div>
+          ))}
+
+          <div style={{ marginTop: 14 }}>
+            <button className="btn primary" onClick={() => setWorkers((prev) => [...prev, { id: uid(), name: "คนงานใหม่", dailyRate: 400, contractorRate: 500 }])}>+ เพิ่มคนงาน</button>
+          </div>
+        </div>
+      )}
+
+      {tab === "payroll" && (
+        <>
+          <div className="card">
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <div className="month-nav">
+                <button className="btn small" onClick={() => setMonth((m) => (m === 1 ? (setYear((y) => y - 1), 12) : m - 1))}>‹</button>
+                <div className="month-label mono">{THAI_MONTHS_FULL[month - 1]} {year + 543}</div>
+                <button className="btn small" onClick={() => setMonth((m) => (m === 12 ? (setYear((y) => y + 1), 1) : m + 1))}>›</button>
+              </div>
+              <div className="row">
+                <button className="btn primary" onClick={exportExcelMonth}>ดาวน์โหลด Excel (.xlsx)</button>
+                <button className="btn" onClick={() => window.print()}>พิมพ์ / บันทึกเป็น PDF</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="section-title">ข้อมูลหัวเอกสาร — {team.name} (ใช้ตอนส่งออก Excel / PDF)</div>
+            <div className="editor-grid">
+              <div className="editor-shift-row"><div className="editor-shift-time" style={{ width: 160 }}>ชื่อบริษัท</div><input type="text" value={docSettings.companyName} onChange={(e) => setDocSettings((s) => ({ ...s, companyName: e.target.value }))} /></div>
+              <div className="editor-shift-row"><div className="editor-shift-time" style={{ width: 160 }}>เลขที่สัญญาจ้าง</div><input type="text" value={docSettings.contractNo} onChange={(e) => setDocSettings((s) => ({ ...s, contractNo: e.target.value }))} /></div>
+              <div className="editor-shift-row"><div className="editor-shift-time" style={{ width: 160 }}>ชื่อทีม / หัวหน้าทีม</div><input type="text" value={docSettings.teamName} onChange={(e) => setDocSettings((s) => ({ ...s, teamName: e.target.value }))} /></div>
+              <div className="editor-shift-row"><div className="editor-shift-time" style={{ width: 160 }}>สถานที่ปฏิบัติงาน</div><input type="text" value={docSettings.siteName} onChange={(e) => setDocSettings((s) => ({ ...s, siteName: e.target.value }))} /></div>
+            </div>
+          </div>
+
+          {[
+            { title: `งวดที่ 1 (1 - ${Math.min(15, dim)})`, data: period1 },
+            { title: `งวดที่ 2 (16 - ${dim})`, data: period2 },
+          ].map(({ title, data }) => {
+            let sumNet = 0, sumContractor = 0;
+            return (
+              <div className="card" key={title}>
+                <div className="section-title">{title}</div>
+                <table>
+                  <thead>
+                    <tr><th>ชื่อ</th><th>รวมแรง</th><th>ค่าจ้างวันละ</th><th>รวมเป็นเงิน</th><th>หักประกันสังคม 5%</th><th>จ่ายสุทธิ</th><th>อัตราผู้รับจ้าง</th><th>รวมจ่ายผู้รับจ้าง</th></tr>
+                  </thead>
+                  <tbody>
+                    {workers.map((w) => {
+                      const units = data[w.id] || 0;
+                      const gross = units * w.dailyRate;
+                      const sso = gross * SSO_RATE;
+                      const net = gross - sso;
+                      const contractor = units * w.contractorRate;
+                      sumNet += net; sumContractor += contractor;
+                      return (
+                        <tr key={w.id}>
+                          <td>{w.name}</td><td className="mono">{units}</td><td className="mono">{money(w.dailyRate)}</td><td className="mono">{money(gross)}</td>
+                          <td className="mono">{money(sso)}</td><td className="mono">{money(net)}</td><td className="mono">{money(w.contractorRate)}</td><td className="mono">{money(contractor)}</td>
+                        </tr>
+                      );
+                    })}
+                    <tr className="total-row"><td colSpan={5}>รวม</td><td className="mono">{money(sumNet)}</td><td></td><td className="mono">{money(sumContractor)}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            );
+          })}
+        </>
+      )}
+
+      {tab === "yearly" && (
+        <div className="card">
+          <div className="section-title">สรุปค่าแรงรวมทั้งปี {year + 543} — {team.name}</div>
+          <div className="row" style={{ marginBottom: 10 }}>
+            <button className="btn small" onClick={() => setYear((y) => y - 1)}>‹ ปีก่อนหน้า</button>
+            <div className="mono" style={{ fontWeight: 600 }}>{year + 543}</div>
+            <button className="btn small" onClick={() => setYear((y) => y + 1)}>ปีถัดไป ›</button>
+          </div>
+          <table>
+            <thead><tr><th>ชื่อ</th><th>จ่ายสุทธิรวมทั้งปี</th><th>รวมจ่ายผู้รับจ้างทั้งปี</th></tr></thead>
+            <tbody>
+              {workers.map((w) => (
+                <tr key={w.id}><td>{w.name}</td><td className="mono">{money(yearlyTotals[w.id]?.net || 0)}</td><td className="mono">{money(yearlyTotals[w.id]?.contractor || 0)}</td></tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="section-sub" style={{ marginTop: 12 }}>หมายเหตุ: ยอดคำนวณจากตารางเวรที่กรอกไว้ในแต่ละเดือนของปีนี้เท่านั้น เดือนที่ยังไม่ได้กรอกจะถือค่าเริ่มต้นของทีมนั้น (ทีมแก้ไฟฯ = ไม่มีเวร, ทีมซ่อมบำรุงฯ = ทำงานจันทร์-ศุกร์ตามปกติ)</div>
+        </div>
+      )}
+
+      <div id="printable-area" className="print-only">
+        {(() => {
+          const blocks = [
+            { label: `1 - ${Math.min(15, dim)}`, from: 1, to: Math.min(15, dim) },
+            { label: `16 - ${dim}`, from: 16, to: dim },
+          ];
+          return (
+            <>
+              <div className="doc-head">{docSettings.companyName}</div>
+              <h2>สรุปค่าแรงและค่าจ้าง — ตามสัญญาจ้างเลขที่ {docSettings.contractNo}</h2>
+              <div className="doc-head">ทีม: {team.name} ({docSettings.teamName}) &nbsp;|&nbsp; สถานที่ปฏิบัติงาน: {docSettings.siteName}</div>
+              {blocks.map((b) => {
+                const days = [];
+                for (let d = b.from; d <= b.to; d++) days.push(d);
+                let sumUnits = 0, sumGross = 0, sumSso = 0, sumNet = 0, sumContractor = 0;
+                return (
+                  <div className="period-block" key={b.label}>
+                    <h2>ประจำงวดที่ {b.label} {THAI_MONTHS_FULL[month - 1]} {year + 543}</h2>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>ลำดับ</th><th>ชื่อ - สกุล</th>
+                          {days.map((d) => <th key={d}>{d}</th>)}
+                          <th>รวม</th><th>ค่าจ้างวันละ</th><th>รวมเป็นเงิน</th><th>ประกันสังคม 5%</th><th>จ่ายสุทธิ</th><th>อัตรา ผรจ.</th><th>รวมจ่าย ผรจ.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {workers.map((w, i) => {
+                          let units = 0;
+                          const dayVals = days.map((d) => {
+                            const u = unitsForDay(year, month, d)[w.id] || 0;
+                            units += u;
+                            return u;
+                          });
+                          const gross = units * w.dailyRate;
+                          const sso = gross * SSO_RATE;
+                          const net = gross - sso;
+                          const contractor = units * w.contractorRate;
+                          sumUnits += units; sumGross += gross; sumSso += sso; sumNet += net; sumContractor += contractor;
+                          return (
+                            <tr key={w.id}>
+                              <td>{i + 1}</td><td>{w.name}</td>
+                              {dayVals.map((v, vi) => <td key={vi}>{v || "-"}</td>)}
+                              <td>{units}</td><td>{w.dailyRate}</td><td>{money(gross)}</td><td>{money(sso)}</td><td>{money(net)}</td><td>{w.contractorRate}</td><td>{money(contractor)}</td>
+                            </tr>
+                          );
+                        })}
+                        <tr>
+                          <td colSpan={2 + days.length}>รวม</td>
+                          <td>{sumUnits}</td><td></td><td>{money(sumGross)}</td><td>{money(sumSso)}</td><td>{money(sumNet)}</td><td></td><td>{money(sumContractor)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })}
+              <div className="sign-row">
+                <div>ลงชื่อ.......................................... ตัวแทนผู้รับจ้าง</div>
+                <div>ลงชื่อ.......................................... พบช. ผู้คุมงบคู่สัญญา</div>
+              </div>
+            </>
+          );
+        })()}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
