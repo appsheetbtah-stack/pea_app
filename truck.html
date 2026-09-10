@@ -2776,23 +2776,87 @@ async function buildInspectionPDF(){
   async function appendInfoCard(){
     const card=view.querySelector('.form-card');
     if(!card) return;
-    const clone=cleanClone(card.cloneNode(true));
-    clone.style.cssText='background:#fff!important;border:1px solid #d9dee8;border-radius:8px;box-shadow:none!important;margin:0;padding:0;overflow:hidden;width:100%;';
-    clone.querySelectorAll('.form-card-header').forEach(h=>{h.style.cssText='background:#1a237e!important;color:#fff!important;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;';});
-    clone.querySelectorAll('.form-card-body').forEach(b=>{b.style.cssText='padding:14px 16px;background:#fff!important;color:#222!important;';});
-    clone.querySelectorAll('.field').forEach(f=>{f.style.cssText='margin-bottom:10px;';});
-    clone.querySelectorAll('.field label').forEach(l=>{l.style.cssText='display:block;font-weight:700;color:#555;margin-bottom:4px;font-size:12px;';});
-    clone.querySelectorAll('.pdf-field-value').forEach(v=>{v.style.cssText='display:block;border:1px solid #d9dee8;border-radius:6px;padding:7px 9px;background:#f7f8fa;color:#222;min-height:18px;';});
-    clone.querySelectorAll('#day-status-box').forEach(v=>{v.style.cssText='border:1px solid #d9dee8!important;border-radius:6px;padding:7px 9px;background:#f7f8fa!important;color:#222!important;min-height:18px;display:flex;align-items:center;gap:6px;';});
-    // FIX: ช่อง "วัน เดือน ปี" ใช้ CSS variable ตามธีมมืด/สว่างของเครื่อง (var(--bg), var(--text))
-    // ถ้าไม่บังคับสีตรงนี้ ตอนเครื่องอยู่ธีมมืดจะได้กล่องพื้นดำ/ตัวอักษรขาวติดไปใน PDF
-    clone.querySelectorAll('.date-picker-btn').forEach(v=>{v.style.cssText='display:flex;align-items:center;gap:8px;background:#f7f8fa!important;border:1px solid #d9dee8!important;border-radius:8px;padding:9px 12px;min-height:18px;';});
-    clone.querySelectorAll('.date-picker-text').forEach(v=>{v.style.setProperty('color','#222','important');});
-    const page=makePageShell('ข้อมูลทั่วไป');
-    page.appendChild(clone);
+    const cleaned=cleanClone(card.cloneNode(true));
+    const headerSrc=cleaned.querySelector('.form-card-header');
+    const bodySrc=cleaned.querySelector('.form-card-body');
+    const gridSrc=bodySrc?.querySelector('.info-grid');
+    const subtitleSrc=bodySrc?.querySelector('h3');
+
+    // ถ้าโครงสร้างไม่ตรงตามที่คาด (เช่น เปลี่ยน markup ในอนาคต) ให้จับภาพทั้งการ์ดแบบเดิมไปก่อน
+    // ดีกว่าปล่อยให้ไม่มีข้อมูลใน PDF เลย
+    if(!headerSrc || !bodySrc || !gridSrc){
+      cleaned.style.cssText='background:#fff!important;border:1px solid #d9dee8;border-radius:8px;box-shadow:none!important;margin:0;padding:0;overflow:hidden;width:100%;';
+      const page=makePageShell('ข้อมูลทั่วไป');
+      page.appendChild(cleaned);
+      const stage=makeStage();
+      stage.appendChild(page);
+      await capturePage(page);
+      stage.remove();
+      return;
+    }
+
+    const fieldSrcs=[...gridSrc.children];
     const stage=makeStage();
-    stage.appendChild(page);
-    await capturePage(page);
+
+    const styleFields=(root)=>{
+      root.querySelectorAll('.field').forEach(f=>{f.style.cssText='margin-bottom:10px;';});
+      root.querySelectorAll('.field label').forEach(l=>{l.style.cssText='display:block;font-weight:700;color:#555;margin-bottom:4px;font-size:12px;';});
+      root.querySelectorAll('.pdf-field-value').forEach(v=>{v.style.cssText='display:block;border:1px solid #d9dee8;border-radius:6px;padding:7px 9px;background:#f7f8fa;color:#222;min-height:18px;';});
+      root.querySelectorAll('#day-status-box').forEach(v=>{v.style.cssText='border:1px solid #d9dee8!important;border-radius:6px;padding:7px 9px;background:#f7f8fa!important;color:#222!important;min-height:18px;display:flex;align-items:center;gap:6px;';});
+      // FIX: ช่อง "วัน เดือน ปี" ใช้ CSS variable ตามธีมมืด/สว่างของเครื่อง (var(--bg), var(--text))
+      // ถ้าไม่บังคับสีตรงนี้ ตอนเครื่องอยู่ธีมมืดจะได้กล่องพื้นดำ/ตัวอักษรขาวติดไปใน PDF
+      root.querySelectorAll('.date-picker-btn').forEach(v=>{v.style.cssText='display:flex;align-items:center;gap:8px;background:#f7f8fa!important;border:1px solid #d9dee8!important;border-radius:8px;padding:9px 12px;min-height:18px;';});
+      root.querySelectorAll('.date-picker-text').forEach(v=>{v.style.setProperty('color','#222','important');});
+    };
+
+    // FIX: การ์ด "ข้อมูลทั่วไป" เดิมจับภาพทั้งก้อนแล้วให้ capturePage ตัดตามพิกเซลถ้าสูงเกินหนึ่งหน้า
+    // ทำให้แถวฟิลด์ท้าย ๆ (เช่น สถานะวันที่เลือก/ช่วงเวลา) โดนตัดครึ่งกลางแถวเมื่อข้อมูลในการ์ดยาวขึ้น
+    // เปลี่ยนมาแบ่งเป็นชุดฟิลด์ทีละรายการ วัดความสูงจริงเหมือนกับตารางด้านล่าง เพื่อไม่ให้ฟิลด์ไหนถูกตัดครึ่ง
+    const buildChunkPage=(fieldsChunk, isFirst)=>{
+      const page=makePageShell('ข้อมูลทั่วไป'+(isFirst?'':' (ต่อ)'));
+      const cardEl=document.createElement('div');
+      cardEl.style.cssText='background:#fff!important;border:1px solid #d9dee8;border-radius:8px;box-shadow:none!important;margin:0;padding:0;overflow:hidden;width:100%;';
+      const headerEl=headerSrc.cloneNode(true);
+      headerEl.style.cssText='background:#1a237e!important;color:#fff!important;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;';
+      const bodyEl=document.createElement('div');
+      bodyEl.style.cssText='padding:14px 16px;background:#fff!important;color:#222!important;';
+      if(isFirst && subtitleSrc) bodyEl.appendChild(subtitleSrc.cloneNode(true));
+      const gridEl=document.createElement('div');
+      gridEl.className='info-grid';
+      fieldsChunk.forEach(f=>gridEl.appendChild(f.cloneNode(true)));
+      styleFields(gridEl);
+      bodyEl.appendChild(gridEl);
+      cardEl.appendChild(headerEl);
+      cardEl.appendChild(bodyEl);
+      page.appendChild(cardEl);
+      return page;
+    };
+
+    let currentFields=[];
+    const chunks=[];
+    for(const field of fieldSrcs){
+      const testFields=[...currentFields, field];
+      const testPage=buildChunkPage(testFields, chunks.length===0);
+      stage.appendChild(testPage);
+      await new Promise(r=>requestAnimationFrame(r));
+      const tooTall=testPage.getBoundingClientRect().height>bodyMaxH;
+      testPage.remove();
+      if(tooTall && currentFields.length){
+        chunks.push(currentFields);
+        currentFields=[field];
+      }else{
+        currentFields=testFields;
+      }
+    }
+    if(currentFields.length) chunks.push(currentFields);
+    if(!chunks.length) chunks.push([]);
+
+    for(let i=0;i<chunks.length;i++){
+      const page=buildChunkPage(chunks[i], i===0);
+      stage.appendChild(page);
+      await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+      await capturePage(page);
+    }
     stage.remove();
   }
 
