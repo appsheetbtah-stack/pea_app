@@ -1904,7 +1904,7 @@ function printWithTitle(){
         <button class="usage-save-btn" style="margin-top:14px;width:100%;justify-content:center" id="pr-btn" onclick="printSpecificDayReport()">🖨 พิมพ์รายงาน</button>
         <div class="pdf-share-actions" id="pdf-share-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
           <button class="usage-save-btn pdf-btn" type="button" id="pr-pdf-btn" onclick="saveInspectionPDF(false)">📄 บันทึกเป็น PDF</button>
-          <button class="usage-save-btn pdf-btn pdf-line-btn" type="button" id="pr-pdf-line-btn" onclick="saveInspectionPDF(true)">📤 PDF + แชร์ LINE</button>
+          <button class="usage-save-btn pdf-btn pdf-line-btn" type="button" id="pr-pdf-line-btn" onclick="saveInspectionPDF(true)">📤 แชร์ PDF ไป LINE</button>
         </div>
         <div id="pdf-share-hint" style="margin-top:7px;font-size:11px;color:var(--text2);text-align:center">เลือกวันที่และเวร แล้วกดปุ่ม PDF ได้เลย · ตอนแชร์ให้เลือก LINE และเลือกกลุ่มปลายทาง</div>
         <div id="pr-status" style="margin-top:10px;font-size:12px;color:var(--text2);text-align:center"></div>
@@ -3005,41 +3005,59 @@ async function saveInspectionPDF(shareLine){
     setProgress(48,'กำลังสร้างหน้ารายงาน...');
     const blob = await buildInspectionPDF();
 
-    setProgress(88,'สร้าง PDF สำเร็จ กำลังบันทึกไฟล์...');
     const fileName = getInspectionPdfFileName();
-    downloadBlob(blob, fileName);
 
     if(shareLine){
+      setProgress(88,'สร้าง PDF สำเร็จ กำลังเตรียมแชร์...');
       const file = new File([blob], fileName, {type:'application/pdf'});
-      setProgress(94,'กำลังเปิดหน้าต่างแชร์...');
-      // เตรียมกลับเมนูออกรายงานไว้ก่อนเปิด share sheet
+      setProgress(94,'กำลังเปิดหน้าต่างแชร์ LINE...');
+
+      // สำคัญ: อย่าเปลี่ยน view / ปิด modal ก่อนเรียก navigator.share()
+      // เพราะบาง Android WebView/Chrome จะเสียสิทธิ์ user activation แล้วทำให้ share ถูกบล็อก
+      // ไม่บันทึก PDF ลงเครื่อง: ส่ง Blob/File เข้า Web Share โดยตรง
+      let shared = false;
+      let shareError = null;
+
+      if(navigator.share){
+        try{
+          if(navigator.canShare && navigator.canShare({files:[file]})){
+            closeProgress();
+            await navigator.share({
+              files:[file],
+              title:'รายงานตรวจรถแก้ไฟ',
+              text:'รายงานตรวจรถแก้ไฟ ' + fileName
+            });
+            shared = true;
+            statusEl.textContent='✅ PDF ถูกส่งเข้าเมนูแชร์แล้ว · เลือก LINE เพื่อส่งต่อ';
+          }
+        }catch(shareErr){
+          shareError = shareErr;
+          console.warn('Web Share file failed:', shareErr);
+        }
+      }
+
+      // Fallback: เปิด LINE พร้อมข้อความ เมื่อเบราว์เซอร์ไม่รองรับการแชร์ไฟล์
+      // กรณีนี้จะไม่สามารถแนบ PDF เข้า LINE อัตโนมัติได้จากเว็บ
+      if(!shared && shareError?.name === 'AbortError'){
+        closeProgress();
+        statusEl.textContent='ยกเลิกการแชร์ · ไม่มีการบันทึกไฟล์ PDF';
+      } else if(!shared){
+        const shareText = `รายงานตรวจรถแก้ไฟ\nไฟล์: ${fileName}\nเบราว์เซอร์ไม่รองรับการส่งไฟล์ PDF โดยตรง`;
+        const lineUrl = 'https://line.me/R/msg/text/?' + encodeURIComponent(shareText);
+        closeProgress();
+        statusEl.textContent='กำลังเปิด LINE...';
+        try{
+          const w = window.open(lineUrl, '_blank');
+          if(!w) window.location.href = lineUrl;
+          statusEl.textContent='⚠️ เปิด LINE แล้ว แต่เบราว์เซอร์นี้ไม่รองรับการส่ง PDF โดยตรง';
+        }catch(lineErr){
+          console.warn('LINE fallback failed:', lineErr);
+          statusEl.textContent='⚠️ ไม่สามารถเปิด LINE ได้จากเบราว์เซอร์นี้';
+        }
+      }
+
       if(typeof closePrintReportPanel === 'function') closePrintReportPanel();
       if(typeof switchView === 'function') switchView('report');
-      if(navigator.canShare && navigator.canShare({files:[file]}) && navigator.share){
-        // ให้หน้าต่างแชร์ของ Android/LINE เปิดต่อจากเมนูออกรายงาน
-        closeProgress();
-        try{
-          await navigator.share({files:[file], title:'รายงานตรวจรถแก้ไฟ', text:fileName});
-          statusEl.textContent='✅ บันทึก PDF แล้ว และเปิดเมนูแชร์เรียบร้อย';
-        }catch(shareErr){
-          if(shareErr?.name==='AbortError') statusEl.textContent='✅ บันทึก PDF แล้ว · ยกเลิกการแชร์';
-          else throw shareErr;
-        }
-      } else if(navigator.share){
-        closeProgress();
-        try{
-          await navigator.share({title:'รายงานตรวจรถแก้ไฟ', text:`บันทึกไฟล์ ${fileName} แล้ว กรุณาแนบ PDF ใน LINE`});
-          statusEl.textContent='✅ บันทึก PDF แล้ว · เปิดเมนูแชร์แล้ว';
-        }catch(shareErr){
-          if(shareErr?.name==='AbortError') statusEl.textContent='✅ บันทึก PDF แล้ว · ยกเลิกการแชร์';
-          else throw shareErr;
-        }
-      } else {
-        finishProgress(true,'บันทึก PDF แล้ว · เบราว์เซอร์นี้ไม่มีระบบแชร์ไฟล์');
-        await new Promise(r=>setTimeout(r,900));
-        closeProgress();
-        statusEl.textContent='✅ บันทึก PDF แล้ว · กรุณาเปิด LINE แล้วแนบไฟล์';
-      }
     } else {
       finishProgress(true,'บันทึกไฟล์ PDF เรียบร้อย');
       await new Promise(r=>setTimeout(r,900));
