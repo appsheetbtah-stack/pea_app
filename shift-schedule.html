@@ -121,6 +121,7 @@ function defaultTeams() {
 // ---------- main app ----------
 function App() {
   const [teams, setTeams] = useState(defaultTeams()); // starts with defaults; replaced once Firestore loads
+  const [companyHolidays, setCompanyHolidays] = useState({}); // dateKey -> true, shared across ALL teams
   const [loaded, setLoaded] = useState(false);
   const [activeTeamId, setActiveTeamId] = useState("outage");
   const today = new Date();
@@ -132,7 +133,7 @@ function App() {
   const [syncError, setSyncError] = useState("");
   const skipNextSave = useRef(true); // avoid re-saving the data we just loaded
 
-  // ---- load all teams from Firestore on first mount, seeding defaults if missing ----
+  // ---- load all teams (+ shared company holidays) from Firestore on first mount ----
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -150,9 +151,14 @@ function App() {
             return def;
           })
         );
+        const holidayRef = db.collection("shiftScheduleMeta").doc("companyHolidays");
+        const holidaySnap = await holidayRef.get();
+        const holidayData = holidaySnap.exists ? holidaySnap.data().days || {} : {};
+        if (!holidaySnap.exists) await holidayRef.set({ days: {} });
         if (!cancelled) {
           skipNextSave.current = true;
           setTeams(loadedTeams);
+          setCompanyHolidays(holidayData);
           setLoaded(true);
           setSyncStatus("synced");
         }
@@ -167,14 +173,17 @@ function App() {
     return () => { cancelled = true; };
   }, []);
 
-  // ---- debounced save back to Firestore whenever team data changes ----
+  // ---- debounced save back to Firestore whenever team data or shared holidays change ----
   useEffect(() => {
     if (!loaded) return;
     if (skipNextSave.current) { skipNextSave.current = false; return; }
     setSyncStatus("saving");
     const timer = setTimeout(async () => {
       try {
-        await Promise.all(teams.map((t) => db.collection(TEAMS_COLLECTION).doc(t.id).set(t)));
+        await Promise.all([
+          ...teams.map((t) => db.collection(TEAMS_COLLECTION).doc(t.id).set(t)),
+          db.collection("shiftScheduleMeta").doc("companyHolidays").set({ days: companyHolidays }),
+        ]);
         setSyncStatus("synced");
       } catch (e) {
         setSyncStatus("error");
@@ -182,7 +191,7 @@ function App() {
       }
     }, 900);
     return () => clearTimeout(timer);
-  }, [teams, loaded]);
+  }, [teams, companyHolidays, loaded]);
 
   const team = teams.find((t) => t.id === activeTeamId);
   const workers = team.workers;
@@ -208,7 +217,7 @@ function App() {
   };
 
   // ===================== ROTATION TEAM HELPERS =====================
-  const emptyRotationEntry = () => ({ shifts: [null, null, null], holiday: "none" });
+  const emptyRotationEntry = () => ({ shifts: [null, null, null] });
   const getEntry = (key) => schedule[key] || emptyRotationEntry();
   const updateEntry = (key, patch) => setSchedule((prev) => ({ ...prev, [key]: { ...emptyRotationEntry(), ...prev[key], ...patch } }));
 
@@ -226,23 +235,6 @@ function App() {
     updateEntry(key, { shifts });
   };
 
-  const setRotationHoliday = (key, holiday) => {
-    const entry = getEntry(key);
-    if (holiday === "worked") {
-      const [y, m, d] = key.split("-").map(Number);
-      const [s1, s2, s3] = rotationShiftsForDate(new Date(y, m - 1, d));
-      const shifts = [...entry.shifts];
-      if (!shifts[0]) shifts[0] = s1;
-      if (!shifts[1]) shifts[1] = s2;
-      if (!shifts[2]) shifts[2] = s3;
-      updateEntry(key, { holiday, shifts });
-    } else if (holiday === "off") {
-      updateEntry(key, { holiday, shifts: [null, null, null] });
-    } else {
-      updateEntry(key, { holiday });
-    }
-  };
-
   const autoFillMonth = () => {
     if (workers.length === 0) return;
     setSchedule((prev) => {
@@ -253,7 +245,7 @@ function App() {
         const weekday = thisDate.getDay();
         const isWeekend = weekday === 0 || weekday === 6;
         const existing = next[key] || emptyRotationEntry();
-        const fillShift2 = isWeekend || existing.holiday === "worked";
+        const fillShift2 = isWeekend || !!companyHolidays[key];
         const [s1, s2, s3] = rotationShiftsForDate(thisDate);
         next[key] = { ...existing, shifts: [s1, fillShift2 ? s2 : null, s3] };
       }
@@ -261,10 +253,13 @@ function App() {
     });
   };
 
-  function dayMultiplierRotation(entry) {
-    if (entry.holiday === "off") return { mode: "off", mult: 1 };
-    const mult = entry.holiday === "worked" ? 2 : 1;
-    return { mode: "normal", mult };
+  // isHoliday + whether any shift is filled decides the multiplier:
+  // holiday & nobody scheduled -> everyone gets 1 free; holiday & scheduled -> those get 2x.
+  function dayMultiplierRotation(dateStr, entry) {
+    if (!companyHolidays[dateStr]) return { mode: "normal", mult: 1 };
+    const hasAnyShift = entry.shifts.some(Boolean);
+    if (!hasAnyShift) return { mode: "off", mult: 1 };
+    return { mode: "normal", mult: 2 };
   }
 
   // ===================== WEEKDAY TEAM HELPERS =====================
@@ -282,11 +277,34 @@ function App() {
     const current = effectiveWorked(y, m, d);
     setSchedule((prev) => ({ ...prev, [key]: { ...prev[key], worked: !current } }));
   };
-  const toggleHolidayFlag = (y, m, d) => {
+
+  // ===================== SHARED: company-wide holiday toggle (all 3 teams) =====================
+  // Clicking the star on ANY team's calendar marks the day as a company holiday for ALL teams.
+  // When turning a day ON for the rotation team, also auto-fills its shifts if still empty.
+  const toggleCompanyHoliday = (y, m, d) => {
     const key = dateKey(y, m, d);
-    const entry = getWeekdayEntry(key);
-    setSchedule((prev) => ({ ...prev, [key]: { ...prev[key], holiday: !entry.holiday } }));
+    const turningOn = !companyHolidays[key];
+    setCompanyHolidays((prev) => {
+      const next = { ...prev };
+      if (turningOn) next[key] = true; else delete next[key];
+      return next;
+    });
+    if (turningOn) {
+      setTeams((prev) =>
+        prev.map((t) => {
+          if (t.type !== "rotation") return t;
+          const n = t.workers.length;
+          if (n === 0) return t;
+          const existing = t.schedule[key] || { shifts: [null, null, null] };
+          if (existing.shifts.some(Boolean)) return t; // already assigned, don't overwrite
+          const r = ((daysBetween(ROTATION_EPOCH, new Date(y, m - 1, d)) % n) + n) % n;
+          const shifts = [t.workers[r].id, t.workers[(r + 2) % n].id, t.workers[(r + 1) % n].id];
+          return { ...t, schedule: { ...t.schedule, [key]: { ...existing, shifts } } };
+        })
+      );
+    }
   };
+
   const resetMonthWeekday = () => {
     setSchedule((prev) => {
       const next = { ...prev };
@@ -299,9 +317,10 @@ function App() {
   // Returns { workerId: units(0/1/2) } for one day, regardless of team type.
   function unitsForDay(y, m, d) {
     const units = {};
+    const key = dateKey(y, m, d);
     if (team.type === "rotation") {
-      const entry = getEntry(dateKey(y, m, d));
-      const { mode, mult } = dayMultiplierRotation(entry);
+      const entry = getEntry(key);
+      const { mode, mult } = dayMultiplierRotation(key, entry);
       if (mode === "off") {
         workers.forEach((w) => (units[w.id] = 1));
         return units;
@@ -311,9 +330,8 @@ function App() {
       return units;
     }
     // weekday team: whole team shares the same value
-    const entry = getWeekdayEntry(dateKey(y, m, d));
     const worked = effectiveWorked(y, m, d);
-    const holiday = !!entry.holiday;
+    const holiday = !!companyHolidays[key];
     const value = holiday ? (worked ? 2 : 1) : worked ? 1 : 0;
     workers.forEach((w) => (units[w.id] = value));
     return units;
@@ -329,8 +347,8 @@ function App() {
     return totals;
   }
 
-  const period1 = useMemo(() => computePeriod(1, Math.min(15, dim)), [teams, activeTeamId, year, month]);
-  const period2 = useMemo(() => computePeriod(16, dim), [teams, activeTeamId, year, month]);
+  const period1 = useMemo(() => computePeriod(1, Math.min(15, dim)), [teams, activeTeamId, year, month, companyHolidays]);
+  const period2 = useMemo(() => computePeriod(16, dim), [teams, activeTeamId, year, month, companyHolidays]);
 
   const yearlyTotals = useMemo(() => {
     const totals = {};
@@ -348,7 +366,7 @@ function App() {
           let u;
           if (team.type === "rotation") {
             const entry = schedule[key] || emptyRotationEntry();
-            const { mode, mult } = dayMultiplierRotation(entry);
+            const { mode, mult } = dayMultiplierRotation(key, entry);
             u = {};
             if (mode === "off") workers.forEach((w) => (u[w.id] = 1));
             else {
@@ -359,7 +377,7 @@ function App() {
             const entry = schedule[key] || {};
             const wd = weekdayOf(year, m, d);
             const worked = entry.worked === undefined ? wd >= 1 && wd <= 5 : entry.worked;
-            const holiday = !!entry.holiday;
+            const holiday = !!companyHolidays[key];
             const value = holiday ? (worked ? 2 : 1) : worked ? 1 : 0;
             u = {};
             workers.forEach((w) => (u[w.id] = value));
@@ -376,7 +394,7 @@ function App() {
       });
     }
     return totals;
-  }, [teams, activeTeamId, year]);
+  }, [teams, activeTeamId, year, companyHolidays]);
 
   const leadingBlanks = weekdayOf(year, month, 1);
   const cells = [];
@@ -627,8 +645,7 @@ function App() {
           .app-root { padding: 14px 10px 50px; }
           .header { margin: -14px -10px 16px -10px; padding: 12px 10px; }
           .card { padding: 12px; }
-          .header { grid-template-columns: 1fr 1fr; row-gap: 10px; }
-          .header-title { grid-column: 1 / -1; order: 3; font-size: 15px; }
+          .header-title { font-size: 16px; }
           .header-icon { width: 20px; height: 20px; }
           .sync-badge { font-size: 11px; padding: 3px 8px 3px 7px; }
           .cal-grid { gap: 4px; }
@@ -636,6 +653,11 @@ function App() {
           .worker-row { grid-template-columns: auto 1fr; row-gap: 6px; }
           .worker-row input[type=number] { grid-column: span 1; }
           th, td { padding: 7px 6px; font-size: 12px; }
+        }
+
+        @media (max-width: 420px) {
+          .header { grid-template-columns: 1fr 1fr; row-gap: 10px; }
+          .header-title { grid-column: 1 / -1; order: 3; font-size: 15px; }
         }
 
         .print-only { display: none; }
@@ -721,16 +743,21 @@ function App() {
                 const key = dateKey(year, month, d);
                 const sunday = isSunday(year, month, d);
                 const isSelected = selectedDay === d;
+                const isHoliday = !!companyHolidays[key];
 
                 if (team.type === "rotation") {
                   const entry = getEntry(key);
+                  const hasAnyShift = entry.shifts.some(Boolean);
                   return (
                     <div key={i} className={`cal-cell ${isSelected ? "selected" : ""}`} onClick={() => setSelectedDay(d)}>
-                      <div className="cal-date">{d}</div>
-                      {entry.holiday === "off" && <span className="cal-badge badge-off">หยุด+1</span>}
-                      {entry.holiday === "worked" && <span className="cal-badge badge-worked">หยุดทำงาน x2</span>}
-                      {entry.holiday === "none" && sunday && <span className="cal-badge badge-sunday">อาทิตย์</span>}
-                      {entry.holiday !== "off" && entry.shifts.map((wid, si) =>
+                      <div className="cal-date">
+                        <span>{d}</span>
+                        <span className={`holiday-star ${isHoliday ? "active" : ""}`} onClick={(e) => { e.stopPropagation(); toggleCompanyHoliday(year, month, d); }}>⭐</span>
+                      </div>
+                      {isHoliday && !hasAnyShift && <span className="cal-badge badge-off">หยุด+1</span>}
+                      {isHoliday && hasAnyShift && <span className="cal-badge badge-worked">หยุดทำงาน x2</span>}
+                      {!isHoliday && sunday && <span className="cal-badge badge-sunday">อาทิตย์</span>}
+                      {entry.shifts.map((wid, si) =>
                         wid ? <div key={si} className="shift-chip" style={{ background: workerColor(wid) }}>{firstNameOf(workerName(wid))}</div> : null
                       )}
                     </div>
@@ -738,9 +765,7 @@ function App() {
                 }
 
                 // weekday team
-                const wentry = getWeekdayEntry(key);
                 const worked = effectiveWorked(year, month, d);
-                const holiday = !!wentry.holiday;
                 return (
                   <div
                     key={i}
@@ -749,9 +774,9 @@ function App() {
                   >
                     <div className="cal-date">
                       <span>{d}</span>
-                      <span className={`holiday-star ${holiday ? "active" : ""}`} onClick={(e) => { e.stopPropagation(); toggleHolidayFlag(year, month, d); }}>⭐</span>
+                      <span className={`holiday-star ${isHoliday ? "active" : ""}`} onClick={(e) => { e.stopPropagation(); toggleCompanyHoliday(year, month, d); }}>⭐</span>
                     </div>
-                    {holiday && <span className="cal-badge badge-worked">วันหยุดพิเศษ</span>}
+                    {isHoliday && <span className="cal-badge badge-worked">วันหยุดพิเศษ</span>}
                     <span className={`cal-badge ${worked ? "badge-status-work" : "badge-status-off"}`}>{worked ? "ทำงาน" : "หยุด"}</span>
                     {worked && workers.map((w) => (
                       <div key={w.id} className="shift-chip" style={{ background: workerColor(w.id) }}>{firstNameOf(w.name)}</div>
