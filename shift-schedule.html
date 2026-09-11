@@ -566,7 +566,7 @@ function App() {
         .team-btn.active { border-color: var(--accent); background: rgba(245,166,35,.15); color: var(--accent); }
         .team-btn:hover:not(.active) { color: var(--text); }
 
-        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
         .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; position: relative; overflow: hidden; }
         .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
         .stat-card.orange::before { background: var(--accent); }
@@ -597,7 +597,7 @@ function App() {
         .month-nav { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; }
         .month-label { min-width: 150px; text-align: center; }
 
-        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 14px; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-top: 14px; }
         .cal-dow { text-align: center; color: var(--text2); font-size: 12px; padding-bottom: 4px; }
         .cal-cell { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; min-height: 84px; padding: 6px; cursor: pointer; font-size: 11px; position: relative; display: flex; flex-direction: column; gap: 3px; }
         .cal-cell.empty { background: transparent; border: none; cursor: default; }
@@ -629,7 +629,7 @@ function App() {
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; padding: 0 4px; }
         .table-scroll table { min-width: 640px; }
-        th, td { padding: 9px 10px; text-align: right; border-bottom: 1px solid var(--border); }
+        th, td { padding: 9px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
         th:first-child, td:first-child { text-align: left; }
         th { color: var(--text2); font-weight: 500; font-size: 12px; }
         tr.total-row td { font-weight: 700; color: var(--accent); border-top: 1px solid var(--border); border-bottom: none; }
@@ -652,14 +652,28 @@ function App() {
           .sync-badge { font-size: 11px; padding: 3px 8px 3px 7px; }
           .cal-grid { gap: 4px; }
           .cal-cell { min-height: 74px; padding: 4px; font-size: 10px; }
-          .worker-row { grid-template-columns: auto 1fr; row-gap: 6px; }
-          .worker-row input[type=number] { grid-column: span 1; }
+          .worker-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-areas: "swatch name name" "daily contractor type" "del del del";
+            row-gap: 6px; column-gap: 8px; padding: 12px 0;
+          }
+          .worker-row > *:nth-child(1) { grid-area: swatch; align-self: center; }
+          .worker-row > *:nth-child(2) { grid-area: name; }
+          .worker-row > *:nth-child(3) { grid-area: daily; }
+          .worker-row > *:nth-child(4) { grid-area: contractor; }
+          .worker-row > *:nth-child(5) { grid-area: type; }
+          .worker-row > *:nth-child(6) { grid-area: del; width: 100%; }
+          .worker-row > * { min-width: 0; }
           th, td { padding: 7px 6px; font-size: 12px; }
         }
 
         @media (max-width: 420px) {
-          .header { grid-template-columns: 1fr 1fr; row-gap: 10px; }
-          .header-title { grid-column: 1 / -1; order: 3; font-size: 15px; }
+          .header { grid-template-columns: auto 1fr auto; gap: 6px; padding: 10px 8px; }
+          .header-title { font-size: 13px; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+          .header-icon { width: 16px; height: 16px; }
+          .back-btn { padding: 6px 10px; font-size: 12px; }
+          .sync-badge { font-size: 10px; padding: 3px 6px 3px 5px; gap: 4px; }
         }
 
         .print-only { display: none; }
