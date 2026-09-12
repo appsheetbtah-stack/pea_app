@@ -217,8 +217,8 @@ function App() {
   };
 
   // ===================== ROTATION TEAM HELPERS =====================
-  const emptyRotationEntry = () => ({ shifts: [null, null, null] });
-  const getEntry = (key) => schedule[key] || emptyRotationEntry();
+  const emptyRotationEntry = () => ({ shifts: [null, null, null], leaves: {} });
+  const getEntry = (key) => ({ ...emptyRotationEntry(), ...(schedule[key] || {}) });
   const updateEntry = (key, patch) => setSchedule((prev) => ({ ...prev, [key]: { ...emptyRotationEntry(), ...prev[key], ...patch } }));
 
   const rotationShiftsForDate = (date) => {
@@ -262,20 +262,95 @@ function App() {
     return { mode: "normal", mult: 2 };
   }
 
+  // ===================== ROTATION TEAM: LEAVE / SUBSTITUTION =====================
+  // Each worker gets LEAVE_DAYS_PER_YEAR paid leave days per calendar year (resets every year).
+  // entry.leaves = { [originalWorkerId]: substituteWorkerId } for that day.
+  // Pay rule: the worker on leave always gets a flat 1 unit that day (never the 2x holiday
+  // rate); the substitute takes over the shift and gets whatever that shift would have paid
+  // (1 unit normally, 2 units on a company-holiday work day).
+  const LEAVE_DAYS_PER_YEAR = 6;
+
+  function leaveDaysUsed(workerId, y) {
+    let count = 0;
+    for (let m = 1; m <= 12; m++) {
+      const dm = daysInMonth(y, m);
+      for (let d = 1; d <= dm; d++) {
+        const entry = schedule[dateKey(y, m, d)];
+        if (entry && entry.leaves && entry.leaves[workerId]) count++;
+      }
+    }
+    return count;
+  }
+
+  const setWorkerLeave = (key, workerId, subId) => {
+    setSchedule((prev) => {
+      const entry = { ...emptyRotationEntry(), ...prev[key] };
+      const leaves = { ...(entry.leaves || {}) };
+      if (subId) leaves[workerId] = subId; else delete leaves[workerId];
+      return { ...prev, [key]: { ...entry, leaves } };
+    });
+  };
+
+  function rotationUnitsForDay(key, entry) {
+    const { mode, mult } = dayMultiplierRotation(key, entry);
+    const units = {};
+    workers.forEach((w) => (units[w.id] = 0));
+    if (mode === "off") {
+      workers.forEach((w) => (units[w.id] = 1));
+      return units;
+    }
+    const leaves = entry.leaves || {};
+    const workedToday = new Set(entry.shifts.filter(Boolean));
+    workers.forEach((w) => {
+      if (!workedToday.has(w.id)) return;
+      const subId = leaves[w.id];
+      if (subId) {
+        units[w.id] += 1; // worker on leave: flat 1 unit, never doubled
+        units[subId] = (units[subId] || 0) + mult; // substitute earns the shift's full rate
+      } else {
+        units[w.id] += mult;
+      }
+    });
+    return units;
+  }
+
   // ===================== WEEKDAY TEAM HELPERS =====================
+
   const getWeekdayEntry = (key) => schedule[key] || {};
   const defaultWorked = (y, m, d) => {
     const wd = weekdayOf(y, m, d);
     return wd >= 1 && wd <= 5;
   };
+  // Days up to and including today keep the old automatic Mon-Fri assumption so past
+  // payroll stays unchanged. Any day AFTER today is no longer auto-scheduled in advance —
+  // it must be explicitly assigned via the "จัดเวร" button or by clicking the day itself.
+  const isTodayOrEarlier = (y, m, d) => {
+    const target = new Date(y, m - 1, d);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return target <= today;
+  };
   const effectiveWorked = (y, m, d) => {
     const entry = getWeekdayEntry(dateKey(y, m, d));
-    return entry.worked === undefined ? defaultWorked(y, m, d) : entry.worked;
+    if (entry.worked !== undefined) return entry.worked;
+    return isTodayOrEarlier(y, m, d) ? defaultWorked(y, m, d) : false;
   };
   const toggleWorked = (y, m, d) => {
     const key = dateKey(y, m, d);
     const current = effectiveWorked(y, m, d);
     setSchedule((prev) => ({ ...prev, [key]: { ...prev[key], worked: !current } }));
+  };
+  // Explicitly writes the standard Mon-Fri pattern into the schedule for the month
+  // currently being viewed (does NOT touch any other month / does not run in advance).
+  const assignMonthWeekday = () => {
+    setSchedule((prev) => {
+      const next = { ...prev };
+      for (let d = 1; d <= dim; d++) {
+        const key = dateKey(year, month, d);
+        next[key] = { ...next[key], worked: defaultWorked(year, month, d) };
+      }
+      return next;
+    });
   };
 
   // ===================== SHARED: company-wide holiday toggle (all 3 teams) =====================
@@ -320,14 +395,7 @@ function App() {
     const key = dateKey(y, m, d);
     if (team.type === "rotation") {
       const entry = getEntry(key);
-      const { mode, mult } = dayMultiplierRotation(key, entry);
-      if (mode === "off") {
-        workers.forEach((w) => (units[w.id] = 1));
-        return units;
-      }
-      const workedToday = new Set(entry.shifts.filter(Boolean));
-      workers.forEach((w) => (units[w.id] = workedToday.has(w.id) ? mult : 0));
-      return units;
+      return rotationUnitsForDay(key, entry);
     }
     // weekday team: whole team shares the same value
     const worked = effectiveWorked(y, m, d);
@@ -366,17 +434,12 @@ function App() {
           let u;
           if (team.type === "rotation") {
             const entry = schedule[key] || emptyRotationEntry();
-            const { mode, mult } = dayMultiplierRotation(key, entry);
-            u = {};
-            if (mode === "off") workers.forEach((w) => (u[w.id] = 1));
-            else {
-              const workedToday = new Set(entry.shifts.filter(Boolean));
-              workers.forEach((w) => (u[w.id] = workedToday.has(w.id) ? mult : 0));
-            }
+            u = rotationUnitsForDay(key, entry);
           } else {
             const entry = schedule[key] || {};
-            const wd = weekdayOf(year, m, d);
-            const worked = entry.worked === undefined ? wd >= 1 && wd <= 5 : entry.worked;
+            const worked = entry.worked !== undefined
+              ? entry.worked
+              : (isTodayOrEarlier(year, m, d) ? defaultWorked(year, m, d) : false);
             const holiday = !!companyHolidays[key];
             const value = holiday ? (worked ? 2 : 1) : worked ? 1 : 0;
             u = {};
@@ -740,7 +803,10 @@ function App() {
                     <button className="btn danger" onClick={() => { setSchedule((prev) => { const next = { ...prev }; for (let d = 1; d <= dim; d++) delete next[dateKey(year, month, d)]; return next; }); setSelectedDay(null); }}>ล้างเวรเดือนนี้</button>
                   </>
                 ) : (
-                  <button className="btn danger" onClick={resetMonthWeekday}>รีเซ็ตเดือนนี้ (ทำงานจันทร์-ศุกร์ตามปกติ)</button>
+                  <>
+                    <button className="btn" onClick={assignMonthWeekday}>จัดเวร (จันทร์-ศุกร์ตามปกติ)</button>
+                    <button className="btn danger" onClick={resetMonthWeekday}>ล้างเวรเดือนนี้</button>
+                  </>
                 )}
                 <button className="btn primary" onClick={exportScheduleExcel}>ดาวน์โหลดตารางเวร (Excel)</button>
               </div>
@@ -749,6 +815,7 @@ function App() {
             {team.type === "weekday" && (
               <div className="section-sub" style={{ marginTop: 10 }}>
                 คลิกวันที่เพื่อสลับสถานะ ทำงาน/หยุด ของทั้งทีม · คลิกไอคอน ⭐ มุมขวาบนของวันเพื่อประกาศเป็นวันหยุดพิเศษของบริษัท (มีผลกับทั้ง 3 ทีมพร้อมกัน — ไม่ทำงาน = ได้ 1 แรงฟรี, มาทำงาน = ได้ 2 แรง)
+                <br />เดือนที่ยังไม่ถึง (อนาคต) จะไม่ถูกจัดเวรล่วงหน้าให้อัตโนมัติอีกต่อไป — กดปุ่ม "จัดเวร (จันทร์-ศุกร์ตามปกติ)" เมื่อถึงคราวของเดือนนั้นเพื่อจัดตามแพทเทิร์นเดิม แล้วค่อยแก้ไขเป็นรายวันได้ตามจริง
               </div>
             )}
             {team.type === "rotation" && (
@@ -778,9 +845,18 @@ function App() {
                       {isHoliday && !hasAnyShift && <span className="cal-badge badge-off">หยุด+1</span>}
                       {isHoliday && hasAnyShift && <span className="cal-badge badge-worked">หยุดทำงาน x2</span>}
                       {!isHoliday && sunday && <span className="cal-badge badge-sunday">อาทิตย์</span>}
-                      {entry.shifts.map((wid, si) =>
-                        wid ? <div key={si} className="shift-chip" style={{ background: workerColor(wid) }}>{firstNameOf(workerName(wid))}</div> : null
-                      )}
+                      {entry.shifts.map((wid, si) => {
+                        if (!wid) return null;
+                        const subId = entry.leaves && entry.leaves[wid];
+                        if (subId) {
+                          return (
+                            <div key={si} className="shift-chip" style={{ background: workerColor(subId) }}>
+                              {firstNameOf(workerName(subId))} (แทน)
+                            </div>
+                          );
+                        }
+                        return <div key={si} className="shift-chip" style={{ background: workerColor(wid) }}>{firstNameOf(workerName(wid))}</div>;
+                      })}
                     </div>
                   );
                 }
@@ -839,6 +915,46 @@ function App() {
                 })}
               </div>
 
+              {(() => {
+                const dayKey = dateKey(year, month, selectedDay);
+                const entry = getEntry(dayKey);
+                const scheduledWorkerIds = entry.shifts.filter(Boolean);
+                if (scheduledWorkerIds.length === 0) return null;
+                return (
+                  <>
+                    <div className="section-title" style={{ marginTop: 16 }}>การลา / แทนเวร</div>
+                    <div className="section-sub">สิทธิ์ลา {LEAVE_DAYS_PER_YEAR} วัน/คน/ปี (รีเซ็ตทุกปี) · วันที่ลา ผู้ลาได้ 1 แรงตามปกติ ส่วนผู้แทนได้ค่าแรงเต็มของกะนั้น (2 แรงถ้าเป็นวันหยุดพิเศษที่มีคนเข้าเวร)</div>
+                    <div className="editor-grid">
+                      {scheduledWorkerIds.map((wid) => {
+                        const subId = entry.leaves[wid] || "";
+                        const usedForYear = leaveDaysUsed(wid, year);
+                        const remaining = LEAVE_DAYS_PER_YEAR - usedForYear;
+                        return (
+                          <div key={wid} className="editor-shift-row">
+                            <div className="editor-shift-time" style={{ width: 180 }}>
+                              {workerName(wid)}
+                              <div style={{ fontSize: 11, color: remaining < 0 ? "#E85D42" : "var(--text2)" }}>
+                                ใช้สิทธิ์ลาไปแล้ว {usedForYear}/{LEAVE_DAYS_PER_YEAR} วัน (ปี {year + 543})
+                                {remaining < 0 && " — เกินสิทธิ์"}
+                              </div>
+                            </div>
+                            <select
+                              value={subId}
+                              onChange={(e) => setWorkerLeave(dayKey, wid, e.target.value)}
+                            >
+                              <option value="">— มาทำงานเอง (ไม่ลา) —</option>
+                              {workers.filter((w) => w.id !== wid).map((w) => (
+                                <option key={w.id} value={w.id}>ลา — ให้ {w.name} แทน</option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                );
+              })()}
+
               <div className="holiday-options">
                 <div
                   className={`holiday-opt ${companyHolidays[dateKey(year, month, selectedDay)] ? "active" : ""}`}
@@ -876,6 +992,31 @@ function App() {
 
           <div style={{ marginTop: 14 }}>
             <button className="btn primary" onClick={() => setWorkers((prev) => [...prev, { id: uid(), name: "คนงานใหม่", dailyRate: 400, contractorRate: 500, workerType: 1 }])}>+ เพิ่มคนงาน</button>
+          </div>
+        </div>
+      )}
+
+      {tab === "workers" && team.type === "rotation" && (
+        <div className="card">
+          <div className="section-title">สิทธิ์ลาประจำปี {year + 543}</div>
+          <div className="section-sub">คนละ {LEAVE_DAYS_PER_YEAR} วัน/ปี รีเซ็ตทุกต้นปี · แก้ไขวันลาได้จากปฏิทินในแท็บ "ตารางเวร" (คลิกวันที่ต้องการ)</div>
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>ชื่อ</th><th>ใช้ไปแล้ว</th><th>คงเหลือ</th></tr></thead>
+              <tbody>
+                {workers.map((w) => {
+                  const used = leaveDaysUsed(w.id, year);
+                  const remaining = LEAVE_DAYS_PER_YEAR - used;
+                  return (
+                    <tr key={w.id}>
+                      <td>{w.name}</td>
+                      <td className="mono">{used}</td>
+                      <td className="mono" style={{ color: remaining < 0 ? "#E85D42" : "inherit" }}>{remaining}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -987,7 +1128,7 @@ function App() {
             </tbody>
           </table>
           </div>
-          <div className="section-sub" style={{ marginTop: 12 }}>หมายเหตุ: ยอดคำนวณจากตารางเวรที่กรอกไว้ในแต่ละเดือนของปีนี้เท่านั้น เดือนที่ยังไม่ได้กรอกจะถือค่าเริ่มต้นของทีมนั้น (ทีมแก้ไฟฯ = ไม่มีเวร, ทีมซ่อมบำรุงฯ = ทำงานจันทร์-ศุกร์ตามปกติ)</div>
+          <div className="section-sub" style={{ marginTop: 12 }}>หมายเหตุ: ยอดคำนวณจากตารางเวรที่กรอกไว้ในแต่ละเดือนของปีนี้เท่านั้น เดือนที่ยังไม่ได้กรอกและยังไม่ถึง (อนาคต) จะไม่ถูกนับ (ทีมแก้ไฟฯ = ไม่มีเวร, ทีมซ่อมบำรุงฯ/ทีมมิเตอร์ = ยังไม่นับจนกว่าจะกด "จัดเวร") ส่วนเดือนที่ผ่านไปแล้วและไม่เคยแก้ไข จะยังคงถือว่าทำงานจันทร์-ศุกร์ตามปกติเช่นเดิม</div>
         </div>
       )}
 
