@@ -681,10 +681,13 @@ function App() {
         .holiday-star.active:hover { color: var(--accent); transform: scale(1.1); }
 
         .editor-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
-        .editor-shift-row { display: flex; align-items: center; gap: 10px; }
+        .editor-shift-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
         .editor-shift-time { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text2); width: 130px; }
-        select, input[type=text], input[type=number] { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Sarabun', sans-serif; padding: 10px 12px; border-radius: 8px; font-size: 14px; flex: 1; outline: none; }
+        select, input[type=text], input[type=number] { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Sarabun', sans-serif; padding: 10px 12px; border-radius: 8px; font-size: 14px; flex: 1; min-width: 0; outline: none; }
         select:focus, input[type=text]:focus, input[type=number]:focus { border-color: var(--accent); }
+        .leave-row { flex-direction: column; align-items: stretch; gap: 6px; }
+        .leave-row .editor-shift-time { width: auto; font-family: 'Sarabun', sans-serif; font-size: 14px; color: var(--text); }
+        .leave-row select { width: 100%; }
         .holiday-options { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
         .holiday-opt { border: 1px solid var(--border); border-radius: 7px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; color: var(--text2); }
         .holiday-opt.active { border-color: var(--accent); color: var(--accent); background: rgba(245,166,35,0.1); }
@@ -930,10 +933,10 @@ function App() {
                         const usedForYear = leaveDaysUsed(wid, year);
                         const remaining = LEAVE_DAYS_PER_YEAR - usedForYear;
                         return (
-                          <div key={wid} className="editor-shift-row">
-                            <div className="editor-shift-time" style={{ width: 180 }}>
+                          <div key={wid} className="editor-shift-row leave-row">
+                            <div className="editor-shift-time">
                               {workerName(wid)}
-                              <div style={{ fontSize: 11, color: remaining < 0 ? "#E85D42" : "var(--text2)" }}>
+                              <div style={{ fontSize: 11, fontWeight: 400, color: remaining < 0 ? "#E85D42" : "var(--text2)" }}>
                                 ใช้สิทธิ์ลาไปแล้ว {usedForYear}/{LEAVE_DAYS_PER_YEAR} วัน (ปี {year + 543})
                                 {remaining < 0 && " — เกินสิทธิ์"}
                               </div>
