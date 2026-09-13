@@ -128,7 +128,7 @@ function App() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [tab, setTab] = useState("schedule");
-  const [showReport, setShowReport] = useState(false);
+  const [showDailyReport, setShowDailyReport] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null);
   const [syncStatus, setSyncStatus] = useState("loading"); // loading | synced | saving | error
   const [syncError, setSyncError] = useState("");
@@ -205,12 +205,33 @@ function App() {
   };
   const setDocSettings = (fn) => updateTeam((t) => ({ docSettings: fn(t.docSettings) }));
   const setWorkers = (fn) => updateTeam((t) => ({ workers: fn(t.workers) }));
+  const moveWorker = (index, dir) => {
+    setWorkers((prev) => {
+      const target = index + dir;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
   const setSchedule = (fn) => updateTeam((t) => ({ schedule: fn(t.schedule) }));
 
-  const workerColor = (id) => {
-    const idx = workers.findIndex((w) => w.id === id);
-    return idx >= 0 ? WORKER_COLORS[idx % WORKER_COLORS.length] : "#555";
-  };
+  const workerColorMap = useMemo(() => {
+    const ids = workers.map((w) => w.id).slice().sort();
+    const used = new Set();
+    const map = {};
+    ids.forEach((id) => {
+      let hash = 0;
+      for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+      let idx = hash % WORKER_COLORS.length;
+      let tries = 0;
+      while (used.has(idx) && tries < WORKER_COLORS.length) { idx = (idx + 1) % WORKER_COLORS.length; tries++; }
+      used.add(idx);
+      map[id] = WORKER_COLORS[idx];
+    });
+    return map;
+  }, [workers.map((w) => w.id).sort().join(",")]);
+  const workerColor = (id) => workerColorMap[id] || "#555";
   const workerName = (id) => workers.find((w) => w.id === id)?.name ?? "";
   const firstNameOf = (fullName) => {
     const noTitle = fullName.replace(/^(นางสาว|นาง|นาย|น\.ส\.)/, "").trim();
@@ -519,6 +540,71 @@ function App() {
     XLSX.writeFile(wb, `ตารางเวร_${team.name}_${THAI_MONTHS[month - 1]}${year + 543}.xlsx`);
   }
 
+  // Detailed day-by-day payroll report (period blocks with one column per day).
+  // Reused both for the on-screen "รายงาน" table and the hidden print layout.
+  function renderDetailedReport() {
+    const blocks = [
+      { label: `1 - ${Math.min(15, dim)}`, from: 1, to: Math.min(15, dim) },
+      { label: `16 - ${dim}`, from: 16, to: dim },
+    ];
+    return (
+      <>
+        <div className="doc-head">{docSettings.companyName}</div>
+        <h2>สรุปค่าแรงและค่าจ้าง — ตามสัญญาจ้างเลขที่ {docSettings.contractNo}</h2>
+        <div className="doc-head">ทีม: {team.name} ({docSettings.teamName}) &nbsp;|&nbsp; สถานที่ปฏิบัติงาน: {docSettings.siteName}</div>
+        {blocks.map((b) => {
+          const days = [];
+          for (let d = b.from; d <= b.to; d++) days.push(d);
+          let sumUnits = 0, sumGross = 0, sumSso = 0, sumNet = 0, sumContractor = 0;
+          return (
+            <div className="period-block" key={b.label}>
+              <h2>ประจำงวดที่ {b.label} {THAI_MONTHS_FULL[month - 1]} {year + 543}</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>ลำดับ</th><th>ชื่อ - สกุล</th>
+                    {days.map((d) => <th key={d}>{d}</th>)}
+                    <th>รวม</th><th>ค่าจ้างวันละ</th><th>รวมเป็นเงิน</th><th>ประกันสังคม 5%</th><th>จ่ายสุทธิ</th><th>อัตรา ผรจ.</th><th>รวมจ่าย ผรจ.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {workers.map((w, i) => {
+                    let units = 0;
+                    const dayVals = days.map((d) => {
+                      const u = unitsForDay(year, month, d)[w.id] || 0;
+                      units += u;
+                      return u;
+                    });
+                    const gross = units * w.dailyRate;
+                    const sso = gross * SSO_RATE;
+                    const net = gross - sso;
+                    const contractor = units * w.contractorRate;
+                    sumUnits += units; sumGross += gross; sumSso += sso; sumNet += net; sumContractor += contractor;
+                    return (
+                      <tr key={w.id}>
+                        <td>{i + 1}</td><td>{w.name}</td>
+                        {dayVals.map((v, vi) => <td key={vi}>{v || "-"}</td>)}
+                        <td>{units}</td><td>{w.dailyRate}</td><td>{money(gross)}</td><td>{money(sso)}</td><td>{money(net)}</td><td>{w.contractorRate}</td><td>{money(contractor)}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr>
+                    <td colSpan={2 + days.length}>รวม</td>
+                    <td>{sumUnits}</td><td></td><td>{money(sumGross)}</td><td>{money(sumSso)}</td><td>{money(sumNet)}</td><td></td><td>{money(sumContractor)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
+        <div className="sign-row">
+          <div>ลงชื่อ.......................................... ตัวแทนผู้รับจ้าง</div>
+          <div>ลงชื่อ.......................................... พบช. ผู้คุมงบคู่สัญญา</div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <div className="app-root">
       <style>{`
@@ -664,6 +750,11 @@ function App() {
         .worker-row { display: grid; grid-template-columns: auto minmax(0,1fr) minmax(72px,100px) minmax(80px,120px) minmax(50px,60px) 32px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
         .worker-row:last-child { border-bottom: none; }
         .swatch { width: 12px; height: 12px; border-radius: 50%; }
+        .swatch-cell { display: flex; align-items: center; gap: 6px; }
+        .reorder-btns { display: flex; flex-direction: column; gap: 2px; }
+        .reorder-btn { width: 18px; height: 14px; padding: 0; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); border-radius: 3px; font-size: 8px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .reorder-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+        .reorder-btn:disabled { opacity: 0.3; cursor: default; }
         .section-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
         .section-sub { font-size: 12.5px; color: var(--text2); margin-bottom: 10px; }
         .empty-state { color: var(--text2); font-size: 13px; text-align: center; padding: 30px 0; }
@@ -702,6 +793,12 @@ function App() {
         }
 
         .print-only { display: none; }
+        .doc-head { font-size: 13px; color: var(--text2); margin-bottom: 4px; }
+        .period-block { margin-bottom: 22px; }
+        .period-block h2 { font-size: 15px; margin: 10px 0 8px; color: var(--text); }
+        .period-block table { font-size: 11px; }
+        .period-block th, .period-block td { padding: 5px 6px; white-space: nowrap; }
+        .sign-row { display: flex; justify-content: space-between; margin-top: 20px; font-size: 12px; color: var(--text2); flex-wrap: wrap; gap: 10px; }
         @media print {
           body * { visibility: hidden; }
           #printable-area, #printable-area * { visibility: visible; }
@@ -735,7 +832,7 @@ function App() {
       <div className="control-panel">
         <div className="team-switch">
           {teams.map((t) => (
-            <button key={t.id} className={`team-btn ${t.id === activeTeamId ? "active" : ""}`} onClick={() => { setActiveTeamId(t.id); setSelectedDay(null); setShowReport(false); }}>
+            <button key={t.id} className={`team-btn ${t.id === activeTeamId ? "active" : ""}`} onClick={() => { setActiveTeamId(t.id); setSelectedDay(null); }}>
               {t.name}
             </button>
           ))}
@@ -893,9 +990,15 @@ function App() {
           <div className="worker-row" style={{ color: "var(--text2)", fontSize: 12 }}>
             <div></div><div>ชื่อ</div><div>ค่าจ้างวันละ</div><div>อัตราผู้รับจ้าง</div><div>ประเภท</div><div></div>
           </div>
-          {workers.map((w) => (
+          {workers.map((w, i) => (
             <div className="worker-row" key={w.id}>
-              <div className="swatch" style={{ background: workerColor(w.id) }} />
+              <div className="swatch-cell">
+                <div className="swatch" style={{ background: workerColor(w.id) }} />
+                <div className="reorder-btns">
+                  <button className="reorder-btn" disabled={i === 0} onClick={() => moveWorker(i, -1)} title="เลื่อนขึ้น">▲</button>
+                  <button className="reorder-btn" disabled={i === workers.length - 1} onClick={() => moveWorker(i, 1)} title="เลื่อนลง">▼</button>
+                </div>
+              </div>
               <input type="text" value={w.name} onChange={(e) => setWorkers((prev) => prev.map((x) => x.id === w.id ? { ...x, name: e.target.value } : x))} />
               <input type="number" className="mono" value={w.dailyRate} onChange={(e) => setWorkers((prev) => prev.map((x) => x.id === w.id ? { ...x, dailyRate: Number(e.target.value) } : x))} />
               <input type="number" className="mono" value={w.contractorRate} onChange={(e) => setWorkers((prev) => prev.map((x) => x.id === w.id ? { ...x, contractorRate: Number(e.target.value) } : x))} />
@@ -913,21 +1016,10 @@ function App() {
       {tab === "payroll" && (
         <>
           <div className="card">
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <div className="month-nav">
-                <button className="btn small" onClick={() => { setMonth((m) => (m === 1 ? (setYear((y) => y - 1), 12) : m - 1)); setShowReport(false); }}>‹</button>
-                <div className="month-label mono">{THAI_MONTHS_FULL[month - 1]} {year + 543}</div>
-                <button className="btn small" onClick={() => { setMonth((m) => (m === 12 ? (setYear((y) => y + 1), 1) : m + 1)); setShowReport(false); }}>›</button>
-              </div>
-              {showReport ? (
-                <div className="row">
-                  <button className="btn" onClick={() => window.print()}>พิมพ์</button>
-                  <button className="btn primary" onClick={exportExcelMonth}>ส่งออกเป็น Excel</button>
-                  <button className="btn small" onClick={() => setShowReport(false)}>ซ่อนรายงาน</button>
-                </div>
-              ) : (
-                <button className="btn primary" onClick={() => setShowReport(true)}>ตารางสรุปค่าแรง</button>
-              )}
+            <div className="month-nav">
+              <button className="btn small" onClick={() => setMonth((m) => (m === 1 ? (setYear((y) => y - 1), 12) : m - 1))}>‹</button>
+              <div className="month-label mono">{THAI_MONTHS_FULL[month - 1]} {year + 543}</div>
+              <button className="btn small" onClick={() => setMonth((m) => (m === 12 ? (setYear((y) => y + 1), 1) : m + 1))}>›</button>
             </div>
           </div>
 
@@ -941,7 +1033,22 @@ function App() {
             </div>
           </div>
 
-          {showReport && (() => {
+          <div className="card" style={{ textAlign: "center" }}>
+            <div className="row" style={{ justifyContent: "center" }}>
+              <button className="btn" onClick={() => setShowDailyReport((v) => !v)}>{showDailyReport ? "ซ่อนรายงาน" : "รายงาน"}</button>
+              <button className="btn primary" onClick={exportExcelMonth}>ส่งออกเป็น Excel</button>
+            </div>
+          </div>
+
+          {showDailyReport && (
+            <div className="card">
+              <div className="table-scroll">
+                {renderDetailedReport()}
+              </div>
+            </div>
+          )}
+
+          {(() => {
             let totalNet = 0, totalContractor = 0;
             workers.forEach((w) => {
               const u1 = period1[w.id] || 0, u2 = period2[w.id] || 0;
@@ -966,7 +1073,7 @@ function App() {
             );
           })()}
 
-          {showReport && [
+          {[
             { title: `งวดที่ 1 (1 - ${Math.min(15, dim)})`, data: period1 },
             { title: `งวดที่ 2 (16 - ${dim})`, data: period2 },
           ].map(({ title, data }) => {
@@ -1027,68 +1134,7 @@ function App() {
       )}
 
       <div id="printable-area" className="print-only">
-        {(() => {
-          const blocks = [
-            { label: `1 - ${Math.min(15, dim)}`, from: 1, to: Math.min(15, dim) },
-            { label: `16 - ${dim}`, from: 16, to: dim },
-          ];
-          return (
-            <>
-              <div className="doc-head">{docSettings.companyName}</div>
-              <h2>สรุปค่าแรงและค่าจ้าง — ตามสัญญาจ้างเลขที่ {docSettings.contractNo}</h2>
-              <div className="doc-head">ทีม: {team.name} ({docSettings.teamName}) &nbsp;|&nbsp; สถานที่ปฏิบัติงาน: {docSettings.siteName}</div>
-              {blocks.map((b) => {
-                const days = [];
-                for (let d = b.from; d <= b.to; d++) days.push(d);
-                let sumUnits = 0, sumGross = 0, sumSso = 0, sumNet = 0, sumContractor = 0;
-                return (
-                  <div className="period-block" key={b.label}>
-                    <h2>ประจำงวดที่ {b.label} {THAI_MONTHS_FULL[month - 1]} {year + 543}</h2>
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>ลำดับ</th><th>ชื่อ - สกุล</th>
-                          {days.map((d) => <th key={d}>{d}</th>)}
-                          <th>รวม</th><th>ค่าจ้างวันละ</th><th>รวมเป็นเงิน</th><th>ประกันสังคม 5%</th><th>จ่ายสุทธิ</th><th>อัตรา ผรจ.</th><th>รวมจ่าย ผรจ.</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {workers.map((w, i) => {
-                          let units = 0;
-                          const dayVals = days.map((d) => {
-                            const u = unitsForDay(year, month, d)[w.id] || 0;
-                            units += u;
-                            return u;
-                          });
-                          const gross = units * w.dailyRate;
-                          const sso = gross * SSO_RATE;
-                          const net = gross - sso;
-                          const contractor = units * w.contractorRate;
-                          sumUnits += units; sumGross += gross; sumSso += sso; sumNet += net; sumContractor += contractor;
-                          return (
-                            <tr key={w.id}>
-                              <td>{i + 1}</td><td>{w.name}</td>
-                              {dayVals.map((v, vi) => <td key={vi}>{v || "-"}</td>)}
-                              <td>{units}</td><td>{w.dailyRate}</td><td>{money(gross)}</td><td>{money(sso)}</td><td>{money(net)}</td><td>{w.contractorRate}</td><td>{money(contractor)}</td>
-                            </tr>
-                          );
-                        })}
-                        <tr>
-                          <td colSpan={2 + days.length}>รวม</td>
-                          <td>{sumUnits}</td><td></td><td>{money(sumGross)}</td><td>{money(sumSso)}</td><td>{money(sumNet)}</td><td></td><td>{money(sumContractor)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              })}
-              <div className="sign-row">
-                <div>ลงชื่อ.......................................... ตัวแทนผู้รับจ้าง</div>
-                <div>ลงชื่อ.......................................... พบช. ผู้คุมงบคู่สัญญา</div>
-              </div>
-            </>
-          );
-        })()}
+        {renderDetailedReport()}
       </div>
     </div>
   );
