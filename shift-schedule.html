@@ -128,6 +128,7 @@ function App() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [tab, setTab] = useState("schedule");
+  const [showReport, setShowReport] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null);
   const [syncStatus, setSyncStatus] = useState("loading"); // loading | synced | saving | error
   const [syncError, setSyncError] = useState("");
@@ -217,8 +218,8 @@ function App() {
   };
 
   // ===================== ROTATION TEAM HELPERS =====================
-  const emptyRotationEntry = () => ({ shifts: [null, null, null], leaves: {} });
-  const getEntry = (key) => ({ ...emptyRotationEntry(), ...(schedule[key] || {}) });
+  const emptyRotationEntry = () => ({ shifts: [null, null, null] });
+  const getEntry = (key) => schedule[key] || emptyRotationEntry();
   const updateEntry = (key, patch) => setSchedule((prev) => ({ ...prev, [key]: { ...emptyRotationEntry(), ...prev[key], ...patch } }));
 
   const rotationShiftsForDate = (date) => {
@@ -262,95 +263,20 @@ function App() {
     return { mode: "normal", mult: 2 };
   }
 
-  // ===================== ROTATION TEAM: LEAVE / SUBSTITUTION =====================
-  // Each worker gets LEAVE_DAYS_PER_YEAR paid leave days per calendar year (resets every year).
-  // entry.leaves = { [originalWorkerId]: substituteWorkerId } for that day.
-  // Pay rule: the worker on leave always gets a flat 1 unit that day (never the 2x holiday
-  // rate); the substitute takes over the shift and gets whatever that shift would have paid
-  // (1 unit normally, 2 units on a company-holiday work day).
-  const LEAVE_DAYS_PER_YEAR = 6;
-
-  function leaveDaysUsed(workerId, y) {
-    let count = 0;
-    for (let m = 1; m <= 12; m++) {
-      const dm = daysInMonth(y, m);
-      for (let d = 1; d <= dm; d++) {
-        const entry = schedule[dateKey(y, m, d)];
-        if (entry && entry.leaves && entry.leaves[workerId]) count++;
-      }
-    }
-    return count;
-  }
-
-  const setWorkerLeave = (key, workerId, subId) => {
-    setSchedule((prev) => {
-      const entry = { ...emptyRotationEntry(), ...prev[key] };
-      const leaves = { ...(entry.leaves || {}) };
-      if (subId) leaves[workerId] = subId; else delete leaves[workerId];
-      return { ...prev, [key]: { ...entry, leaves } };
-    });
-  };
-
-  function rotationUnitsForDay(key, entry) {
-    const { mode, mult } = dayMultiplierRotation(key, entry);
-    const units = {};
-    workers.forEach((w) => (units[w.id] = 0));
-    if (mode === "off") {
-      workers.forEach((w) => (units[w.id] = 1));
-      return units;
-    }
-    const leaves = entry.leaves || {};
-    const workedToday = new Set(entry.shifts.filter(Boolean));
-    workers.forEach((w) => {
-      if (!workedToday.has(w.id)) return;
-      const subId = leaves[w.id];
-      if (subId) {
-        units[w.id] += 1; // worker on leave: flat 1 unit, never doubled
-        units[subId] = (units[subId] || 0) + mult; // substitute earns the shift's full rate
-      } else {
-        units[w.id] += mult;
-      }
-    });
-    return units;
-  }
-
   // ===================== WEEKDAY TEAM HELPERS =====================
-
   const getWeekdayEntry = (key) => schedule[key] || {};
   const defaultWorked = (y, m, d) => {
     const wd = weekdayOf(y, m, d);
     return wd >= 1 && wd <= 5;
   };
-  // Days up to and including today keep the old automatic Mon-Fri assumption so past
-  // payroll stays unchanged. Any day AFTER today is no longer auto-scheduled in advance —
-  // it must be explicitly assigned via the "จัดเวร" button or by clicking the day itself.
-  const isTodayOrEarlier = (y, m, d) => {
-    const target = new Date(y, m - 1, d);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    return target <= today;
-  };
   const effectiveWorked = (y, m, d) => {
     const entry = getWeekdayEntry(dateKey(y, m, d));
-    if (entry.worked !== undefined) return entry.worked;
-    return isTodayOrEarlier(y, m, d) ? defaultWorked(y, m, d) : false;
+    return entry.worked === undefined ? defaultWorked(y, m, d) : entry.worked;
   };
   const toggleWorked = (y, m, d) => {
     const key = dateKey(y, m, d);
     const current = effectiveWorked(y, m, d);
     setSchedule((prev) => ({ ...prev, [key]: { ...prev[key], worked: !current } }));
-  };
-  // Explicitly writes the standard Mon-Fri pattern into the schedule for the month
-  // currently being viewed (does NOT touch any other month / does not run in advance).
-  const assignMonthWeekday = () => {
-    setSchedule((prev) => {
-      const next = { ...prev };
-      for (let d = 1; d <= dim; d++) {
-        const key = dateKey(year, month, d);
-        next[key] = { ...next[key], worked: defaultWorked(year, month, d) };
-      }
-      return next;
-    });
   };
 
   // ===================== SHARED: company-wide holiday toggle (all 3 teams) =====================
@@ -380,6 +306,25 @@ function App() {
     }
   };
 
+  // ===================== ROTATION TEAM: plain government-holiday marker (per-team, NOT the shared star) =====================
+  // Unlike the company-wide star (2x bonus), this just makes sure the 3rd shift is covered
+  // (like a weekend) at normal 1x pay - for an ordinary public holiday the company didn't declare.
+  const toggleGovHoliday = (y, m, d) => {
+    const key = dateKey(y, m, d);
+    const entry = getEntry(key);
+    const turningOn = !entry.govHoliday;
+    if (turningOn) {
+      const shifts = [...entry.shifts];
+      if (!shifts[1]) {
+        const [, s2] = rotationShiftsForDate(new Date(y, m - 1, d));
+        shifts[1] = s2;
+      }
+      updateEntry(key, { govHoliday: true, shifts });
+    } else {
+      updateEntry(key, { govHoliday: false });
+    }
+  };
+
   const resetMonthWeekday = () => {
     setSchedule((prev) => {
       const next = { ...prev };
@@ -395,7 +340,14 @@ function App() {
     const key = dateKey(y, m, d);
     if (team.type === "rotation") {
       const entry = getEntry(key);
-      return rotationUnitsForDay(key, entry);
+      const { mode, mult } = dayMultiplierRotation(key, entry);
+      if (mode === "off") {
+        workers.forEach((w) => (units[w.id] = 1));
+        return units;
+      }
+      const workedToday = new Set(entry.shifts.filter(Boolean));
+      workers.forEach((w) => (units[w.id] = workedToday.has(w.id) ? mult : 0));
+      return units;
     }
     // weekday team: whole team shares the same value
     const worked = effectiveWorked(y, m, d);
@@ -434,12 +386,17 @@ function App() {
           let u;
           if (team.type === "rotation") {
             const entry = schedule[key] || emptyRotationEntry();
-            u = rotationUnitsForDay(key, entry);
+            const { mode, mult } = dayMultiplierRotation(key, entry);
+            u = {};
+            if (mode === "off") workers.forEach((w) => (u[w.id] = 1));
+            else {
+              const workedToday = new Set(entry.shifts.filter(Boolean));
+              workers.forEach((w) => (u[w.id] = workedToday.has(w.id) ? mult : 0));
+            }
           } else {
             const entry = schedule[key] || {};
-            const worked = entry.worked !== undefined
-              ? entry.worked
-              : (isTodayOrEarlier(year, m, d) ? defaultWorked(year, m, d) : false);
+            const wd = weekdayOf(year, m, d);
+            const worked = entry.worked === undefined ? wd >= 1 && wd <= 5 : entry.worked;
             const holiday = !!companyHolidays[key];
             const value = holiday ? (worked ? 2 : 1) : worked ? 1 : 0;
             u = {};
@@ -594,7 +551,7 @@ function App() {
           margin: -24px -20px 20px -20px; padding: 14px 20px;
           background: var(--surface); color: var(--text);
           box-shadow: 0 2px 10px rgba(0,0,0,0.25);
-          position: relative; z-index: 2;
+          position: sticky; top: 0; z-index: 20;
         }
         .header-title {
           font-size: 19px; font-weight: 700; letter-spacing: 0.2px; color: var(--text);
@@ -674,6 +631,11 @@ function App() {
         .badge-worked { background: rgba(231,76,60,0.18); color: var(--red); }
         .badge-status-work { background: rgba(46,204,113,0.18); color: var(--green); }
         .badge-status-off { background: rgba(138,160,184,0.15); color: var(--text2); }
+        .badge-gov { background: rgba(231,76,60,0.18); color: var(--red); }
+        .gov-flag { cursor: pointer; font-size: 13px; line-height: 1; color: var(--border); transition: color .15s, transform .1s; margin-left: 4px; }
+        .gov-flag:hover { color: var(--text2); }
+        .gov-flag.active { color: var(--red); }
+        .gov-flag.active:hover { color: var(--red); transform: scale(1.15); }
         .shift-chip { font-size: 9.5px; padding: 1px 4px; border-radius: 3px; color: #0f1923; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .holiday-star { cursor: pointer; font-size: 15px; line-height: 1; color: var(--border); transition: color .15s, transform .1s; }
         .holiday-star:hover { color: var(--text2); }
@@ -681,13 +643,10 @@ function App() {
         .holiday-star.active:hover { color: var(--accent); transform: scale(1.1); }
 
         .editor-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
-        .editor-shift-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .editor-shift-row { display: flex; align-items: center; gap: 10px; }
         .editor-shift-time { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text2); width: 130px; }
-        select, input[type=text], input[type=number] { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Sarabun', sans-serif; padding: 10px 12px; border-radius: 8px; font-size: 14px; flex: 1; min-width: 0; outline: none; }
+        select, input[type=text], input[type=number] { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Sarabun', sans-serif; padding: 10px 12px; border-radius: 8px; font-size: 14px; flex: 1; outline: none; }
         select:focus, input[type=text]:focus, input[type=number]:focus { border-color: var(--accent); }
-        .leave-row { flex-direction: column; align-items: stretch; gap: 6px; }
-        .leave-row .editor-shift-time { width: auto; font-family: 'Sarabun', sans-serif; font-size: 14px; color: var(--text); }
-        .leave-row select { width: 100%; }
         .holiday-options { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
         .holiday-opt { border: 1px solid var(--border); border-radius: 7px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; color: var(--text2); }
         .holiday-opt.active { border-color: var(--accent); color: var(--accent); background: rgba(245,166,35,0.1); }
@@ -776,7 +735,7 @@ function App() {
       <div className="control-panel">
         <div className="team-switch">
           {teams.map((t) => (
-            <button key={t.id} className={`team-btn ${t.id === activeTeamId ? "active" : ""}`} onClick={() => { setActiveTeamId(t.id); setSelectedDay(null); }}>
+            <button key={t.id} className={`team-btn ${t.id === activeTeamId ? "active" : ""}`} onClick={() => { setActiveTeamId(t.id); setSelectedDay(null); setShowReport(false); }}>
               {t.name}
             </button>
           ))}
@@ -806,10 +765,7 @@ function App() {
                     <button className="btn danger" onClick={() => { setSchedule((prev) => { const next = { ...prev }; for (let d = 1; d <= dim; d++) delete next[dateKey(year, month, d)]; return next; }); setSelectedDay(null); }}>ล้างเวรเดือนนี้</button>
                   </>
                 ) : (
-                  <>
-                    <button className="btn" onClick={assignMonthWeekday}>จัดเวร (จันทร์-ศุกร์ตามปกติ)</button>
-                    <button className="btn danger" onClick={resetMonthWeekday}>ล้างเวรเดือนนี้</button>
-                  </>
+                  <button className="btn danger" onClick={resetMonthWeekday}>รีเซ็ตเดือนนี้ (ทำงานจันทร์-ศุกร์ตามปกติ)</button>
                 )}
                 <button className="btn primary" onClick={exportScheduleExcel}>ดาวน์โหลดตารางเวร (Excel)</button>
               </div>
@@ -817,13 +773,12 @@ function App() {
 
             {team.type === "weekday" && (
               <div className="section-sub" style={{ marginTop: 10 }}>
-                คลิกวันที่เพื่อสลับสถานะ ทำงาน/หยุด ของทั้งทีม · คลิกไอคอน ⭐ มุมขวาบนของวันเพื่อประกาศเป็นวันหยุดพิเศษของบริษัท (มีผลกับทั้ง 3 ทีมพร้อมกัน — ไม่ทำงาน = ได้ 1 แรงฟรี, มาทำงาน = ได้ 2 แรง)
-                <br />เดือนที่ยังไม่ถึง (อนาคต) จะไม่ถูกจัดเวรล่วงหน้าให้อัตโนมัติอีกต่อไป — กดปุ่ม "จัดเวร (จันทร์-ศุกร์ตามปกติ)" เมื่อถึงคราวของเดือนนั้นเพื่อจัดตามแพทเทิร์นเดิม แล้วค่อยแก้ไขเป็นรายวันได้ตามจริง
+                คลิกวันเพื่อสลับ ทำงาน/หยุด · ⭐ วันหยุดพิเศษบริษัท (ทุกทีม): ทำงาน = 2 แรง, หยุด = 1 แรงฟรี
               </div>
             )}
             {team.type === "rotation" && (
               <div className="section-sub" style={{ marginTop: 10 }}>
-                คลิกไอคอน ⭐ มุมขวาบนของวันเพื่อประกาศเป็นวันหยุดพิเศษของบริษัท (มีผลกับทั้ง 3 ทีมพร้อมกัน — ไม่มีใครเข้าเวร = ทุกคนได้ 1 แรงฟรี, มีคนเข้าเวร = คนนั้นได้ 2 แรง)
+                ⭐ วันหยุดพิเศษบริษัท (ทุกทีม): เข้าเวร = 2 แรง, ไม่มีใครเข้า = ทุกคนได้ 1 แรงฟรี · ⚑ วันหยุดราชการทั่วไป: เติมกะ 3 อัตโนมัติ จ่ายปกติ 1 แรง/กะ
               </div>
             )}
 
@@ -839,27 +794,23 @@ function App() {
                 if (team.type === "rotation") {
                   const entry = getEntry(key);
                   const hasAnyShift = entry.shifts.some(Boolean);
+                  const isGovHoliday = !!entry.govHoliday;
                   return (
                     <div key={i} className={`cal-cell ${isSelected ? "selected" : ""}`} onClick={() => setSelectedDay(d)}>
                       <div className="cal-date">
                         <span>{d}</span>
-                        <span className={`holiday-star ${isHoliday ? "active" : ""}`} onClick={(e) => { e.stopPropagation(); toggleCompanyHoliday(year, month, d); }}>★</span>
+                        <span>
+                          <span className={`holiday-star ${isHoliday ? "active" : ""}`} onClick={(e) => { e.stopPropagation(); toggleCompanyHoliday(year, month, d); }}>★</span>
+                          <span className={`gov-flag ${isGovHoliday ? "active" : ""}`} title="วันหยุดนักขัตฤกษ์ (เติมกะที่ 3 ให้ครบ อัตราปกติ)" onClick={(e) => { e.stopPropagation(); toggleGovHoliday(year, month, d); }}>⚑</span>
+                        </span>
                       </div>
                       {isHoliday && !hasAnyShift && <span className="cal-badge badge-off">หยุด+1</span>}
                       {isHoliday && hasAnyShift && <span className="cal-badge badge-worked">หยุดทำงาน x2</span>}
-                      {!isHoliday && sunday && <span className="cal-badge badge-sunday">อาทิตย์</span>}
-                      {entry.shifts.map((wid, si) => {
-                        if (!wid) return null;
-                        const subId = entry.leaves && entry.leaves[wid];
-                        if (subId) {
-                          return (
-                            <div key={si} className="shift-chip" style={{ background: workerColor(subId) }}>
-                              {firstNameOf(workerName(subId))} (แทน)
-                            </div>
-                          );
-                        }
-                        return <div key={si} className="shift-chip" style={{ background: workerColor(wid) }}>{firstNameOf(workerName(wid))}</div>;
-                      })}
+                      {!isHoliday && isGovHoliday && <span className="cal-badge badge-gov">หยุดราชการ</span>}
+                      {!isHoliday && !isGovHoliday && sunday && <span className="cal-badge badge-sunday">อาทิตย์</span>}
+                      {entry.shifts.map((wid, si) =>
+                        wid ? <div key={si} className="shift-chip" style={{ background: workerColor(wid) }}>{firstNameOf(workerName(wid))}</div> : null
+                      )}
                     </div>
                   );
                 }
@@ -918,46 +869,6 @@ function App() {
                 })}
               </div>
 
-              {(() => {
-                const dayKey = dateKey(year, month, selectedDay);
-                const entry = getEntry(dayKey);
-                const scheduledWorkerIds = entry.shifts.filter(Boolean);
-                if (scheduledWorkerIds.length === 0) return null;
-                return (
-                  <>
-                    <div className="section-title" style={{ marginTop: 16 }}>การลา / แทนเวร</div>
-                    <div className="section-sub">สิทธิ์ลา {LEAVE_DAYS_PER_YEAR} วัน/คน/ปี (รีเซ็ตทุกปี) · วันที่ลา ผู้ลาได้ 1 แรงตามปกติ ส่วนผู้แทนได้ค่าแรงเต็มของกะนั้น (2 แรงถ้าเป็นวันหยุดพิเศษที่มีคนเข้าเวร)</div>
-                    <div className="editor-grid">
-                      {scheduledWorkerIds.map((wid) => {
-                        const subId = entry.leaves[wid] || "";
-                        const usedForYear = leaveDaysUsed(wid, year);
-                        const remaining = LEAVE_DAYS_PER_YEAR - usedForYear;
-                        return (
-                          <div key={wid} className="editor-shift-row leave-row">
-                            <div className="editor-shift-time">
-                              {workerName(wid)}
-                              <div style={{ fontSize: 11, fontWeight: 400, color: remaining < 0 ? "#E85D42" : "var(--text2)" }}>
-                                ใช้สิทธิ์ลาไปแล้ว {usedForYear}/{LEAVE_DAYS_PER_YEAR} วัน (ปี {year + 543})
-                                {remaining < 0 && " — เกินสิทธิ์"}
-                              </div>
-                            </div>
-                            <select
-                              value={subId}
-                              onChange={(e) => setWorkerLeave(dayKey, wid, e.target.value)}
-                            >
-                              <option value="">— มาทำงานเอง (ไม่ลา) —</option>
-                              {workers.filter((w) => w.id !== wid).map((w) => (
-                                <option key={w.id} value={w.id}>ลา — ให้ {w.name} แทน</option>
-                              ))}
-                            </select>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                );
-              })()}
-
               <div className="holiday-options">
                 <div
                   className={`holiday-opt ${companyHolidays[dateKey(year, month, selectedDay)] ? "active" : ""}`}
@@ -999,48 +910,38 @@ function App() {
         </div>
       )}
 
-      {tab === "workers" && team.type === "rotation" && (
-        <div className="card">
-          <div className="section-title">สิทธิ์ลาประจำปี {year + 543}</div>
-          <div className="section-sub">คนละ {LEAVE_DAYS_PER_YEAR} วัน/ปี รีเซ็ตทุกต้นปี · แก้ไขวันลาได้จากปฏิทินในแท็บ "ตารางเวร" (คลิกวันที่ต้องการ)</div>
-          <div className="table-scroll">
-            <table>
-              <thead><tr><th>ชื่อ</th><th>ใช้ไปแล้ว</th><th>คงเหลือ</th></tr></thead>
-              <tbody>
-                {workers.map((w) => {
-                  const used = leaveDaysUsed(w.id, year);
-                  const remaining = LEAVE_DAYS_PER_YEAR - used;
-                  return (
-                    <tr key={w.id}>
-                      <td>{w.name}</td>
-                      <td className="mono">{used}</td>
-                      <td className="mono" style={{ color: remaining < 0 ? "#E85D42" : "inherit" }}>{remaining}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
       {tab === "payroll" && (
         <>
           <div className="card">
             <div className="row" style={{ justifyContent: "space-between" }}>
               <div className="month-nav">
-                <button className="btn small" onClick={() => setMonth((m) => (m === 1 ? (setYear((y) => y - 1), 12) : m - 1))}>‹</button>
+                <button className="btn small" onClick={() => { setMonth((m) => (m === 1 ? (setYear((y) => y - 1), 12) : m - 1)); setShowReport(false); }}>‹</button>
                 <div className="month-label mono">{THAI_MONTHS_FULL[month - 1]} {year + 543}</div>
-                <button className="btn small" onClick={() => setMonth((m) => (m === 12 ? (setYear((y) => y + 1), 1) : m + 1))}>›</button>
+                <button className="btn small" onClick={() => { setMonth((m) => (m === 12 ? (setYear((y) => y + 1), 1) : m + 1)); setShowReport(false); }}>›</button>
               </div>
-              <div className="row">
-                <button className="btn primary" onClick={exportExcelMonth}>ดาวน์โหลด Excel (.xlsx)</button>
-                <button className="btn" onClick={() => window.print()}>พิมพ์ / บันทึกเป็น PDF</button>
-              </div>
+              {showReport ? (
+                <div className="row">
+                  <button className="btn" onClick={() => window.print()}>พิมพ์</button>
+                  <button className="btn primary" onClick={exportExcelMonth}>ส่งออกเป็น Excel</button>
+                  <button className="btn small" onClick={() => setShowReport(false)}>ซ่อนรายงาน</button>
+                </div>
+              ) : (
+                <button className="btn primary" onClick={() => setShowReport(true)}>ตารางสรุปค่าแรง</button>
+              )}
             </div>
           </div>
 
-          {(() => {
+          <div className="card">
+            <div className="section-title">ข้อมูลหัวเอกสาร — {team.name} (ใช้ตอนส่งออก Excel / PDF)</div>
+            <div className="editor-grid">
+              <div className="editor-shift-row"><div className="editor-shift-time" style={{ width: 160 }}>ชื่อบริษัท</div><input type="text" value={docSettings.companyName} onChange={(e) => setDocSettings((s) => ({ ...s, companyName: e.target.value }))} /></div>
+              <div className="editor-shift-row"><div className="editor-shift-time" style={{ width: 160 }}>เลขที่สัญญาจ้าง</div><input type="text" value={docSettings.contractNo} onChange={(e) => setDocSettings((s) => ({ ...s, contractNo: e.target.value }))} /></div>
+              <div className="editor-shift-row"><div className="editor-shift-time" style={{ width: 160 }}>ชื่อทีม / หัวหน้าทีม</div><input type="text" value={docSettings.teamName} onChange={(e) => setDocSettings((s) => ({ ...s, teamName: e.target.value }))} /></div>
+              <div className="editor-shift-row"><div className="editor-shift-time" style={{ width: 160 }}>สถานที่ปฏิบัติงาน</div><input type="text" value={docSettings.siteName} onChange={(e) => setDocSettings((s) => ({ ...s, siteName: e.target.value }))} /></div>
+            </div>
+          </div>
+
+          {showReport && (() => {
             let totalNet = 0, totalContractor = 0;
             workers.forEach((w) => {
               const u1 = period1[w.id] || 0, u2 = period2[w.id] || 0;
@@ -1065,17 +966,7 @@ function App() {
             );
           })()}
 
-          <div className="card">
-            <div className="section-title">ข้อมูลหัวเอกสาร — {team.name} (ใช้ตอนส่งออก Excel / PDF)</div>
-            <div className="editor-grid">
-              <div className="editor-shift-row"><div className="editor-shift-time" style={{ width: 160 }}>ชื่อบริษัท</div><input type="text" value={docSettings.companyName} onChange={(e) => setDocSettings((s) => ({ ...s, companyName: e.target.value }))} /></div>
-              <div className="editor-shift-row"><div className="editor-shift-time" style={{ width: 160 }}>เลขที่สัญญาจ้าง</div><input type="text" value={docSettings.contractNo} onChange={(e) => setDocSettings((s) => ({ ...s, contractNo: e.target.value }))} /></div>
-              <div className="editor-shift-row"><div className="editor-shift-time" style={{ width: 160 }}>ชื่อทีม / หัวหน้าทีม</div><input type="text" value={docSettings.teamName} onChange={(e) => setDocSettings((s) => ({ ...s, teamName: e.target.value }))} /></div>
-              <div className="editor-shift-row"><div className="editor-shift-time" style={{ width: 160 }}>สถานที่ปฏิบัติงาน</div><input type="text" value={docSettings.siteName} onChange={(e) => setDocSettings((s) => ({ ...s, siteName: e.target.value }))} /></div>
-            </div>
-          </div>
-
-          {[
+          {showReport && [
             { title: `งวดที่ 1 (1 - ${Math.min(15, dim)})`, data: period1 },
             { title: `งวดที่ 2 (16 - ${dim})`, data: period2 },
           ].map(({ title, data }) => {
@@ -1131,7 +1022,7 @@ function App() {
             </tbody>
           </table>
           </div>
-          <div className="section-sub" style={{ marginTop: 12 }}>หมายเหตุ: ยอดคำนวณจากตารางเวรที่กรอกไว้ในแต่ละเดือนของปีนี้เท่านั้น เดือนที่ยังไม่ได้กรอกและยังไม่ถึง (อนาคต) จะไม่ถูกนับ (ทีมแก้ไฟฯ = ไม่มีเวร, ทีมซ่อมบำรุงฯ/ทีมมิเตอร์ = ยังไม่นับจนกว่าจะกด "จัดเวร") ส่วนเดือนที่ผ่านไปแล้วและไม่เคยแก้ไข จะยังคงถือว่าทำงานจันทร์-ศุกร์ตามปกติเช่นเดิม</div>
+          <div className="section-sub" style={{ marginTop: 12 }}>หมายเหตุ: ยอดคำนวณจากตารางเวรที่กรอกไว้ในแต่ละเดือนของปีนี้เท่านั้น เดือนที่ยังไม่ได้กรอกจะถือค่าเริ่มต้นของทีมนั้น (ทีมแก้ไฟฯ = ไม่มีเวร, ทีมซ่อมบำรุงฯ = ทำงานจันทร์-ศุกร์ตามปกติ)</div>
         </div>
       )}
 
