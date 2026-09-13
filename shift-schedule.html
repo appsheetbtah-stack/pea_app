@@ -286,18 +286,29 @@ function App() {
 
   // ===================== WEEKDAY TEAM HELPERS =====================
   const getWeekdayEntry = (key) => schedule[key] || {};
-  const defaultWorked = (y, m, d) => {
+  // Mon-Fri pattern, only used by the "จัดเวร" button to fill in a month - NOT an implicit default anymore.
+  const weekdayPattern = (y, m, d) => {
     const wd = weekdayOf(y, m, d);
     return wd >= 1 && wd <= 5;
   };
-  const effectiveWorked = (y, m, d) => {
-    const entry = getWeekdayEntry(dateKey(y, m, d));
-    return entry.worked === undefined ? defaultWorked(y, m, d) : entry.worked;
-  };
+  // No automatic scheduling: a day only counts as worked if explicitly set (via "จัดเวร" or a manual click).
+  const effectiveWorked = (y, m, d) => getWeekdayEntry(dateKey(y, m, d)).worked === true;
   const toggleWorked = (y, m, d) => {
     const key = dateKey(y, m, d);
     const current = effectiveWorked(y, m, d);
     setSchedule((prev) => ({ ...prev, [key]: { ...prev[key], worked: !current } }));
+  };
+  // "จัดเวร" - write explicit worked:true/false for every day of the month (Mon-Fri = worked),
+  // so the schedule is locked in rather than relying on the implicit default.
+  const autoFillMonthWeekday = () => {
+    setSchedule((prev) => {
+      const next = { ...prev };
+      for (let d = 1; d <= dim; d++) {
+        const key = dateKey(year, month, d);
+        next[key] = { ...next[key], worked: weekdayPattern(year, month, d) };
+      }
+      return next;
+    });
   };
 
   // ===================== SHARED: company-wide holiday toggle (all 3 teams) =====================
@@ -862,7 +873,10 @@ function App() {
                     <button className="btn danger" onClick={() => { setSchedule((prev) => { const next = { ...prev }; for (let d = 1; d <= dim; d++) delete next[dateKey(year, month, d)]; return next; }); setSelectedDay(null); }}>ล้างเวรเดือนนี้</button>
                   </>
                 ) : (
-                  <button className="btn danger" onClick={resetMonthWeekday}>รีเซ็ตเดือนนี้ (ทำงานจันทร์-ศุกร์ตามปกติ)</button>
+                  <>
+                    <button className="btn" onClick={autoFillMonthWeekday}>จัดเวร (จันทร์-ศุกร์)</button>
+                    <button className="btn danger" onClick={resetMonthWeekday}>รีเซ็ตเดือนนี้</button>
+                  </>
                 )}
                 <button className="btn primary" onClick={exportScheduleExcel}>ดาวน์โหลดตารางเวร (Excel)</button>
               </div>
