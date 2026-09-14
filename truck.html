@@ -717,6 +717,11 @@ html[data-theme="light"] {
   .pdf-progress-fill{height:100%;width:8%;border-radius:99px;background:var(--accent);transition:width .25s ease}
   .pdf-progress-percent{font-size:11px;color:var(--text2)}
   .pdf-progress-card.done .pdf-progress-icon{font-size:38px}
+  .pdf-progress-actions{display:none;flex-direction:column;gap:8px;margin-top:16px}
+  .pdf-progress-actions.show{display:flex}
+  .pdf-progress-share-btn{width:100%;padding:12px 10px;border:none;border-radius:10px;background:#06c755;color:#fff;font-weight:700;font-size:14.5px;cursor:pointer}
+  .pdf-progress-share-btn:active{filter:brightness(.92)}
+  .pdf-progress-close-btn{width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--text2);font-size:13px;cursor:pointer}
   /* ===== Report sheet (dark theme) ===== */
   .report-btn{background:var(--bg) !important;border:1px solid var(--border) !important;color:var(--text) !important}
   .report-btn:hover{background:var(--surface2) !important}
@@ -1921,6 +1926,10 @@ function printWithTitle(){
       <div class="pdf-progress-text" id="pdf-progress-text">กำลังเตรียมข้อมูล...</div>
       <div class="pdf-progress-bar"><div class="pdf-progress-fill" id="pdf-progress-fill"></div></div>
       <div class="pdf-progress-percent" id="pdf-progress-percent">0%</div>
+      <div class="pdf-progress-actions" id="pdf-progress-actions">
+        <button type="button" class="pdf-progress-share-btn" id="pdf-progress-share-btn" onclick="triggerLineShare()">📤 แตะที่นี่เพื่อแชร์ผ่าน LINE</button>
+        <button type="button" class="pdf-progress-close-btn" id="pdf-progress-close-btn" onclick="closePdfProgressModal()">ปิดหน้าต่างนี้</button>
+      </div>
     </div>
   </div>
 
@@ -2948,6 +2957,57 @@ async function buildInspectionPDF(meta={}){
   }
 }
 
+// เก็บไฟล์ PDF ที่สร้างเสร็จแล้วไว้ชั่วคราว รอผู้ใช้แตะปุ่ม "แชร์ผ่าน LINE" เอง
+// (ดูคำอธิบายเหตุผลในฟังก์ชัน saveInspectionPDF ส่วนของ shareLine)
+let __pendingShareFile = null;
+let __pendingShareFileName = '';
+let __pendingShareStatusEl = null;
+
+function closePdfProgressModal(){
+  const modal = document.getElementById('pdf-progress-modal');
+  modal?.classList.remove('show');
+  document.documentElement.style.overflow = '';
+  document.body.style.overflow = '';
+  const actions = document.getElementById('pdf-progress-actions');
+  actions?.classList.remove('show');
+}
+
+async function triggerLineShare(){
+  // ฟังก์ชันนี้ถูกเรียกโดยตรงจาก onclick ของปุ่ม (การแตะครั้งใหม่)
+  // จึงมี "สิทธิ์ผู้ใช้" สดใหม่เสมอ ไม่ว่าขั้นตอนสร้าง PDF ก่อนหน้านี้จะใช้เวลานานแค่ไหน
+  const file = __pendingShareFile;
+  const fileName = __pendingShareFileName;
+  const statusEl = __pendingShareStatusEl || document.getElementById('pr-status');
+  const shareBtn = document.getElementById('pdf-progress-share-btn');
+  const text = document.getElementById('pdf-progress-text');
+  if(!file){ closePdfProgressModal(); return; }
+  if(shareBtn) shareBtn.disabled = true;
+  try{
+    if(navigator.canShare && navigator.share && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:'รายงานตรวจรถแก้ไฟ', text:fileName});
+      if(statusEl) statusEl.textContent = '✅ บันทึก PDF แล้ว และเปิดเมนูแชร์เรียบร้อย';
+      closePdfProgressModal();
+    } else if(navigator.share){
+      await navigator.share({title:'รายงานตรวจรถแก้ไฟ', text:`บันทึกไฟล์ ${fileName} แล้ว กรุณาแนบ PDF ใน LINE`});
+      if(statusEl) statusEl.textContent = '✅ บันทึก PDF แล้ว · เปิดเมนูแชร์แล้ว (กรุณาแนบไฟล์ PDF เองใน LINE)';
+      closePdfProgressModal();
+    } else {
+      if(text) text.textContent = 'เบราว์เซอร์นี้ไม่รองรับการแชร์ไฟล์ · กรุณาเปิดแอป LINE แล้วแนบไฟล์ PDF ที่บันทึกไว้ด้วยตนเอง';
+      if(shareBtn) shareBtn.style.display = 'none';
+    }
+  }catch(shareErr){
+    if(shareErr?.name === 'AbortError'){
+      // ผู้ใช้กดยกเลิกเอง ไม่ถือเป็นข้อผิดพลาด ปล่อยให้แตะปุ่มแชร์ใหม่ได้อีกครั้ง
+      if(statusEl) statusEl.textContent = '✅ บันทึก PDF แล้ว · ยกเลิกการแชร์ (แตะปุ่มเพื่อลองแชร์อีกครั้ง)';
+    } else {
+      console.error(shareErr);
+      if(text) text.textContent = 'เปิดหน้าต่างแชร์ไม่สำเร็จ: ' + (shareErr?.message || shareErr) + ' · กรุณาเปิด LINE แล้วแนบไฟล์ PDF ด้วยตนเอง';
+    }
+  } finally {
+    if(shareBtn) shareBtn.disabled = false;
+  }
+}
+
 async function saveInspectionPDF(shareLine){
   const date = document.getElementById('pr-date').value;
   const shift = document.getElementById('pr-shift').value;
@@ -2963,6 +3023,9 @@ async function saveInspectionPDF(shareLine){
   const text=document.getElementById('pdf-progress-text');
   const fill=document.getElementById('pdf-progress-fill');
   const percent=document.getElementById('pdf-progress-percent');
+  const actions=document.getElementById('pdf-progress-actions');
+  const shareBtn=document.getElementById('pdf-progress-share-btn');
+  const closeBtn=document.getElementById('pdf-progress-close-btn');
   const setProgress=(pct,msg)=>{
     if(fill) fill.style.width=Math.max(0,Math.min(100,pct))+'%';
     if(percent) percent.textContent=Math.round(pct)+'%';
@@ -2973,6 +3036,11 @@ async function saveInspectionPDF(shareLine){
     if(icon) icon.textContent=shareLine?'📤':'📄';
     if(title) title.textContent=shareLine?'กำลังสร้าง PDF และเตรียมแชร์':'กำลังสร้าง PDF';
     setProgress(8,'กำลังเตรียมข้อมูล...');
+    // ซ่อนปุ่มแชร์/ปิดไว้ก่อน จะแสดงอีกครั้งเมื่อไฟล์พร้อมจริง ๆ เท่านั้น
+    actions?.classList.remove('show');
+    if(shareBtn) shareBtn.style.display='';
+    if(percent) percent.style.display='';
+    document.querySelector('.pdf-progress-bar') && (document.querySelector('.pdf-progress-bar').style.display='');
     // ล็อกการเลื่อนของหน้าไว้ชั่วคราว เพื่อไม่ให้ dialog กระโดดเมื่อ viewport มือถือเปลี่ยน
     document.documentElement.style.overflow='hidden';
     document.body.style.overflow='hidden';
@@ -3042,35 +3110,37 @@ async function saveInspectionPDF(shareLine){
 
     if(shareLine){
       const file = new File([blob], fileName, {type:'application/pdf'});
-      setProgress(94,'กำลังเปิดหน้าต่างแชร์...');
-      // เตรียมกลับเมนูออกรายงานไว้ก่อนเปิด share sheet
+      // เตรียมกลับเมนูออกรายงานไว้ก่อน (ยังไม่ปิด modal / ยังไม่เรียก share)
       if(typeof closePrintReportPanel === 'function') closePrintReportPanel();
       if(typeof switchView === 'function') switchView('report');
-      if(navigator.canShare && navigator.canShare({files:[file]}) && navigator.share){
-        // ให้หน้าต่างแชร์ของ Android/LINE เปิดต่อจากเมนูออกรายงาน
-        closeProgress();
-        try{
-          await navigator.share({files:[file], title:'รายงานตรวจรถแก้ไฟ', text:fileName});
-          statusEl.textContent='✅ บันทึก PDF แล้ว และเปิดเมนูแชร์เรียบร้อย';
-        }catch(shareErr){
-          if(shareErr?.name==='AbortError') statusEl.textContent='✅ บันทึก PDF แล้ว · ยกเลิกการแชร์';
-          else throw shareErr;
-        }
-      } else if(navigator.share){
-        closeProgress();
-        try{
-          await navigator.share({title:'รายงานตรวจรถแก้ไฟ', text:`บันทึกไฟล์ ${fileName} แล้ว กรุณาแนบ PDF ใน LINE`});
-          statusEl.textContent='✅ บันทึก PDF แล้ว · เปิดเมนูแชร์แล้ว';
-        }catch(shareErr){
-          if(shareErr?.name==='AbortError') statusEl.textContent='✅ บันทึก PDF แล้ว · ยกเลิกการแชร์';
-          else throw shareErr;
-        }
-      } else {
-        finishProgress(true,'บันทึก PDF แล้ว · เบราว์เซอร์นี้ไม่มีระบบแชร์ไฟล์');
-        await new Promise(r=>setTimeout(r,900));
-        closeProgress();
-        statusEl.textContent='✅ บันทึก PDF แล้ว · กรุณาเปิด LINE แล้วแนบไฟล์';
+
+      // สำคัญ: มือถือหลายรุ่น/เบราว์เซอร์หลายตัว จะ "ยกเลิกสิทธิ์แชร์ไฟล์" ทันที
+      // ถ้าเรียก navigator.share() หลังจากรอ (await) งานหนัก ๆ อย่างการสร้าง PDF มานาน
+      // เพราะถือว่าการแตะปุ่มครั้งแรกของผู้ใช้ "หมดอายุ" ไปแล้ว (แต่ละเครื่อง/เบราว์เซอร์
+      // มีเวลาไม่เท่ากัน จึงทำให้เครื่องของบางคนใช้ได้ บางคนใช้ไม่ได้)
+      // ทางแก้คือ "เก็บไฟล์ไว้ก่อน" แล้วให้ผู้ใช้แตะปุ่มแชร์อีกครั้งหนึ่ง (การแตะครั้งใหม่
+      // = สิทธิ์ใหม่เสมอ ทำให้เปิดหน้าต่างแชร์ได้ทุกเครื่อง) แทนการเรียก share() อัตโนมัติ
+      __pendingShareFile = file;
+      __pendingShareFileName = fileName;
+      __pendingShareStatusEl = statusEl;
+
+      const canShareFile = !!(navigator.canShare && navigator.share && navigator.canShare({files:[file]}));
+      const canShareAny = !!navigator.share;
+
+      finishProgress(true, canShareFile
+        ? 'สร้าง PDF สำเร็จ · แตะปุ่มด้านล่างเพื่อแชร์ผ่าน LINE'
+        : (canShareAny
+            ? 'สร้าง PDF สำเร็จ · เบราว์เซอร์นี้แชร์ไฟล์แนบไม่ได้โดยตรง'
+            : 'สร้าง PDF สำเร็จ · เบราว์เซอร์นี้ไม่รองรับการแชร์ไฟล์'));
+
+      if(shareBtn){
+        shareBtn.style.display = canShareFile ? '' : 'none';
       }
+      actions?.classList.add('show');
+      statusEl.textContent = '✅ บันทึก PDF แล้ว · กดปุ่มในกล่องข้อความเพื่อแชร์ผ่าน LINE';
+      statusEl.style.color = 'var(--green)';
+      buttons.forEach(b=>b.disabled=false);
+      return; // รอผู้ใช้แตะปุ่มแชร์เอง ไม่ปิดหน้าต่างอัตโนมัติ
     } else {
       finishProgress(true,'บันทึกไฟล์ PDF เรียบร้อย');
       await new Promise(r=>setTimeout(r,900));
