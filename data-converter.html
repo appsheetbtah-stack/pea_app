@@ -514,7 +514,7 @@ function todayStr() {
 }
 function buildDataJs() {
   const arr = [...newCustomers.values()];
-  return `// PEA Customer Records Data\n// Auto-extracted from index.html\nconst ALL_RECORDS = ${JSON.stringify(arr)};`;
+  return `// PEA Customer Records Data\n// Auto-extracted from index.html\nwindow.ALL_RECORDS = ${JSON.stringify(arr)};`;
 }
 function buildEquipmentJs() {
   const arr = [...newEquipment.values()];
@@ -529,7 +529,7 @@ document.getElementById('btn-dl-equipment').addEventListener('click', () => down
 // COMPARE WITH CURRENT GITHUB VERSION
 // ══════════════════════════════════════════════════════════════════
 function parseOldDataJs(text) {
-  const m = text.match(/const ALL_RECORDS\s*=\s*(\[[\s\S]*\]);/);
+  const m = text.match(/(?:const|window\.)\s*ALL_RECORDS\s*=\s*(\[[\s\S]*\]);/);
   if (!m) throw new Error('ไม่พบ ALL_RECORDS ในไฟล์');
   return JSON.parse(m[1]);
 }
