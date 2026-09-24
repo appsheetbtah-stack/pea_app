@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<script>
+(function(){
+  var saved = localStorage.getItem('pea-theme');
+  var theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  document.documentElement.setAttribute('data-theme', theme);
+})();
+</script>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ละเมิด ลักใช้ไฟ - PEA</title>
+<meta name="theme-color" content="#0f1923">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0f1923; --surface:#162030; --surface2:#1e2d3d; --border:#2a3f55;
+  --accent:#f5a623; --accent2:#e05c2a; --blue:#3b9ede; --green:#2ecc71; --red:#e74c3c;
+  --yellow:#f39c12; --text:#e8f0f8; --text2:#a9bdd1;
+  --mono:'IBM Plex Mono',monospace; --sans:'Sarabun','Noto Sans Thai','Leelawadee UI','Tahoma',sans-serif;
+  --topbar:52px; --botnav:56px;
+  color-scheme: dark;
+}
+html[data-theme="light"] {
+  --bg:#e7ebf1;
+  --surface:#ffffff;
+  --surface2:#e3e8f0;
+  --border:#d2dae4;
+  --accent:#d97f0a;
+  --text:#131f2b;
+  --text2:#5b6b7d;
+  color-scheme: light;
+}
+
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:15px; line-height:1.5; }
+
+/* ── TOPBAR ── */
+.topbar {
+  position:fixed; top:0; left:0; right:0; height:var(--topbar); z-index:600;
+  background:var(--surface); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 12px;
+}
+.back-btn {
+  color:var(--text2); text-decoration:none; font-size:13px;
+  display:flex; align-items:center; gap:4px;
+  padding:6px 10px; border:1px solid var(--border); border-radius:6px;
+  flex-shrink:0; transition:color .15s;
+}
+.back-btn:hover { color:var(--accent); border-color:var(--accent); }
+.topbar-title {
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px;
+  white-space:nowrap; pointer-events:none;
+}
+.meter-icon { flex-shrink:0; }
+.topbar-btn {
+  background:var(--surface2); border:1px solid var(--border); color:var(--text);
+  width:34px; height:34px; border-radius:8px; font-size:16px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.topbar-btn:active { border-color:var(--accent); color:var(--accent); }
+
+/* ── TAB CONTENT ── */
+.tab-pane { position:fixed; top:var(--topbar); left:0; right:0; bottom:var(--botnav); overflow-y:auto; display:none; }
+.tab-pane.active { display:block; }
+.tab-pane.map-pane { display:none; overflow:hidden; flex-direction:column; }
+.tab-pane.map-pane.active { display:flex; }
+
+/* ── BOTTOM NAV ── */
+.bottom-nav {
+  position:fixed; bottom:0; left:0; right:0; height:var(--botnav); z-index:600;
+  background:var(--surface); border-top:1px solid var(--border); display:flex;
+  box-shadow:0 -6px 18px rgba(0,0,0,.35);
+}
+.nav-btn {
+  flex:1; background:none; border:none; color:var(--text2); display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:3px; cursor:pointer; padding:6px 4px;
+  transition:color .2s;
+}
+.nav-btn.active { color:var(--accent); }
+.nav-btn:active .nav-icon { transform:scale(.88); }
+.nav-icon {
+  font-size:19px; width:38px; height:38px; display:flex; align-items:center; justify-content:center;
+  border-radius:50%; border:1.5px solid transparent; transition:all .2s cubic-bezier(.34,1.56,.64,1);
+}
+.nav-btn.active .nav-icon {
+  transform:translateY(-3px) scale(1.06);
+}
+.nav-label { font-size:11px; font-weight:600; }
+.nav-btn.active .nav-label { font-weight:700; }
+
+/* ── LIST PANE ── */
+.list-wrap { padding:12px; display:flex; flex-direction:column; gap:12px; }
+.search-box {
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:10px 14px; display:flex; align-items:center; gap:8px;
+}
+.search-box input { flex:1; background:none; border:none; color:var(--text); font-family:var(--sans); font-size:14px; line-height:1.5; outline:none; }
+.filter-row { display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; }
+.filter-row::-webkit-scrollbar { display:none; }
+.outstanding-banner {
+  display:none; align-items:center; gap:8px; padding:10px 12px; border-radius:10px;
+  font-size:13.5px; font-weight:600; margin-bottom:10px;
+}
+.outstanding-banner.show { display:flex; }
+.outstanding-banner.pending { background:#e74c3c; color:#fff; border:1px solid #c0392b; }
+.outstanding-banner.done    { background:#2ecc71; color:#0b2b18; border:1px solid #27ae60; }
+.filter-chip {
+  flex-shrink:0; border:1px solid var(--border); background:var(--surface2); color:var(--text2);
+  font-family:var(--sans); font-size:13px; font-weight:600; padding:7px 14px;
+  border-radius:20px; cursor:pointer; white-space:nowrap;
+  display:inline-flex; align-items:center; gap:6px;
+}
+.filter-chip.active { border-color:var(--accent); background:rgba(245,166,35,.15); color:var(--accent); }
+
+.ticket-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:8px; cursor:pointer; }
+.ticket-card:active { border-color:var(--accent); }
+.ticket-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.ticket-thumb-lg { width:76px; height:76px; border-radius:12px; object-fit:cover; border:2px solid var(--accent); flex-shrink:0; box-shadow:0 3px 10px rgba(0,0,0,.35); }
+.ticket-name { font-weight:700; font-size:15px; }
+.ticket-sub { font-size:13px; color:var(--text2); }
+.status-badge { font-size:12px; font-weight:700; padding:4px 10px; border-radius:20px; white-space:nowrap; flex-shrink:0; }
+.status-pending  { background:rgba(169,189,209,.15); color:var(--text2); }
+.status-broken   { background:rgba(231,76,60,.15); color:var(--red); }
+.status-field    { background:rgba(243,156,18,.15); color:var(--yellow); }
+.status-sap      { background:rgba(46,204,113,.15); color:var(--green); }
+.tc-photo-placeholder {
+  width:76px; height:76px; border-radius:12px; flex-shrink:0; background:var(--surface2);
+  border:2px dashed var(--border); display:flex; align-items:center; justify-content:center; font-size:26px;
+}
+.tc-meter-chip {
+  background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:7px 10px;
+  font-family:var(--mono); font-size:12.5px; color:var(--text); margin-top:4px;
+}
+.tc-reason { font-size:13px; color:var(--text2); margin-top:4px; }
+.tc-oldmeter-chip {
+  background:rgba(243,156,18,.12); border:1px solid rgba(243,156,18,.35); border-radius:8px; padding:7px 10px;
+  font-family:var(--mono); font-size:12.5px; color:var(--yellow); margin-top:4px;
+}
+.ticket-detail-row { font-size:13px; color:var(--text2); display:flex; gap:6px; }
+.ticket-reqno { font-family:var(--mono); font-size:12px; color:var(--text2); }
+.ticket-latlng { font-family:var(--mono); font-size:12px; color:var(--text2); }
+.ticket-actions { display:flex; gap:8px; margin-top:2px; }
+.ticket-action-btn {
+  flex:1; display:flex; align-items:center; justify-content:center; gap:5px;
+  padding:8px 10px; border-radius:8px; border:1px solid var(--border);
+  background:var(--surface2); color:var(--text); font-family:var(--sans);
+  font-size:12.5px; font-weight:600; cursor:pointer;
+}
+.ticket-action-btn:active { border-color:var(--accent); }
+.ticket-action-btn.nav { background:rgba(59,158,222,.15); color:var(--blue); border-color:rgba(59,158,222,.3); }
+.ticket-action-btn.danger { background:rgba(224,60,60,.15); color:#e04c4c; border-color:rgba(224,60,60,.3); }
+.ticket-action-btn:disabled { opacity:.4; cursor:not-allowed; }
+
+/* ── DASHBOARD ── */
+.dash-period-tabs { display:flex; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:4px; }
+.dash-period-btn {
+  flex:1; background:none; border:none; color:var(--text2); font-family:var(--sans);
+  font-size:14px; font-weight:700; padding:9px 0; border-radius:8px; cursor:pointer;
+}
+.dash-period-btn.active { background:var(--accent); color:#000; }
+.dash-period-title { font-size:14px; font-weight:700; color:var(--text2); margin:2px 2px 4px; }
+.dash-month-select-row { display:flex; align-items:center; gap:10px; }
+.dash-month-select-row .reason-picker-field { flex:1; }
+.select-hidden { display:none !important; }
+#dash-view-month, #dash-view-year { display:flex; flex-direction:column; gap:12px; }
+.dash-pie-wrap { display:flex; flex-direction:column; align-items:center; gap:16px; }
+.dash-pie-box { position:relative; width:132px; height:132px; flex-shrink:0; }
+.dash-pie { width:132px; height:132px; border-radius:50%; background:var(--surface2); }
+.dash-pie-hole {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:78px; height:78px; border-radius:50%; background:var(--surface);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+}
+.dash-pie-hole span { font-family:var(--mono); font-size:20px; font-weight:800; line-height:1.1; }
+.dash-pie-hole small { font-size:10px; color:var(--text2); margin-top:2px; }
+.dash-pie-legend { display:flex; flex-direction:column; align-items:center; gap:10px; }
+.dash-pie-legend-row { display:flex; align-items:center; justify-content:center; gap:8px; font-size:12.5px; text-align:center; }
+.dash-pie-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.dash-pie-name { color:var(--text2); }
+.dash-pie-val { font-family:var(--mono); font-weight:700; white-space:nowrap; }
+.dash-pie-pct { color:var(--text2); font-weight:400; }
+
+.dash-insight { font-size:12.5px; color:var(--text2); line-height:1.6; margin-top:6px; padding-top:8px; border-top:1px solid var(--border); }
+.dash-insight b { color:var(--text); font-family:var(--mono); }
+
+.dash-trend-legend { display:flex; flex-wrap:wrap; gap:10px 14px; margin-top:8px; }
+.trend-legend-item { display:flex; align-items:center; gap:5px; font-size:11.5px; color:var(--text2); }
+.trend-legend-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+
+.dash-month-row { display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px solid var(--border); }
+.dash-month-row:first-child { border-top:none; }
+.dash-month-name { font-size:12.5px; color:var(--text2); flex-shrink:0; width:74px; }
+.dash-month-track { flex:1; height:7px; background:var(--surface2); border-radius:5px; overflow:hidden; }
+.dash-month-fill { height:100%; background:var(--accent); border-radius:5px; }
+.dash-month-count { font-family:var(--mono); font-size:12.5px; font-weight:700; width:24px; text-align:right; flex-shrink:0; }
+
+.dash-stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.dash-stat-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; border-top:3px solid var(--border); }
+.dash-stat-card.orange { border-top-color:var(--accent); }
+.dash-stat-card.blue   { border-top-color:var(--blue); }
+.dash-stat-card.red    { border-top-color:var(--red); }
+.dash-stat-card.green  { border-top-color:var(--green); }
+.dash-stat-label { font-size:13.5px; color:var(--text2); margin-bottom:6px; }
+.dash-stat-num { font-size:28px; font-weight:800; font-family:var(--mono); line-height:1.1; }
+.dash-stat-unit { font-size:12.5px; color:var(--text2); margin-top:4px; }
+.dash-section { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:14px; }
+.dash-section-title { font-weight:700; font-size:15px; }
+.dash-bar-row { display:flex; align-items:center; gap:8px; }
+.dash-bar-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.dash-bar-label { font-size:12px; color:var(--text2); flex-shrink:0; width:128px; line-height:1.3; }
+.dash-bar-track { flex:1; height:8px; background:var(--surface2); border-radius:6px; overflow:hidden; }
+.dash-bar-fill { height:100%; border-radius:6px; transition:width .3s; }
+.dash-bar-count { font-family:var(--mono); font-size:13px; font-weight:700; width:26px; text-align:right; flex-shrink:0; }
+
+.empty-state { padding:60px 20px; text-align:center; color:var(--text2); }
+.empty-icon { font-size:40px; margin-bottom:10px; }
+
+/* ── MAP PANE ── */
+.map-pane-inner { position:relative; flex:1; display:flex; flex-direction:column; min-height:0; }
+:root[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.9); }
+#map { flex:1; min-height:0; }
+.map-batch-bar {
+  position:absolute; top:10px; left:10px; right:10px; z-index:501;
+  display:flex; flex-direction:column; gap:8px;
+}
+.map-batch-bar .reason-picker-field { background:var(--surface); color:var(--text); border:1px solid var(--border); box-shadow:0 1px 6px rgba(0,0,0,.15); margin:0; }
+.map-batch-bar .map-search-box { box-shadow:0 1px 6px rgba(0,0,0,.15); }
+.map-batch-bar .outstanding-banner { margin-bottom:0; }
+.map-legend {
+  background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:10px;
+  padding:8px 12px; font-size:12px; display:flex; gap:12px; flex-wrap:wrap;
+  box-shadow:0 1px 6px rgba(0,0,0,.15);
+}
+.map-legend span { display:flex; align-items:center; gap:5px; }
+.legend-dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+.legend-pin {
+  width:20px; height:20px; border-radius:50%; display:inline-flex;
+  align-items:center; justify-content:center; font-size:11px; flex-shrink:0;
+  border:1.5px solid #0f1923;
+}
+
+.ticket-pin { background:transparent; border:none; }
+.pin-body {
+  width:28px; height:28px; border-radius:50% 50% 50% 0; transform:rotate(45deg);
+  display:flex; align-items:center; justify-content:center;
+  border:2px solid #0f1923; box-shadow:0 1px 4px rgba(0,0,0,.4);
+  position:absolute; top:0; left:1px;
+}
+.pin-body span, .pin-body img { transform:rotate(-45deg); font-size:14px; line-height:1; }
+.status-icon-img { width:16px; height:16px; object-fit:contain; display:inline-block; vertical-align:middle; }
+.legend-pin .status-icon-img { width:13px; height:13px; }
+.fdd-status-icon { margin-right:6px; }
+.filter-menu-item .status-icon-img { flex:none; }
+.popup-detail { display:inline-block; margin-top:4px; color:#333; font-size:12.5px; }
+.popup-actions { display:flex; gap:6px; margin-top:8px; }
+.popup-btn {
+  flex:1; padding:6px 8px; border-radius:6px; border:none; cursor:pointer;
+  font-family:'Sarabun',sans-serif; font-size:12.5px; font-weight:700; white-space:nowrap;
+}
+.popup-btn.detail { background:#f5a623; color:#000; }
+.popup-btn.nav { background:#3b9ede; color:#fff; }
+
+/* ── MODAL ── */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:900; display:none; align-items:flex-end; justify-content:center; }
+.modal-overlay.active { display:flex; }
+.modal { background:var(--bg); width:100%; max-width:600px; max-height:92vh; overflow-y:auto; border-radius:16px 16px 0 0; border:1px solid var(--border); border-bottom:none; }
+.modal-header { position:sticky; top:0; background:var(--surface); border-bottom:1px solid var(--border); padding:14px 16px; display:flex; align-items:center; justify-content:space-between; z-index:2; }
+.modal-title { font-weight:700; font-size:15px; }
+.modal-close { background:none; border:none; color:var(--text2); font-size:20px; cursor:pointer; }
+.modal-body { padding:16px; display:flex; flex-direction:column; gap:16px; }
+.modal-footer { position:sticky; bottom:0; background:var(--surface); border-top:1px solid var(--border); padding:12px 16px; display:flex; gap:10px; }
+
+.info-block { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
+.info-row { display:flex; gap:10px; font-size:14px; align-items:center; }
+.info-label { color:var(--text2); flex-shrink:0; width:96px; }
+.info-value { font-weight:600; word-break:break-word; }
+.info-edit-input { flex:1; min-width:0; background:transparent; border:none; border-bottom:1px dashed var(--text2); color:#fff; font-weight:600; font-size:14px; font-family:inherit; padding:3px 0; }
+.info-edit-input:focus { outline:none; border-bottom:1px solid var(--accent, #f5a623); }
+.info-edit-input::placeholder { color:var(--text2); font-weight:400; }
+
+.field-label { font-size:13px; color:var(--text2); margin-bottom:6px; display:block; font-weight:600; }
+.field-input, .field-select {
+  width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+  padding:10px 12px; color:var(--text); font-family:var(--sans); font-size:14px; outline:none;
+}
+.field-input:focus, .field-select:focus { border-color:var(--accent); }
+.field-hint { font-size:12px; color:var(--text2); margin-top:5px; }
+
+.checklist { display:flex; flex-direction:column; gap:2px; max-height:240px; overflow-y:auto; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:6px; }
+.checklist-item {
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:11px 10px; font-size:14px; border-radius:6px; cursor:pointer;
+  user-select:none; -webkit-tap-highlight-color:transparent;
+}
+.checklist-item:active { background:var(--border); }
+.checklist-item .check-icon {
+  width:20px; height:20px; flex-shrink:0; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:700; color:#fff; background:var(--accent);
+  opacity:0; transform:scale(.6); transition:opacity .12s, transform .12s;
+}
+.checklist-item.selected { background:rgba(245,166,35,0.16); color:var(--accent); font-weight:600; }
+.checklist-item.selected .check-icon { opacity:1; transform:scale(1); }
+.add-reason-row { display:flex; gap:8px; margin-top:8px; }
+.reason-picker-field {
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  cursor:pointer; color:var(--text2); min-height:20px;
+}
+.reason-picker-field.has-value { color:var(--text); }
+.reason-picker-field::after { content:'▾'; color:var(--text2); flex-shrink:0; }
+.add-reason-row input { flex:1; }
+
+.radio-list { display:flex; flex-direction:column; }
+.radio-item {
+  display:flex; align-items:center; justify-content:flex-start; gap:10px;
+  padding:14px 4px; font-size:15px; cursor:pointer; border-bottom:1px solid var(--border);
+  user-select:none; -webkit-tap-highlight-color:transparent; text-align:left;
+}
+.radio-item:last-child { border-bottom:none; }
+.radio-item:active { background:var(--surface2); }
+.radio-item.selected { color:var(--accent); font-weight:600; }
+.radio-text { flex:1; text-align:left; }
+.radio-dot {
+  width:20px; height:20px; flex-shrink:0; border-radius:50%; border:2px solid var(--border);
+  display:flex; align-items:center; justify-content:center; transition:border-color .12s;
+}
+.radio-item.selected .radio-dot { border-color:var(--accent); }
+.radio-dot::after {
+  content:''; width:10px; height:10px; border-radius:50%; background:var(--accent);
+  opacity:0; transform:scale(.5); transition:opacity .12s, transform .12s;
+}
+.radio-item.selected .radio-dot::after { opacity:1; transform:scale(1); }
+
+
+
+.meter-input-row { display:flex; gap:8px; }
+.meter-input-row .field-input { flex:1; }
+.btn-scan { flex-shrink:0; width:44px; background:var(--blue); border:none; border-radius:8px; color:#fff; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+
+.photo-row { display:flex; align-items:center; gap:10px; }
+.photo-preview { width:100%; max-height:340px; border-radius:10px; object-fit:contain; background:var(--surface2); border:1px solid var(--border); margin-bottom:10px; }
+.btn { padding:10px 18px; border-radius:8px; border:none; cursor:pointer; font-family:var(--sans); font-size:14px; font-weight:600; white-space:nowrap; }
+.btn-primary { background:var(--accent); color:#000; flex:1; }
+.btn-ghost { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+.btn-blue { background:var(--blue); color:#fff; }
+.btn-accent { background:var(--accent); color:#1a1206; }
+.upload-status { font-size:13px; color:var(--text2); }
+.upload-status.uploading { color:var(--blue); }
+.upload-status.error { color:var(--red); }
+
+.report-box { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px; font-family:var(--mono); font-size:12.5px; line-height:1.6; white-space:pre-wrap; color:var(--text2); }
+
+/* ── IMPORT MODAL ── */
+.import-summary { display:flex; gap:10px; }
+.import-stat { flex:1; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px; text-align:center; }
+.import-stat .num { font-size:22px; font-weight:800; font-family:var(--mono); }
+.import-stat .lbl { font-size:12px; color:var(--text2); margin-top:2px; }
+
+/* ── QR SCANNER ── */
+#qr-reader { width:100%; border-radius:10px; overflow:hidden; }
+
+.toast {
+  position:fixed; bottom:calc(var(--botnav) + 16px); left:50%; transform:translateX(-50%) translateY(20px);
+  background:var(--surface2); border:1px solid var(--border); color:var(--text);
+  padding:10px 18px; border-radius:10px; font-size:13px; z-index:1000; opacity:0; pointer-events:none; transition:all .25s;
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+.btn-danger { background:#e74c3c; color:#fff; }
+
+.fab {
+  position:fixed; right:18px; bottom:calc(var(--botnav) + 18px); width:56px; height:56px; border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),var(--accent2)); border:none; color:#0f1923;
+  font-size:26px; font-weight:700; cursor:pointer; box-shadow:0 4px 16px rgba(245,166,35,.4);
+  display:flex; align-items:center; justify-content:center; z-index:590;
+}
+.fab:active { transform:scale(.93); }
+
+#print-labels-sheet { display:none; }
+.print-label-grid { display:grid; grid-template-columns:1fr 1fr; gap:6mm; }
+.print-label {
+  border:1px dashed #000; border-radius:4px; padding:9px 11px; font-size:11.5px;
+  line-height:1.55; white-space:pre-line; color:#000; break-inside:avoid; page-break-inside:avoid;
+}
+.print-label-title { font-weight:700; font-size:12.5px; margin-bottom:4px; }
+@media print {
+  body * { visibility:hidden; }
+  #print-labels-sheet, #print-labels-sheet * { visibility:visible; }
+  #print-labels-sheet { display:block; position:absolute; top:0; left:0; width:100%; }
+  @page { size:A4; margin:10mm; }
+}
+.link-btn { color:var(--blue); text-decoration:underline; cursor:pointer; }
+.my-location-btn {
+  width:34px; height:34px; background:var(--surface); border:2px solid rgba(0,0,0,.2); border-radius:4px;
+  font-size:16px; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
+}
+.my-location-btn:disabled { opacity:.6; }
+.source-badge { display:inline-block; font-size:10.5px; font-weight:700; color:var(--accent); background:rgba(245,166,35,.12); border:1px solid rgba(245,166,35,.3); border-radius:10px; padding:2px 8px; margin-left:6px; vertical-align:middle; }
+.batch-manage-box { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:10px; }
+.batch-manage-actions { display:flex; gap:8px; }
+
+/* ===== Custom dropdown (แทนที่ reason-picker-field / bottom-sheet picker เดิม) ===== */
+.filter-dropdown-wrap{ position:relative; width:100%; }
+.filter-dropdown-btn{
+  width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px;
+  background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+  padding:10px 12px; color:var(--text); font-family:var(--sans); font-size:14px;
+  cursor:pointer; text-align:left; transition:border-color .15s;
+}
+.filter-dropdown-btn:active{ background:var(--border); }
+.filter-dropdown-btn.open{ border-color:var(--accent); }
+.filter-dropdown-btn .fdd-label{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); }
+.filter-dropdown-btn .fdd-label.fdd-placeholder{ color:var(--text2); }
+.filter-dropdown-btn .fdd-caret{ flex:none; font-size:11px; color:var(--text2); transition:transform .15s; }
+.filter-dropdown-btn.open .fdd-caret{ transform:rotate(180deg); color:var(--accent); }
+.filter-menu{
+  display:none; position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:60;
+  background:var(--bg); border:1px solid var(--border); border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.35); max-height:60vh; overflow-y:auto; padding:6px;
+}
+.filter-menu.open{ display:block; }
+.filter-menu-item{
+  display:flex; align-items:center; gap:10px; padding:10px; border-radius:8px;
+  cursor:pointer; font-size:14px; color:var(--text); user-select:none; -webkit-tap-highlight-color:transparent;
+}
+.filter-menu-item:active{ background:var(--surface2); }
+.filter-radio{
+  flex:none; width:18px; height:18px; border-radius:50%; border:2px solid var(--border);
+  position:relative; box-sizing:border-box;
+}
+.filter-radio.checked{ border-color:var(--accent); }
+.filter-radio.checked::after{
+  content:''; position:absolute; top:50%; left:50%; width:8px; height:8px;
+  transform:translate(-50%,-50%);
+  border-radius:50%; background:var(--accent);
+}
+.filter-menu-item .leg-dot{ flex:none; width:10px; height:10px; border-radius:50%; }
+.filter-menu-custom-row{ display:flex; gap:8px; padding:8px 6px 4px; border-top:1px solid var(--border); margin-top:4px; }
+.filter-menu-custom-row input{
+  flex:1; min-width:0; background:var(--surface2); border:1px solid var(--border); border-radius:6px;
+  padding:8px 10px; color:var(--text); font-family:var(--sans); font-size:13px; outline:none;
+}
+.filter-menu-custom-row input:focus{ border-color:var(--accent); }
+.filter-menu-custom-row button{
+  flex:none; background:var(--accent); color:#1a1a2e; border:none; border-radius:6px;
+  padding:8px 14px; font-family:var(--sans); font-size:13px; font-weight:700; cursor:pointer;
+}
+.fdd-native-select{ display:none !important; }
+
+/* ── เพิ่มเติมสำหรับแอปละเมิดลักใช้ไฟ ── */
+.suggest-list { background:var(--surface); border:1px solid var(--border); border-radius:10px; margin-top:6px; max-height:280px; overflow-y:auto; }
+.suggest-item { padding:10px 12px; border-bottom:1px solid var(--border); cursor:pointer; font-size:13.5px; line-height:1.5; }
+.suggest-item:last-child { border-bottom:none; }
+.suggest-item:active { background:var(--surface2); }
+.suggest-item b { color:var(--accent); }
+.suggest-item .sg-sub { font-size:12px; color:var(--text2); }
+.suggest-empty { padding:14px; text-align:center; color:var(--text2); font-size:13px; }
+.status-reported { background:rgba(59,158,222,.15); color:var(--blue); }
+.status-prosecuting { background:rgba(243,156,18,.15); color:var(--yellow); }
+.status-closed { background:rgba(46,204,113,.15); color:var(--green); }
+#manual-fields[style*="flex"] .field-input[readonly],
+#manual-fields select[disabled] { opacity:.72; }
+.topbar-spacer { width:34px; flex-shrink:0; }
+</style>
+
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-spacer"></div>
+  <div class="topbar-title"><span class="meter-icon">⚡</span> ละเมิด ลักใช้ไฟ</div>
+  <div class="topbar-spacer"></div>
+</div>
+
+<!-- ══ LIST TAB ══ -->
+<div class="tab-pane active" id="tab-list">
+  <div class="list-wrap">
+    <div class="search-box">
+      <span>🔍</span>
+      <input id="list-search" placeholder="ค้นหาชื่อ, CA, ที่อยู่, ประเภทการละเมิด..." oninput="renderList()">
+    </div>
+    <div class="filter-row">
+      <button class="filter-chip active" data-status="all" onclick="setFilter('all')">ทั้งหมด</button>
+      <button class="filter-chip" data-status="pending" onclick="setFilter('pending')">รอดำเนินการ</button>
+      <button class="filter-chip" data-status="reported" onclick="setFilter('reported')">รายงานแล้ว</button>
+      <button class="filter-chip" data-status="prosecuting" onclick="setFilter('prosecuting')">ดำเนินคดี</button>
+      <button class="filter-chip" data-status="closed" onclick="setFilter('closed')">ยุติเรื่อง</button>
+    </div>
+    <div id="list-container"></div>
+  </div>
+</div>
+
+<!-- ══ MAP TAB ══ -->
+<div class="tab-pane map-pane" id="tab-map">
+  <div class="map-pane-inner">
+    <div class="map-legend">
+      <span><i class="legend-dot" style="background:#a9bdd1"></i>รอดำเนินการ</span>
+      <span><i class="legend-dot" style="background:#3b9ede"></i>รายงานแล้ว</span>
+      <span><i class="legend-dot" style="background:#f39c12"></i>ดำเนินคดี</span>
+      <span><i class="legend-dot" style="background:#2ecc71"></i>ยุติเรื่อง</span>
+    </div>
+    <div id="map" style="flex:1;"></div>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="btn-tab-list" onclick="switchTab('list')">
+    <span class="nav-icon" style="font-size:24px;line-height:1;">📋</span><span class="nav-label">รายการ</span>
+  </button>
+  <button class="nav-btn" id="btn-tab-map" onclick="switchTab('map')">
+    <span class="nav-icon" style="font-size:24px;line-height:1;">🗺️</span><span class="nav-label">แผนที่</span>
+  </button>
+</nav>
+
+<button class="fab" onclick="openAddModal()" title="เพิ่มรายการละเมิด">+</button>
+
+<!-- ══ ADD/EDIT MODAL ══ -->
+<div class="modal-overlay" id="edit-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="edit-title">เพิ่มรายการละเมิด</div>
+      <button class="modal-close" onclick="closeEditModal()">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <div>
+        <label class="field-label">ค้นหาผู้ใช้ไฟ (ชื่อ / CA / เลขมิเตอร์ / เบอร์โทร)</label>
+        <div class="search-box">
+          <span>🔍</span>
+          <input id="customer-search" placeholder="พิมพ์อย่างน้อย 2 ตัวอักษร..." oninput="onCustomerSearchInput()" autocomplete="off">
+        </div>
+        <div id="customer-suggest" class="suggest-list" style="display:none;"></div>
+        <div class="field-hint">ระบบค้นหาจากฐานข้อมูลผู้ใช้ไฟอัตโนมัติ ถ้าหาไม่เจอ กดปุ่มด้านล่างเพื่อกรอกเอง</div>
+        <button class="btn btn-ghost" style="margin-top:8px;width:100%;" onclick="enableManualEntry()" id="btn-manual-entry">✏️ กรอกข้อมูลผู้ใช้ไฟเอง</button>
+      </div>
+
+      <div id="manual-fields" style="display:none; flex-direction:column; gap:14px;">
+        <div style="display:flex; gap:8px;">
+          <select class="field-input" id="m-prefix" style="flex:0 0 92px;">
+            <option value="">คำนำหน้า</option>
+            <option>นาย</option><option>นาง</option><option>นางสาว</option><option>อื่นๆ</option>
+          </select>
+          <input class="field-input" id="m-name" placeholder="ชื่อ" style="flex:1;">
+          <input class="field-input" id="m-surname" placeholder="นามสกุล" style="flex:1;">
+        </div>
+        <div style="display:flex; gap:8px;">
+          <input class="field-input" id="m-addressno" placeholder="บ้านเลขที่" style="flex:1;">
+          <input class="field-input" id="m-moo" placeholder="หมู่" style="flex:1;">
+        </div>
+        <div style="display:flex; gap:8px;">
+          <input class="field-input" id="m-tumbol" placeholder="ตำบล" style="flex:1;">
+          <input class="field-input" id="m-amphoe" placeholder="อำเภอ" style="flex:1;">
+        </div>
+        <input class="field-input" id="m-changwat" placeholder="จังหวัด">
+        <div style="display:flex; gap:8px;">
+          <input class="field-input" id="m-ca" placeholder="CA" style="flex:1;">
+          <input class="field-input" id="m-peano" placeholder="เลขมิเตอร์ (PEA)" style="flex:1;">
+        </div>
+        <input class="field-input" id="m-mobile" placeholder="เบอร์โทรศัพท์">
+        <div style="display:flex; gap:8px;">
+          <input class="field-input" id="m-lat" placeholder="Latitude ทะเบียนมิเตอร์" style="flex:1;" inputmode="decimal">
+          <input class="field-input" id="m-lng" placeholder="Longitude ทะเบียนมิเตอร์" style="flex:1;" inputmode="decimal">
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label">ประเภท/สาเหตุการละเมิด</label>
+        <div class="field-input reason-picker-field" id="violation-type-display" onclick="openViolationPicker()">เลือกประเภท...</div>
+      </div>
+      <div id="violation-other-wrap" style="display:none;">
+        <label class="field-label">ระบุรายละเอียดเพิ่มเติม</label>
+        <input class="field-input" id="violation-other-text" placeholder="ระบุรายละเอียด...">
+      </div>
+
+      <div>
+        <label class="field-label">วันที่ตรวจพบ</label>
+        <input class="field-input" id="detect-date" type="datetime-local">
+      </div>
+
+      <div>
+        <label class="field-label">พิกัดจุดที่ตรวจพบ (GPS หน้างาน)</label>
+        <button class="btn my-location-btn" onclick="captureGPS()" id="btn-gps" style="width:100%;">📍 ใช้ตำแหน่งปัจจุบัน</button>
+        <div class="field-hint" id="gps-hint">ยังไม่ได้บันทึกพิกัดหน้างาน</div>
+      </div>
+
+      <div>
+        <label class="field-label">รูปถ่ายหลักฐาน</label>
+        <img id="d-photo-preview" class="photo-preview" style="display:none;">
+        <div class="photo-row">
+          <button class="btn btn-blue" style="flex:1;" onclick="onPhotoButtonClick()">📷 ถ่ายรูป</button>
+          <button class="btn btn-blue" style="flex:1;" onclick="onGalleryButtonClick()">🖼️ เลือกรูป</button>
+          <button class="btn btn-danger" id="btn-delete-photo" style="flex:1;display:none;" onclick="deletePhoto()">🗑️ ลบรูป</button>
+        </div>
+        <button class="btn btn-accent" id="btn-request-permission" style="display:none;width:100%;margin-top:8px;" onclick="onRequestPermissionClick()">🔑 ขอสิทธิ์เชื่อมต่อ Google Drive</button>
+        <input type="file" id="d-photo-input" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoSelected(event)">
+        <input type="file" id="d-gallery-input" accept="image/*" style="display:none;" onchange="handlePhotoSelected(event)">
+        <div class="upload-status" id="photo-upload-status"></div>
+        <div class="field-hint" id="drive-account-info"></div>
+      </div>
+
+      <div>
+        <label class="field-label">สถานะเรื่อง</label>
+        <select class="field-input" id="violation-status">
+          <option value="pending">รอดำเนินการ</option>
+          <option value="reported">รายงาน/แจ้งความแล้ว</option>
+          <option value="prosecuting">อยู่ระหว่างดำเนินคดี</option>
+          <option value="closed">ยุติเรื่อง/ปิดเคส</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="field-label">หมายเหตุเพิ่มเติม</label>
+        <textarea class="field-input" id="violation-notes" rows="3" style="resize:vertical;"></textarea>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="btn-delete-ticket" style="display:none;" onclick="deleteTicket()">🗑️ ลบรายการ</button>
+      <button class="btn btn-primary" onclick="saveTicket()">💾 บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ VIOLATION TYPE PICKER ══ -->
+<div class="modal-overlay" id="violation-picker-overlay">
+  <div class="modal" style="max-width:500px;">
+    <div class="modal-header">
+      <div class="modal-title">เลือกประเภทการละเมิด</div>
+      <button class="modal-close" onclick="closeViolationPicker()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="radio-list" id="violation-type-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="data.js"></script>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // ใช้ Firebase project เดียวกับแอป U-cube (pea-system) แต่แยก collection ใหม่
+  // ⚠️ ถ้าเขียนข้อมูลไม่ได้ (permission-denied) ต้องไปเพิ่ม path นี้ใน Firestore Security Rules ของ project ก่อน
+  const firebaseConfig = {
+    apiKey: "AIzaSyC7bzImCV7c89fLGhIq8OycWKQWRYdvZvE",
+    authDomain: "pea-system.firebaseapp.com",
+    projectId: "pea-system",
+    storageBucket: "pea-system.firebasestorage.app",
+    messagingSenderId: "1006235611544",
+    appId: "1:1006235611544:web:a7453d71ff56748166fbed",
+    measurementId: "G-V5NPYZ4KZW"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const COLLECTION = "violation_tickets";
+
+  window._db = db;
+  window._fsLib = { collection, doc, setDoc, deleteDoc };
+
+  const q = query(collection(db, COLLECTION), orderBy("createdAt", "desc"));
+  onSnapshot(q, (snap) => {
+    window.TICKETS = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (window.onTicketsUpdated) window.onTicketsUpdated();
+  }, (err) => {
+    console.error("Firestore listen error:", err);
+    if (window.showFirestoreError) window.showFirestoreError(err);
+  });
+</script>
+<script>
+// ══════════════════════════ STATE ══════════════════════════
+window.TICKETS = [];
+let currentFilter = 'all';
+let currentTab = 'list';
+let editingId = null;       // Firestore doc id ที่กำลังแก้ไข, null = รายการใหม่
+let manualMode = false;     // true = ปลดล็อกให้กรอกข้อมูลผู้ใช้ไฟเอง
+let currentGPS = null;      // {lat,lng} ตำแหน่งหน้างานที่เพิ่งจับ (ยังไม่ได้บันทึก)
+let violationTypeSelected = null;
+let pendingPhotoFile = null;      // ไฟล์รูปที่เลือกแล้วแต่ยังไม่อัปโหลด (อัปโหลดตอนกดบันทึก)
+let existingPhoto = { link: '', fileId: '' }; // รูปเดิมของ ticket (ตอนแก้ไข)
+let mapInited = false;
+let searchResultsCache = [];
+
+const STATUS_LABEL = { pending: 'รอดำเนินการ', reported: 'รายงานแล้ว', prosecuting: 'ดำเนินคดี', closed: 'ยุติเรื่อง' };
+const STATUS_CLASS = { pending: 'status-pending', reported: 'status-reported', prosecuting: 'status-prosecuting', closed: 'status-closed' };
+const STATUS_COLOR = { pending: '#a9bdd1', reported: '#3b9ede', prosecuting: '#f39c12', closed: '#2ecc71' };
+
+const VIOLATION_TYPES = [
+  "ต่อสายไฟตรงจากระบบจำหน่าย ข้ามมิเตอร์ (บายพาส)",
+  "บายพาส/ลัดวงจรภายในตัวมิเตอร์",
+  "ใช้อุปกรณ์ภายนอกทำให้มิเตอร์หมุนช้าหรือหยุดนิ่งผิดปกติ (เช่น แม่เหล็ก)",
+  "มิเตอร์หมุนย้อนกลับผิดปกติ",
+  "งัดแงะ/ทำลายซีล (Seal) มิเตอร์",
+  "เจาะ/ทุบ/ทำลายฝาครอบหรือหน้าปัดมิเตอร์",
+  "ดัดแปลง/สับเปลี่ยนอุปกรณ์ภายในมิเตอร์",
+  "ต่อพ่วงไฟจากผู้ใช้ไฟรายอื่นโดยไม่ผ่านมิเตอร์ของตนเอง",
+  "ลักลอบใช้ไฟในช่วงถูกงดจ่ายไฟ/ถอดมิเตอร์แล้ว",
+  "ใช้ไฟฟ้าเกินขนาดสัญญา/ต่อ CT ผิดพิกัด",
+  "อื่นๆ (โปรดระบุ)"
+];
+
+// ══════════════════════════ HELPERS ══════════════════════════
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+function escAttr(s) { return esc(s); }
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+function fullName(t) {
+  return [t.prefix, t.customerName, t.customerSirname].filter(Boolean).join(' ') || '(ไม่ระบุชื่อ)';
+}
+function fullAddress(t) {
+  return [t.addressNo, t.moo, t.tumbol, t.amphoe, t.changwat].filter(Boolean).join(' ');
+}
+
+// ══════════════════════════ TABS ══════════════════════════
+function switchTab(name) {
+  currentTab = name;
+  document.getElementById('tab-list').classList.toggle('active', name === 'list');
+  document.getElementById('tab-map').classList.toggle('active', name === 'map');
+  document.getElementById('btn-tab-list').classList.toggle('active', name === 'list');
+  document.getElementById('btn-tab-map').classList.toggle('active', name === 'map');
+  document.querySelector('.fab').style.display = name === 'list' ? 'flex' : 'none';
+  if (name === 'map') {
+    if (!mapInited) initMap();
+    else { renderMapMarkers(); setTimeout(() => window.leafletMap && window.leafletMap.invalidateSize(), 60); }
+  }
+}
+window.switchTab = switchTab;
+
+function setFilter(status) {
+  currentFilter = status;
+  document.querySelectorAll('.filter-chip').forEach(el => el.classList.toggle('active', el.dataset.status === status));
+  renderList();
+}
+window.setFilter = setFilter;
+
+// ══════════════════════════ LIST ══════════════════════════
+window.onTicketsUpdated = function () {
+  renderList();
+  if (mapInited) renderMapMarkers();
+};
+
+function matchesSearch(t, q) {
+  if (!q) return true;
+  const hay = `${fullName(t)} ${fullAddress(t)} ${t.ca||''} ${t.peaNo||''} ${t.violationType||''} ${t.notes||''}`.toLowerCase();
+  return hay.includes(q);
+}
+
+function renderList() {
+  const q = (document.getElementById('list-search').value || '').trim().toLowerCase();
+  const container = document.getElementById('list-container');
+  let items = (window.TICKETS || []).filter(t => (currentFilter === 'all' || t.status === currentFilter) && matchesSearch(t, q));
+
+  if (items.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div>ยังไม่มีรายการที่ตรงกับเงื่อนไข</div>`;
+    return;
+  }
+
+  container.innerHTML = `<div class="list-wrap" style="padding:0;">` + items.map(t => `
+    <div class="ticket-card" onclick="openEditModal('${escAttr(t.id)}')">
+      <div class="ticket-top">
+        ${t.photoFileId
+          ? `<img class="ticket-thumb-lg" loading="lazy" src="https://drive.google.com/thumbnail?id=${escAttr(t.photoFileId)}&sz=w1000" onerror="this.outerHTML='<div class=&quot;tc-photo-placeholder&quot;>📷</div>';">`
+          : `<div class="tc-photo-placeholder">📷</div>`}
+        <div style="flex:1;">
+          <div class="ticket-name">${esc(fullName(t))}</div>
+          <div class="ticket-sub">${esc(fullAddress(t)) || '-'}</div>
+        </div>
+        <span class="status-badge ${STATUS_CLASS[t.status] || 'status-pending'}">${STATUS_LABEL[t.status] || 'รอดำเนินการ'}</span>
+      </div>
+      <div class="tc-reason">⚠️ ${esc(t.violationType || '-')}${t.violationOther ? ' — ' + esc(t.violationOther) : ''}</div>
+      <div class="ticket-detail-row">CA: ${esc(t.ca || '-')} · เลขมิเตอร์: ${esc(t.peaNo || '-')}</div>
+      ${t.detectDate ? `<div class="ticket-detail-row">🗓️ ตรวจพบ: ${esc(t.detectDate.replace('T', ' '))}</div>` : ''}
+    </div>
+  `).join('') + `</div>`;
+}
+window.renderList = renderList;
+
+// ══════════════════════════ ADD / EDIT MODAL ══════════════════════════
+function resetForm() {
+  document.getElementById('customer-search').value = '';
+  document.getElementById('customer-suggest').style.display = 'none';
+  document.getElementById('manual-fields').style.display = 'none';
+  ['m-prefix','m-name','m-surname','m-addressno','m-moo','m-tumbol','m-amphoe','m-changwat','m-ca','m-peano','m-mobile','m-lat','m-lng'].forEach(id => document.getElementById(id).value = '');
+  setManualFieldsReadonly(false);
+  document.getElementById('btn-manual-entry').textContent = '✏️ กรอกข้อมูลผู้ใช้ไฟเอง';
+  violationTypeSelected = null;
+  document.getElementById('violation-type-display').textContent = 'เลือกประเภท...';
+  document.getElementById('violation-type-display').classList.remove('has-value');
+  document.getElementById('violation-other-wrap').style.display = 'none';
+  document.getElementById('violation-other-text').value = '';
+  document.getElementById('violation-status').value = 'pending';
+  document.getElementById('violation-notes').value = '';
+  currentGPS = null;
+  document.getElementById('gps-hint').textContent = 'ยังไม่ได้บันทึกพิกัดหน้างาน';
+  document.getElementById('btn-gps').textContent = '📍 ใช้ตำแหน่งปัจจุบัน';
+  pendingPhotoFile = null;
+  existingPhoto = { link: '', fileId: '' };
+  document.getElementById('d-photo-preview').style.display = 'none';
+  document.getElementById('btn-delete-photo').style.display = 'none';
+  document.getElementById('photo-upload-status').textContent = '';
+  document.getElementById('photo-upload-status').className = 'upload-status';
+  document.getElementById('btn-request-permission').style.display = 'none';
+  renderDriveAccountInfo();
+}
+
+function openAddModal() {
+  resetForm();
+  editingId = null;
+  document.getElementById('edit-title').textContent = 'เพิ่มรายการละเมิด';
+  document.getElementById('btn-delete-ticket').style.display = 'none';
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('detect-date').value = now.toISOString().slice(0, 16);
+  document.getElementById('edit-overlay').classList.add('active');
+}
+window.openAddModal = openAddModal;
+
+function openEditModal(id) {
+  const t = (window.TICKETS || []).find(x => x.id === id);
+  if (!t) return;
+  resetForm();
+  editingId = id;
+  document.getElementById('edit-title').textContent = 'แก้ไขรายการละเมิด';
+  document.getElementById('btn-delete-ticket').style.display = 'block';
+
+  document.getElementById('customer-search').value = fullName(t);
+  document.getElementById('manual-fields').style.display = 'flex';
+  document.getElementById('m-prefix').value = t.prefix || '';
+  document.getElementById('m-name').value = t.customerName || '';
+  document.getElementById('m-surname').value = t.customerSirname || '';
+  document.getElementById('m-addressno').value = t.addressNo || '';
+  document.getElementById('m-moo').value = t.moo || '';
+  document.getElementById('m-tumbol').value = t.tumbol || '';
+  document.getElementById('m-amphoe').value = t.amphoe || '';
+  document.getElementById('m-changwat').value = t.changwat || '';
+  document.getElementById('m-ca').value = t.ca || '';
+  document.getElementById('m-peano').value = t.peaNo || '';
+  document.getElementById('m-mobile').value = t.mobile || '';
+  document.getElementById('m-lat').value = t.regLat ?? '';
+  document.getElementById('m-lng').value = t.regLng ?? '';
+  setManualFieldsReadonly(!t.isManualEntry);
+  document.getElementById('btn-manual-entry').textContent = t.isManualEntry ? '✏️ กรอกข้อมูลผู้ใช้ไฟเอง' : '✏️ แก้ไขข้อมูลนี้เอง';
+
+  if (t.violationType) {
+    violationTypeSelected = t.violationType;
+    document.getElementById('violation-type-display').textContent = t.violationType;
+    document.getElementById('violation-type-display').classList.add('has-value');
+    if (t.violationType.startsWith('อื่นๆ')) document.getElementById('violation-other-wrap').style.display = 'block';
+  }
+  document.getElementById('violation-other-text').value = t.violationOther || '';
+  document.getElementById('detect-date').value = t.detectDate || '';
+  document.getElementById('violation-status').value = t.status || 'pending';
+  document.getElementById('violation-notes').value = t.notes || '';
+
+  if (t.foundLat && t.foundLng) {
+    currentGPS = { lat: t.foundLat, lng: t.foundLng };
+    document.getElementById('gps-hint').textContent = `บันทึกพิกัดไว้แล้ว: ${t.foundLat.toFixed(6)}, ${t.foundLng.toFixed(6)}`;
+  }
+
+  existingPhoto = { link: t.photoLink || '', fileId: t.photoFileId || '' };
+  if (t.photoFileId) {
+    const preview = document.getElementById('d-photo-preview');
+    preview.src = `https://drive.google.com/thumbnail?id=${t.photoFileId}&sz=w1000`;
+    preview.style.display = 'block';
+    document.getElementById('btn-delete-photo').style.display = 'block';
+  }
+
+  document.getElementById('edit-overlay').classList.add('active');
+}
+window.openEditModal = openEditModal;
+
+function closeEditModal() {
+  document.getElementById('edit-overlay').classList.remove('active');
+}
+window.closeEditModal = closeEditModal;
+
+// ══════════════════════════ CUSTOMER SEARCH (data.js) ══════════════════════════
+function searchCustomers(qstr) {
+  const records = window.ALL_RECORDS;
+  if (!records || !records.length) return [];
+  const qq = qstr.trim().toLowerCase();
+  if (qq.length < 2) return [];
+  const out = [];
+  for (let i = 0; i < records.length; i++) {
+    const r = records[i];
+    const hay = `${r.CUSTOMERNAME||''} ${r.CUSTOMERSIRNAME||''} ${r.CA||''} ${r.PEANO||''} ${r.MOBILE_NO||''}`.toLowerCase();
+    if (hay.includes(qq)) { out.push(r); if (out.length >= 20) break; }
+  }
+  return out;
+}
+
+let _searchDebounce = null;
+function onCustomerSearchInput() {
+  clearTimeout(_searchDebounce);
+  _searchDebounce = setTimeout(() => {
+    const q = document.getElementById('customer-search').value;
+    const box = document.getElementById('customer-suggest');
+    if (!window.ALL_RECORDS) {
+      box.innerHTML = `<div class="suggest-empty">⚠️ ไม่พบไฟล์ข้อมูลผู้ใช้ไฟ (data.js) กรุณากดปุ่ม "กรอกข้อมูลเอง" แทน</div>`;
+      box.style.display = 'block';
+      return;
+    }
+    const results = searchCustomers(q);
+    searchResultsCache = results;
+    if (q.trim().length < 2) { box.style.display = 'none'; return; }
+    if (results.length === 0) {
+      box.innerHTML = `<div class="suggest-empty">ไม่พบข้อมูล — กดปุ่ม "กรอกข้อมูลเอง" ด้านล่างเพื่อกรอกเอง</div>`;
+    } else {
+      box.innerHTML = results.map((r, i) => `
+        <div class="suggest-item" onclick="selectCustomerFromSuggest(${i})">
+          <b>${esc([r.PREFIX, r.CUSTOMERNAME, r.CUSTOMERSIRNAME].filter(Boolean).join(' '))}</b><br>
+          <span class="sg-sub">${esc([r.ADDRESSNO, r.MOO, r.TUMBOL, r.AMPHOE, r.CHANGWAT].filter(Boolean).join(' '))}</span><br>
+          <span class="sg-sub">CA: ${esc(r.CA||'-')} · มิเตอร์: ${esc(r.PEANO||'-')}</span>
+        </div>
+      `).join('');
+    }
+    box.style.display = 'block';
+  }, 180);
+}
+window.onCustomerSearchInput = onCustomerSearchInput;
+
+function selectCustomerFromSuggest(i) {
+  const r = searchResultsCache[i];
+  if (!r) return;
+  document.getElementById('customer-search').value = [r.PREFIX, r.CUSTOMERNAME, r.CUSTOMERSIRNAME].filter(Boolean).join(' ');
+  document.getElementById('customer-suggest').style.display = 'none';
+  document.getElementById('manual-fields').style.display = 'flex';
+  document.getElementById('m-prefix').value = r.PREFIX || '';
+  document.getElementById('m-name').value = r.CUSTOMERNAME || '';
+  document.getElementById('m-surname').value = r.CUSTOMERSIRNAME || '';
+  document.getElementById('m-addressno').value = r.ADDRESSNO || '';
+  document.getElementById('m-moo').value = r.MOO || '';
+  document.getElementById('m-tumbol').value = r.TUMBOL || '';
+  document.getElementById('m-amphoe').value = r.AMPHOE || '';
+  document.getElementById('m-changwat').value = r.CHANGWAT || '';
+  document.getElementById('m-ca').value = r.CA || '';
+  document.getElementById('m-peano').value = r.PEANO || '';
+  document.getElementById('m-mobile').value = r.MOBILE_NO || '';
+  document.getElementById('m-lat').value = r.LATITUDE ?? '';
+  document.getElementById('m-lng').value = r.LONGITUDE ?? '';
+  setManualFieldsReadonly(true);
+  document.getElementById('btn-manual-entry').textContent = '✏️ แก้ไขข้อมูลนี้เอง';
+}
+window.selectCustomerFromSuggest = selectCustomerFromSuggest;
+
+function setManualFieldsReadonly(readonly) {
+  ['m-prefix','m-name','m-surname','m-addressno','m-moo','m-tumbol','m-amphoe','m-changwat','m-ca','m-peano','m-mobile','m-lat','m-lng'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el.tagName === 'SELECT') el.disabled = readonly; else el.readOnly = readonly;
+  });
+}
+
+function enableManualEntry() {
+  document.getElementById('customer-suggest').style.display = 'none';
+  document.getElementById('manual-fields').style.display = 'flex';
+  setManualFieldsReadonly(false);
+  document.getElementById('btn-manual-entry').textContent = '✏️ กรอกข้อมูลผู้ใช้ไฟเอง (กำลังแก้ไขเอง)';
+  document.getElementById('m-name').focus();
+}
+window.enableManualEntry = enableManualEntry;
+
+// ปิด dropdown เมื่อคลิกนอกกล่องค้นหา
+document.addEventListener('click', (e) => {
+  const box = document.getElementById('customer-suggest');
+  const input = document.getElementById('customer-search');
+  if (box && input && !box.contains(e.target) && e.target !== input) box.style.display = 'none';
+});
+
+// ══════════════════════════ VIOLATION TYPE PICKER ══════════════════════════
+function openViolationPicker() {
+  const wrap = document.getElementById('violation-type-list');
+  wrap.innerHTML = VIOLATION_TYPES.map((v, i) => `
+    <div class="radio-item ${violationTypeSelected === v ? 'selected' : ''}" onclick="selectViolationType(${i})">
+      <span class="radio-dot"></span><span class="radio-text">${esc(v)}</span>
+    </div>`).join('');
+  document.getElementById('violation-picker-overlay').classList.add('active');
+}
+window.openViolationPicker = openViolationPicker;
+function closeViolationPicker() { document.getElementById('violation-picker-overlay').classList.remove('active'); }
+window.closeViolationPicker = closeViolationPicker;
+function selectViolationType(i) {
+  violationTypeSelected = VIOLATION_TYPES[i];
+  const disp = document.getElementById('violation-type-display');
+  disp.textContent = violationTypeSelected;
+  disp.classList.add('has-value');
+  document.getElementById('violation-other-wrap').style.display = violationTypeSelected.startsWith('อื่นๆ') ? 'block' : 'none';
+  closeViolationPicker();
+}
+window.selectViolationType = selectViolationType;
+
+// ══════════════════════════ GPS ══════════════════════════
+function captureGPS() {
+  const btn = document.getElementById('btn-gps');
+  const hint = document.getElementById('gps-hint');
+  if (!navigator.geolocation) { hint.textContent = '⚠️ อุปกรณ์นี้ไม่รองรับ GPS'; return; }
+  btn.disabled = true; btn.textContent = '📍 กำลังค้นหาตำแหน่ง...';
+  navigator.geolocation.getCurrentPosition(pos => {
+    currentGPS = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    hint.textContent = `บันทึกพิกัดแล้ว: ${currentGPS.lat.toFixed(6)}, ${currentGPS.lng.toFixed(6)} (ความแม่นยำ ~${Math.round(pos.coords.accuracy)} ม.)`;
+    btn.disabled = false; btn.textContent = '📍 ใช้ตำแหน่งปัจจุบัน (แตะเพื่ออัปเดต)';
+  }, err => {
+    hint.textContent = '⚠️ ไม่สามารถระบุตำแหน่งได้: ' + err.message;
+    btn.disabled = false; btn.textContent = '📍 ใช้ตำแหน่งปัจจุบัน';
+  }, { enableHighAccuracy: true, timeout: 15000 });
+}
+window.captureGPS = captureGPS;
+
+// ══════════════════════════ GOOGLE DRIVE (รูปถ่าย — บัญชีส่วนตัวของผู้ใช้แต่ละคน) ══════════════════════════
+const GOOGLE_CLIENT_ID = '1006235611544-tv5slgr1vef55i8ol56embfdvrimns4i.apps.googleusercontent.com';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
+let driveTokenClient = null;
+let driveAccessToken = null;
+let driveAccountEmail = null;
+let driveFolderCache = {};
+
+(function loadSavedDriveAuth() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('vlt_drive_token') || 'null');
+    if (saved && saved.token && saved.expiresAt && Date.now() < saved.expiresAt) driveAccessToken = saved.token;
+    driveAccountEmail = localStorage.getItem('vlt_drive_email') || null;
+  } catch (e) {}
+})();
+
+function saveDriveToken(token, expiresInSec) {
+  try {
+    localStorage.setItem('vlt_drive_token', JSON.stringify({ token, expiresAt: Date.now() + ((expiresInSec || 3500) * 1000) - 60000 }));
+    localStorage.setItem('vlt_drive_authorized', '1');
+    if (driveAccountEmail) localStorage.setItem('vlt_drive_email', driveAccountEmail);
+  } catch (e) {}
+}
+function isDriveTokenExpired() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('vlt_drive_token') || 'null');
+    if (!saved || !saved.expiresAt) return true;
+    return Date.now() >= saved.expiresAt;
+  } catch (e) { return true; }
+}
+function getDriveTokenClient() {
+  if (driveTokenClient) return driveTokenClient;
+  if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) return null;
+  driveTokenClient = google.accounts.oauth2.initTokenClient({ client_id: GOOGLE_CLIENT_ID, scope: DRIVE_SCOPE, callback: '' });
+  return driveTokenClient;
+}
+function requestDriveAccessToken(promptOverride) {
+  const attempt = new Promise((resolve, reject) => {
+    const client = getDriveTokenClient();
+    if (!client) { reject(new Error('โหลดระบบล็อกอิน Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่')); return; }
+    client.callback = (resp) => {
+      if (resp.error) {
+        try { localStorage.removeItem('vlt_drive_authorized'); } catch (e) {}
+        reject(new Error(resp.error)); return;
+      }
+      driveAccessToken = resp.access_token;
+      saveDriveToken(resp.access_token, resp.expires_in);
+      resolve(driveAccessToken);
+    };
+    let everAuthorized = false;
+    try { everAuthorized = !!localStorage.getItem('vlt_drive_authorized'); } catch (e) {}
+    const prompt = promptOverride !== undefined ? promptOverride : ((driveAccessToken || everAuthorized) ? '' : 'consent');
+    // ไม่ระบุ hint บัญชี — ให้ผู้ใช้แต่ละคนเลือกบัญชี Google ส่วนตัวของตัวเองได้อิสระ
+    client.requestAccessToken({ prompt });
+  });
+  const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_DRIVE_AUTH')), 20000));
+  return Promise.race([attempt, timeout]);
+}
+async function findOrCreateFolder(name, parentId, token) {
+  const parentClause = parentId ? ` and '${parentId}' in parents` : " and 'root' in parents";
+  const qStr = encodeURIComponent(`name = '${name.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false${parentClause}`);
+  const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${qStr}&fields=files(id,name)`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!searchRes.ok) { const err = new Error('ค้นหาโฟลเดอร์ไม่สำเร็จ: ' + searchRes.status); err.status = searchRes.status; throw err; }
+  const searchData = await searchRes.json();
+  if (searchData.files && searchData.files.length > 0) return searchData.files[0].id;
+  const createRes = await fetch('https://www.googleapis.com/drive/v3/files?fields=id', {
+    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: parentId ? [parentId] : undefined })
+  });
+  if (!createRes.ok) { const err = new Error('สร้างโฟลเดอร์ไม่สำเร็จ: ' + createRes.status); err.status = createRes.status; throw err; }
+  return (await createRes.json()).id;
+}
+async function getPhotoFolderId(token) {
+  if (driveFolderCache.root) return driveFolderCache.root;
+  const rootId = await findOrCreateFolder('PEA App - รูปการละเมิดลักใช้ไฟ', null, token);
+  driveFolderCache.root = rootId;
+  return rootId;
+}
+async function uploadPhotoToDrive(file, token, folderId, ticketId) {
+  const metadata = { name: `${ticketId}_${Date.now()}_${file.name}`, parents: [folderId] };
+  const boundary = 'vltAppBoundary' + Date.now();
+  const metaBytes = new TextEncoder().encode(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`);
+  const filePartHeader = new TextEncoder().encode(`--${boundary}\r\nContent-Type: ${file.type || 'image/jpeg'}\r\n\r\n`);
+  const closeBytes = new TextEncoder().encode(`\r\n--${boundary}--`);
+  const fileBuffer = await file.arrayBuffer();
+  const body = new Blob([metaBytes, filePartHeader, fileBuffer, closeBytes]);
+  const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` }, body
+  });
+  if (!uploadRes.ok) { const err = new Error('อัปโหลดไม่สำเร็จ: ' + uploadRes.status); err.status = uploadRes.status; throw err; }
+  const uploaded = await uploadRes.json();
+  await fetch(`https://www.googleapis.com/drive/v3/files/${uploaded.id}/permissions`, {
+    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role: 'reader', type: 'anyone' })
+  }).catch(() => {});
+  return uploaded;
+}
+function isLikelyBlockedForDriveAuth() {
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const ua = navigator.userAgent || '';
+  return standalone || /Line\/|FBAN|FBAV|Instagram|MicroMessenger/i.test(ua);
+}
+async function fetchDriveAccountEmail(token) {
+  try {
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return null;
+    return (await res.json()).email || null;
+  } catch (e) { return null; }
+}
+function renderDriveAccountInfo() {
+  const el = document.getElementById('drive-account-info');
+  if (!el) return;
+  if (driveAccountEmail) {
+    el.innerHTML = `🔗 เชื่อมต่อ Google Drive บัญชี: <b>${esc(driveAccountEmail)}</b> ✓ (รูปจะถูกเก็บในไดรฟ์ของบัญชีนี้) · <span class="link-btn" onclick="switchDriveAccount()">เปลี่ยนบัญชี</span>`;
+  } else if (driveAccessToken) {
+    el.innerHTML = `🔗 เชื่อมต่อ Google Drive แล้ว · <span class="link-btn" onclick="switchDriveAccount()">เปลี่ยนบัญชี</span>`;
+  } else {
+    el.textContent = 'ยังไม่ได้เชื่อมต่อ Google Drive (จะขอสิทธิ์ตอนกดปุ่ม "ถ่ายรูป"/"เลือกรูป" ครั้งแรก — ใช้บัญชี Google ส่วนตัวของคุณได้เลย)';
+  }
+}
+window.renderDriveAccountInfo = renderDriveAccountInfo;
+
+async function switchDriveAccount() {
+  driveAccessToken = null; driveAccountEmail = null; driveFolderCache = {};
+  renderDriveAccountInfo();
+  const statusEl = document.getElementById('photo-upload-status');
+  statusEl.className = 'upload-status uploading'; statusEl.textContent = '🔄 กำลังเลือกบัญชี Google...';
+  try {
+    const token = await requestDriveAccessToken('select_account');
+    driveAccountEmail = await fetchDriveAccountEmail(token);
+    try { localStorage.setItem('vlt_drive_email', driveAccountEmail || ''); } catch (e) {}
+    statusEl.className = 'upload-status'; statusEl.textContent = '';
+    renderDriveAccountInfo();
+    showToast('เปลี่ยนบัญชีสำเร็จ ✓');
+  } catch (e) {
+    statusEl.className = 'upload-status error'; statusEl.textContent = '⚠️ เปลี่ยนบัญชีไม่สำเร็จ ลองใหม่อีกครั้ง';
+  }
+}
+window.switchDriveAccount = switchDriveAccount;
+
+async function ensureDriveAccess() {
+  const statusEl = document.getElementById('photo-upload-status');
+  const permBtn = document.getElementById('btn-request-permission');
+  if (driveAccessToken && !isDriveTokenExpired()) { permBtn.style.display = 'none'; return true; }
+  if (driveAccessToken && isDriveTokenExpired()) { driveAccessToken = null; try { localStorage.removeItem('vlt_drive_token'); } catch (e) {} }
+  statusEl.className = 'upload-status uploading'; statusEl.textContent = '🔄 กำลังขอสิทธิ์เชื่อมต่อ Google Drive (บัญชีของคุณ)...';
+  try {
+    const token = await requestDriveAccessToken();
+    driveAccountEmail = await fetchDriveAccountEmail(token);
+    try { localStorage.setItem('vlt_drive_email', driveAccountEmail || ''); } catch (e) {}
+    renderDriveAccountInfo();
+    statusEl.className = 'upload-status'; statusEl.textContent = '';
+    permBtn.style.display = 'none';
+    return true;
+  } catch (e) {
+    statusEl.className = 'upload-status error';
+    statusEl.textContent = e && e.message === 'TIMEOUT_DRIVE_AUTH'
+      ? '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ (หมดเวลารอ) ตรวจสอบว่าอนุญาต popup แล้วลองกดปุ่ม "ขอสิทธิ์" ด้านล่าง'
+      : '⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ ลองกดปุ่ม "ขอสิทธิ์" ด้านล่างอีกครั้ง';
+    permBtn.style.display = 'block';
+    return false;
+  }
+}
+
+async function onPhotoButtonClick() { if (await ensureDriveAccess()) document.getElementById('d-photo-input').click(); }
+window.onPhotoButtonClick = onPhotoButtonClick;
+async function onGalleryButtonClick() { if (await ensureDriveAccess()) document.getElementById('d-gallery-input').click(); }
+window.onGalleryButtonClick = onGalleryButtonClick;
+async function onRequestPermissionClick() { await ensureDriveAccess(); }
+window.onRequestPermissionClick = onRequestPermissionClick;
+
+function handlePhotoSelected(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+  pendingPhotoFile = file;
+  const preview = document.getElementById('d-photo-preview');
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = 'block';
+  document.getElementById('photo-upload-status').className = 'upload-status';
+  document.getElementById('photo-upload-status').textContent = '📎 เลือกรูปแล้ว (จะอัปโหลดขึ้น Drive ตอนกดบันทึก)';
+  document.getElementById('btn-delete-photo').style.display = 'block';
+}
+window.handlePhotoSelected = handlePhotoSelected;
+
+function deletePhoto() {
+  if (!confirm('ลบรูปนี้ออกจากรายการหรือไม่?')) return;
+  pendingPhotoFile = null;
+  existingPhoto = { link: '', fileId: '' };
+  document.getElementById('d-photo-preview').style.display = 'none';
+  document.getElementById('btn-delete-photo').style.display = 'none';
+  document.getElementById('photo-upload-status').textContent = '';
+  showToast('ลบรูปแล้ว (กดบันทึกเพื่อยืนยัน)');
+}
+window.deletePhoto = deletePhoto;
+
+// ══════════════════════════ SAVE / DELETE ══════════════════════════
+async function saveTicket() {
+  const name = document.getElementById('m-name').value.trim();
+  if (!name) { showToast('⚠️ กรุณาค้นหาแล้วเลือกผู้ใช้ไฟ หรือกรอกชื่ออย่างน้อย 1 ช่อง'); return; }
+  if (!violationTypeSelected) { showToast('⚠️ กรุณาเลือกประเภทการละเมิด'); return; }
+
+  const saveBtn = document.querySelector('#edit-overlay .btn-primary');
+  saveBtn.disabled = true; saveBtn.textContent = '💾 กำลังบันทึก...';
+
+  try {
+    const { doc, setDoc, collection } = window._fsLib;
+    const id = editingId || doc(collection(window._db, 'violation_tickets')).id;
+    const old = editingId ? (window.TICKETS || []).find(x => x.id === editingId) : null;
+
+    // อัปโหลดรูปใหม่ (ถ้ามี) ก่อนบันทึกข้อมูล
+    let photoLink = existingPhoto.link, photoFileId = existingPhoto.fileId;
+    if (pendingPhotoFile) {
+      const statusEl = document.getElementById('photo-upload-status');
+      statusEl.className = 'upload-status uploading'; statusEl.textContent = '🔄 กำลังอัปโหลดรูป...';
+      try {
+        let token = driveAccessToken || await requestDriveAccessToken();
+        let result;
+        try {
+          result = await uploadPhotoToDrive(pendingPhotoFile, token, await getPhotoFolderId(token), id);
+        } catch (err) {
+          if (err && err.status === 401) {
+            driveAccessToken = null; try { localStorage.removeItem('vlt_drive_token'); } catch (e) {}
+            token = await requestDriveAccessToken('');
+            result = await uploadPhotoToDrive(pendingPhotoFile, token, await getPhotoFolderId(token), id);
+          } else { throw err; }
+        }
+        photoLink = result.webViewLink; photoFileId = result.id;
+        if (old && old.photoFileId && old.photoFileId !== photoFileId) {
+          fetch(`https://www.googleapis.com/drive/v3/files/${old.photoFileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+        }
+        statusEl.className = 'upload-status'; statusEl.textContent = '📎 อัปโหลดรูปสำเร็จ';
+      } catch (e) {
+        statusEl.className = 'upload-status error';
+        statusEl.textContent = '⚠️ อัปโหลดรูปไม่สำเร็จ ' + (e && e.message ? '(' + e.message + ')' : '');
+        showToast('⚠️ อัปโหลดรูปไม่สำเร็จ — กรุณาลองใหม่ก่อนบันทึก');
+        saveBtn.disabled = false; saveBtn.textContent = '💾 บันทึก';
+        return;
+      }
+    }
+
+    const ticket = {
+      id,
+      prefix: document.getElementById('m-prefix').value,
+      customerName: name,
+      customerSirname: document.getElementById('m-surname').value.trim(),
+      addressNo: document.getElementById('m-addressno').value.trim(),
+      moo: document.getElementById('m-moo').value.trim(),
+      tumbol: document.getElementById('m-tumbol').value.trim(),
+      amphoe: document.getElementById('m-amphoe').value.trim(),
+      changwat: document.getElementById('m-changwat').value.trim(),
+      ca: document.getElementById('m-ca').value.trim(),
+      peaNo: document.getElementById('m-peano').value.trim(),
+      mobile: document.getElementById('m-mobile').value.trim(),
+      regLat: parseFloat(document.getElementById('m-lat').value) || null,
+      regLng: parseFloat(document.getElementById('m-lng').value) || null,
+      foundLat: currentGPS ? currentGPS.lat : (old ? (old.foundLat ?? null) : null),
+      foundLng: currentGPS ? currentGPS.lng : (old ? (old.foundLng ?? null) : null),
+      violationType: violationTypeSelected,
+      violationOther: document.getElementById('violation-other-text').value.trim(),
+      detectDate: document.getElementById('detect-date').value,
+      status: document.getElementById('violation-status').value,
+      notes: document.getElementById('violation-notes').value.trim(),
+      isManualEntry: !document.getElementById('m-name').readOnly,
+      photoLink: photoLink || '',
+      photoFileId: photoFileId || '',
+      createdAt: old ? (old.createdAt || Date.now()) : Date.now(),
+      updatedAt: Date.now()
+    };
+
+    await setDoc(doc(window._db, 'violation_tickets', id), ticket);
+    showToast('บันทึกสำเร็จ ✓');
+    closeEditModal();
+  } catch (e) {
+    console.error(e);
+    showToast('⚠️ บันทึกไม่สำเร็จ: ' + (e && e.message ? e.message : 'ไม่ทราบสาเหตุ'));
+  } finally {
+    saveBtn.disabled = false; saveBtn.textContent = '💾 บันทึก';
+  }
+}
+window.saveTicket = saveTicket;
+
+async function deleteTicket() {
+  if (!editingId) return;
+  if (!confirm('ลบรายการละเมิดนี้ทั้งหมดหรือไม่? การลบไม่สามารถกู้คืนได้')) return;
+  try {
+    const t = (window.TICKETS || []).find(x => x.id === editingId);
+    const { doc, deleteDoc } = window._fsLib;
+    await deleteDoc(doc(window._db, 'violation_tickets', editingId));
+    if (t && t.photoFileId && driveAccessToken) {
+      fetch(`https://www.googleapis.com/drive/v3/files/${t.photoFileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${driveAccessToken}` } }).catch(() => {});
+    }
+    showToast('ลบรายการแล้ว ✓');
+    closeEditModal();
+  } catch (e) {
+    showToast('⚠️ ลบไม่สำเร็จ: ' + (e && e.message ? e.message : ''));
+  }
+}
+window.deleteTicket = deleteTicket;
+
+window.showFirestoreError = function (err) {
+  showToast('⚠️ เชื่อมต่อฐานข้อมูลไม่สำเร็จ: ' + (err && err.message ? err.message : 'ตรวจสอบ Firestore Security Rules'));
+};
+
+// ══════════════════════════ MAP ══════════════════════════
+function initMap() {
+  window.leafletMap = L.map('map', { zoomControl: false }).setView([16.80, 99.98], 11);
+  L.control.zoom({ position: 'bottomright' }).addTo(window.leafletMap);
+  const LocateControl = L.Control.extend({
+    options: { position: 'bottomright' },
+    onAdd: function () {
+      const btn = L.DomUtil.create('button', 'leaflet-bar my-location-btn');
+      btn.type = 'button'; btn.title = 'ตำแหน่งของฉัน'; btn.innerHTML = '📍';
+      L.DomEvent.disableClickPropagation(btn);
+      L.DomEvent.on(btn, 'click', () => locateMyPosition(btn));
+      return btn;
+    }
+  });
+  new LocateControl().addTo(window.leafletMap);
+  window.mapTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors', maxZoom: 19
+  }).addTo(window.leafletMap);
+  window.mapLayer = L.layerGroup().addTo(window.leafletMap);
+  mapInited = true;
+  renderMapMarkers();
+}
+
+function locateMyPosition(btn) {
+  if (!navigator.geolocation) { showToast('⚠️ อุปกรณ์นี้ไม่รองรับ GPS'); return; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳'; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude, longitude, accuracy } = pos.coords;
+    L.circleMarker([latitude, longitude], { radius: 8, color: '#fff', weight: 2, fillColor: '#3b9ede', fillOpacity: 1 }).addTo(window.leafletMap);
+    L.circle([latitude, longitude], { radius: accuracy, color: '#3b9ede', weight: 1, fillOpacity: 0.1 }).addTo(window.leafletMap);
+    window.leafletMap.setView([latitude, longitude], 16);
+    if (btn) { btn.disabled = false; btn.innerHTML = '📍'; }
+  }, err => {
+    showToast('⚠️ ดึงตำแหน่งไม่สำเร็จ ตรวจสอบสิทธิ์การใช้ตำแหน่ง');
+    if (btn) { btn.disabled = false; btn.innerHTML = '📍'; }
+  }, { enableHighAccuracy: true, timeout: 10000 });
+}
+
+function renderMapMarkers() {
+  if (!mapInited) return;
+  window.mapLayer.clearLayers();
+  (window.TICKETS || []).forEach(t => {
+    const lat = t.foundLat || t.regLat;
+    const lng = t.foundLng || t.regLng;
+    if (!lat || !lng) return;
+    const color = STATUS_COLOR[t.status] || STATUS_COLOR.pending;
+    const icon = L.divIcon({
+      className: 'ticket-pin',
+      html: `<div class="pin-body" style="background:${color}"><span>⚡</span></div>`,
+      iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -28]
+    });
+    L.marker([lat, lng], { icon }).addTo(window.mapLayer).bindPopup(`
+      <b>${esc(fullName(t))}</b><br>
+      ${esc(fullAddress(t)) || '-'}<br>
+      <span class="popup-detail">⚠️ ${esc(t.violationType || '-')}</span><br>
+      <span class="popup-detail">${STATUS_LABEL[t.status] || 'รอดำเนินการ'}</span>
+      <div class="popup-actions">
+        <button class="popup-btn detail" onclick="openEditModal('${escAttr(t.id)}')">รายละเอียด</button>
+        <button class="popup-btn nav" onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}','_blank')">นำทาง</button>
+      </div>
+    `, { maxWidth: 220 });
+  });
+}
+window.renderMapMarkers = renderMapMarkers;
+
+// เริ่มต้น: แสดงหน้ารายการ
+renderDriveAccountInfo();
+</script>
+</body>
+</html>
