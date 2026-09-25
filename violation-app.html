@@ -142,6 +142,16 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   width:76px; height:76px; border-radius:12px; flex-shrink:0; background:var(--surface2);
   border:2px dashed var(--border); display:flex; align-items:center; justify-content:center; font-size:26px;
 }
+.tc-photo-pending {
+  font-size:12.5px; font-weight:600; color:var(--accent2);
+  background:rgba(245,166,35,.16); border:1px solid rgba(245,166,35,.4);
+  border-radius:8px; padding:6px 10px; display:flex; align-items:center; gap:6px;
+}
+.detail-photo-pending {
+  font-size:13px; font-weight:600; color:var(--accent2);
+  background:rgba(245,166,35,.16); border:1px solid rgba(245,166,35,.4);
+  border-radius:10px; padding:10px 12px; display:flex; align-items:center; gap:8px; margin-bottom:10px;
+}
 .tc-meter-chip {
   background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:7px 10px;
   font-family:var(--mono); font-size:12.5px; color:var(--text); margin-top:4px;
@@ -278,7 +288,17 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 /* ── MODAL ── */
 .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:900; display:none; align-items:flex-end; justify-content:center; }
 .modal-overlay.active { display:flex; }
-.modal { background:var(--bg); width:100%; max-width:600px; max-height:92vh; overflow-y:auto; border-radius:16px 16px 0 0; border:1px solid var(--border); border-bottom:none; }
+.modal { background:var(--bg); width:100%; max-width:600px; max-height:92vh; overflow-y:auto; border-radius:16px 16px 0 0; border:1px solid var(--border); border-bottom:none; position:relative; }
+.saving-lock {
+  display:none; position:absolute; inset:0; z-index:20; background:rgba(0,0,0,.72);
+  color:#fff; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+  padding:24px; gap:10px; border-radius:16px 16px 0 0;
+}
+.saving-lock.active { display:flex; }
+.saving-lock .spin { font-size:32px; animation:spin 1s linear infinite; }
+@keyframes spin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+.saving-lock .saving-title { font-size:15px; font-weight:700; }
+.saving-lock .saving-sub { font-size:13px; color:#ddd; line-height:1.6; max-width:320px; }
 .modal-header { position:sticky; top:0; background:var(--surface); border-bottom:1px solid var(--border); padding:14px 16px; display:flex; align-items:center; justify-content:space-between; z-index:2; }
 .modal-title { font-weight:700; font-size:15px; }
 .modal-close { background:none; border:none; color:var(--text2); font-size:20px; cursor:pointer; }
@@ -534,6 +554,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 <!-- ══ ADD/EDIT MODAL ══ -->
 <div class="modal-overlay" id="edit-overlay">
   <div class="modal">
+    <div class="saving-lock" id="saving-lock">
+      <div class="spin">🔄</div>
+      <div class="saving-title">กำลังบันทึกและอัปโหลดรูป...</div>
+      <div class="saving-sub">กรุณาอย่าปิดแอป กดปุ่มย้อนกลับ หรือสลับหน้าจอ จนกว่าจะขึ้นข้อความ "บันทึกสำเร็จ" — ถ้าปิดตอนนี้ ข้อมูลที่กรอกและรูปอาจไม่ถูกบันทึก</div>
+    </div>
     <div class="modal-header">
       <div class="modal-title" id="edit-title">เพิ่มรายการละเมิด</div>
       <button class="modal-close" onclick="closeEditModal()">✕</button>
@@ -605,6 +630,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
       <div>
         <label class="field-label">รูปถ่ายหลักฐาน</label>
+        <div class="detail-photo-pending" id="photo-pending-banner" style="display:none;">⚠️ ใบงานนี้บันทึกข้อมูลไว้แล้ว แต่ยังไม่มีรูป — ถ่าย/เลือกรูปแล้วกดบันทึกอีกครั้งเพื่อแนบรูป</div>
         <img id="d-photo-preview" class="photo-preview" style="display:none;">
         <div class="photo-row">
           <button class="btn btn-blue" style="flex:1;" onclick="onPhotoButtonClick()">📷 ถ่ายรูป</button>
@@ -700,6 +726,7 @@ let manualMode = false;     // true = ปลดล็อกให้กรอก
 let currentGPS = null;      // {lat,lng} ตำแหน่งหน้างานที่เพิ่งจับ (ยังไม่ได้บันทึก)
 let violationTypeSelected = null;
 let pendingPhotoFile = null;      // ไฟล์รูปที่เลือกแล้วแต่ยังไม่อัปโหลด (อัปโหลดตอนกดบันทึก)
+let isSavingTicket = false;       // true ระหว่างที่ saveTicket() กำลังอัปโหลดรูป/บันทึกอยู่ (กันปิดแอปกลางคัน)
 let existingPhoto = { link: '', fileId: '' }; // รูปเดิมของ ticket (ตอนแก้ไข)
 let mapInited = false;
 let searchResultsCache = [];
@@ -798,6 +825,7 @@ function renderList() {
         <span class="status-badge ${STATUS_CLASS[t.status] || 'status-pending'}">${STATUS_LABEL[t.status] || 'รอดำเนินการ'}</span>
       </div>
       <div class="tc-reason">⚠️ ${esc(t.violationType || '-')}${t.violationOther ? ' — ' + esc(t.violationOther) : ''}</div>
+      ${t.photoPending && !t.photoFileId ? `<div class="tc-photo-pending">📷 รอเพิ่มรูปภาพ — แตะที่รายการนี้เพื่อแนบรูปใหม่</div>` : ''}
       <div class="ticket-detail-row">CA: ${esc(t.ca || '-')} · เลขมิเตอร์: ${esc(t.peaNo || '-')}</div>
       ${t.detectDate ? `<div class="ticket-detail-row">🗓️ ตรวจพบ: ${esc(t.detectDate.replace('T', ' '))}</div>` : ''}
     </div>
@@ -833,6 +861,7 @@ function resetForm() {
   existingPhoto = { link: '', fileId: '' };
   document.getElementById('d-photo-preview').style.display = 'none';
   document.getElementById('btn-delete-photo').style.display = 'none';
+  document.getElementById('photo-pending-banner').style.display = 'none';
   document.getElementById('photo-upload-status').textContent = '';
   document.getElementById('photo-upload-status').className = 'upload-status';
   document.getElementById('btn-request-permission').style.display = 'none';
@@ -901,15 +930,25 @@ function openEditModal(id) {
     preview.style.display = 'block';
     document.getElementById('btn-delete-photo').style.display = 'block';
   }
+  document.getElementById('photo-pending-banner').style.display = (t.photoPending && !t.photoFileId) ? 'flex' : 'none';
 
   document.getElementById('edit-overlay').classList.add('active');
 }
 window.openEditModal = openEditModal;
 
 function closeEditModal() {
+  if (isSavingTicket) { showToast('⚠️ กำลังบันทึกอยู่ กรุณารอสักครู่ก่อนปิด'); return; }
   document.getElementById('edit-overlay').classList.remove('active');
 }
 window.closeEditModal = closeEditModal;
+
+window.addEventListener('beforeunload', function (e) {
+  if (isSavingTicket) {
+    e.preventDefault();
+    e.returnValue = 'กำลังบันทึกข้อมูล/อัปโหลดรูปอยู่ ถ้าออกตอนนี้ข้อมูลอาจไม่ถูกบันทึก';
+    return e.returnValue;
+  }
+});
 
 // ══════════════════════════ CUSTOMER SEARCH (data.js) ══════════════════════════
 function searchCustomers(qstr) {
@@ -1247,43 +1286,18 @@ async function saveTicket() {
 
   const saveBtn = document.querySelector('#edit-overlay .btn-primary');
   saveBtn.disabled = true; saveBtn.textContent = '💾 กำลังบันทึก...';
+  isSavingTicket = true;
+  document.getElementById('saving-lock').classList.add('active');
 
   try {
     const { doc, setDoc, collection } = window._fsLib;
     const id = editingId || doc(collection(window._db, 'violation_tickets')).id;
     const old = editingId ? (window.TICKETS || []).find(x => x.id === editingId) : null;
 
-    // อัปโหลดรูปใหม่ (ถ้ามี) ก่อนบันทึกข้อมูล
-    let photoLink = existingPhoto.link, photoFileId = existingPhoto.fileId;
-    if (pendingPhotoFile) {
-      const statusEl = document.getElementById('photo-upload-status');
-      statusEl.className = 'upload-status uploading'; statusEl.textContent = '🔄 กำลังอัปโหลดรูป...';
-      try {
-        let token = driveAccessToken || await requestDriveAccessToken();
-        let result;
-        try {
-          result = await uploadPhotoToDrive(pendingPhotoFile, token, await getPhotoFolderId(token), id);
-        } catch (err) {
-          if (err && err.status === 401) {
-            driveAccessToken = null; try { localStorage.removeItem('vlt_drive_token'); } catch (e) {}
-            token = await requestDriveAccessToken('');
-            result = await uploadPhotoToDrive(pendingPhotoFile, token, await getPhotoFolderId(token), id);
-          } else { throw err; }
-        }
-        photoLink = result.webViewLink; photoFileId = result.id;
-        if (old && old.photoFileId && old.photoFileId !== photoFileId) {
-          fetch(`https://www.googleapis.com/drive/v3/files/${old.photoFileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
-        }
-        statusEl.className = 'upload-status'; statusEl.textContent = '📎 อัปโหลดรูปสำเร็จ';
-      } catch (e) {
-        statusEl.className = 'upload-status error';
-        statusEl.textContent = '⚠️ อัปโหลดรูปไม่สำเร็จ ' + (e && e.message ? '(' + e.message + ')' : '');
-        showToast('⚠️ อัปโหลดรูปไม่สำเร็จ — กรุณาลองใหม่ก่อนบันทึก');
-        saveBtn.disabled = false; saveBtn.textContent = '💾 บันทึก';
-        return;
-      }
-    }
+    const hasNewPhoto = !!pendingPhotoFile;
 
+    // บันทึกข้อมูลหลักลง Firestore "ทันที" โดยยังไม่รอรูปอัปโหลดเสร็จ
+    // — ถ้าปิดแอปกลางคันตอนอัปโหลดรูป ข้อมูลส่วนนี้จะปลอดภัยอยู่แล้ว
     const ticket = {
       id,
       prefix: document.getElementById('m-prefix').value,
@@ -1307,23 +1321,66 @@ async function saveTicket() {
       status: document.getElementById('violation-status').value,
       notes: document.getElementById('violation-notes').value.trim(),
       isManualEntry: !document.getElementById('m-name').readOnly,
-      photoLink: photoLink || '',
-      photoFileId: photoFileId || '',
+      photoLink: existingPhoto.link || '',
+      photoFileId: existingPhoto.fileId || '',
+      photoPending: hasNewPhoto ? true : (old ? !!old.photoPending : false),
       createdAt: old ? (old.createdAt || Date.now()) : Date.now(),
       updatedAt: Date.now()
     };
 
     await setDoc(doc(window._db, 'violation_tickets', id), ticket);
-    showToast('บันทึกสำเร็จ ✓');
-    closeEditModal();
+    showToast(hasNewPhoto ? 'บันทึกข้อมูลสำเร็จ ✓ กำลังอัปโหลดรูปต่อ...' : 'บันทึกสำเร็จ ✓');
+    document.getElementById('edit-overlay').classList.remove('active');
+
+    // อัปโหลดรูป (ถ้ามี) เป็นขั้นตอนถัดไปแบบไม่บล็อกผู้ใช้แล้ว — ข้อมูลหลักปลอดภัยไปแล้วข้างบน
+    if (hasNewPhoto) {
+      const fileToUpload = pendingPhotoFile;
+      pendingPhotoFile = null;
+      uploadPhotoInBackground(id, fileToUpload, old);
+    } else {
+      pendingPhotoFile = null;
+    }
   } catch (e) {
     console.error(e);
     showToast('⚠️ บันทึกไม่สำเร็จ: ' + (e && e.message ? e.message : 'ไม่ทราบสาเหตุ'));
   } finally {
     saveBtn.disabled = false; saveBtn.textContent = '💾 บันทึก';
+    isSavingTicket = false;
+    document.getElementById('saving-lock').classList.remove('active');
   }
 }
 window.saveTicket = saveTicket;
+
+// อัปโหลดรูปขึ้น Drive แบบ background หลังจากข้อมูลหลักบันทึกไปแล้ว
+// ถ้าอัปโหลดไม่สำเร็จ (เน็ตหลุด/ปิดแอป) ตัวใบงานจะยังอยู่ครบ แค่ photoPending ยังเป็น true
+// ให้ผู้ใช้เปิดใบงานนั้นมาแนบรูปใหม่ได้ทีหลัง โดยไม่ต้องกรอกข้อมูลซ้ำ
+async function uploadPhotoInBackground(id, file, old) {
+  try {
+    let token = driveAccessToken || await requestDriveAccessToken();
+    let result;
+    try {
+      result = await uploadPhotoToDrive(file, token, await getPhotoFolderId(token), id);
+    } catch (err) {
+      if (err && err.status === 401) {
+        driveAccessToken = null; try { localStorage.removeItem('vlt_drive_token'); } catch (e) {}
+        token = await requestDriveAccessToken('');
+        result = await uploadPhotoToDrive(file, token, await getPhotoFolderId(token), id);
+      } else { throw err; }
+    }
+    const { doc, setDoc } = window._fsLib;
+    await setDoc(doc(window._db, 'violation_tickets', id), {
+      photoLink: result.webViewLink, photoFileId: result.id, photoPending: false
+    }, { merge: true });
+    if (old && old.photoFileId && old.photoFileId !== result.id) {
+      fetch(`https://www.googleapis.com/drive/v3/files/${old.photoFileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+    }
+    showToast('📎 อัปโหลดรูปสำเร็จ ✓');
+  } catch (e) {
+    console.error('background photo upload failed', e);
+    showToast('⚠️ อัปโหลดรูปไม่สำเร็จ — ใบงานถูกบันทึกไว้แล้ว เปิดรายการนี้แล้วแนบรูปใหม่ได้ภายหลัง');
+  }
+}
+window.uploadPhotoInBackground = uploadPhotoInBackground;
 
 async function deleteTicket() {
   if (!editingId) return;
