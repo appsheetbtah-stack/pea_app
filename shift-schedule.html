@@ -219,6 +219,26 @@ function defaultTeams() {
         siteName: "กฟส.บ้านทุ่งอ้ายโห้",
       },
     },
+    {
+      id: "housekeeper",
+      name: "แม่บ้าน",
+      type: "attendance", // sign-in attendance only — flat monthly pay, not per-day wage
+      workers: [
+        { id: uid(), name: "แม่บ้าน", dailyRate: 0, contractorRate: 0, workerType: 0 },
+      ],
+      schedule: {}, // dateKey -> { worked: bool } — worked = true means มาทำงาน/เซ็นชื่อแล้ว
+      monthlyRate: 5060, // จ้างเหมารายปี แบ่งจ่าย 12 เดือน เดือนละเท่านี้ ไม่ผูกกับจำนวนวันมาทำงาน
+      docSettings: {
+        companyName: "",
+        contractNo: "",
+        teamName: "", // ชื่อผู้ปฏิบัติงาน (แม่บ้าน) - ใช้พิมพ์หัวเอกสาร
+        siteName: "กฟส.บ้านทุ่งอ้ายโห้",
+        supervisorName: "นายนิติพัฒน์  พุกสุข",
+        supervisorTitle: "พชง.4กฟส.ทอห. ผู้ควบคุม",
+        managerName: "นายวรุฒ  พ่วงท่าโก",
+        managerTitle: "ผจก.กฟส.(8)กฟส.ทอห.",
+      },
+    },
   ];
 }
 
@@ -967,7 +987,9 @@ function App() {
         ]);
       }
     } else {
-      colCount = 2 + workers.length;
+      const naturalCols = 2 + workers.length;
+      const singleWorker = workers.length === 1;
+      colCount = singleWorker ? 8 : naturalCols; // widen single-worker teams (e.g. ทีมมิเตอร์) out to column H so the sheet isn't narrow
       rows.push(titleRow(`ตารางการปฏิบัติงานประจำวัน ของ คนงาน ${docSettings.siteName}`, colCount));
       rows.push(titleRow(`ประจำเดือน ${THAI_MONTHS_FULL[month - 1]}  พ.ศ.  ${year + 543}`, colCount));
       merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: colCount - 1 } });
@@ -976,6 +998,10 @@ function App() {
 
       const headerRow = [cell("วัน", { bold: true }), cell("ที่", { bold: true }), cell("เวลา 08:00 น. - 17:00 น.", { bold: true })];
       for (let i = 1; i < workers.length; i++) headerRow.push(cell("", { bold: true }));
+      if (singleWorker) {
+        for (let i = 3; i < colCount; i++) headerRow.push(cell("", { bold: true }));
+        merges.push({ s: { r: 2, c: 2 }, e: { r: 2, c: colCount - 1 } });
+      }
       rows.push(headerRow);
 
       for (let d = 1; d <= dim; d++) {
@@ -987,11 +1013,14 @@ function App() {
         if (isCompanyHoliday) fill = "FFFF00";
         else if (isWeekend) fill = "FF0000";
         const worked = effectiveWorked(year, month, d);
-        rows.push([
+        const dataRow = [
           cell(THAI_DAYS_FULL[weekday]),
           cell(d, { fill }),
           ...workers.map((w) => cell(worked ? w.name : "-")),
-        ]);
+        ];
+        if (singleWorker) for (let i = 3; i < colCount; i++) dataRow.push(cell("", {}));
+        rows.push(dataRow);
+        if (singleWorker) merges.push({ s: { r: rows.length - 1, c: 2 }, e: { r: rows.length - 1, c: colCount - 1 } });
       }
     }
 
@@ -1001,7 +1030,9 @@ function App() {
 
     const colWidths = team.type === "rotation"
       ? [10, 6, 22, 22, 22]
-      : [10, 6, ...workers.map(() => 22)];
+      : colCount === 8 // single-worker weekday team, padded out to column H
+        ? [10, 6, 11, 11, 11, 11, 11, 11]
+        : [10, 6, ...workers.map(() => 22)];
     colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     rows.forEach((_, i) => { ws.getRow(i + 1).height = 22; });
 
@@ -1010,11 +1041,120 @@ function App() {
       fitToWidth: 1,
       fitToHeight: 0,
       orientation: "portrait",
-      paperSize: 9,
-      margins: { left: 0.25, right: 0.25, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 },
+      paperSize: 9, // A4
+      horizontalCentered: true, // จัดตารางให้อยู่กึ่งกลางหน้ากระดาษ ซ้าย-ขวาเท่ากัน
+      margins: { left: 0.5, right: 0.5, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 },
     };
 
     await downloadWorkbook(wb, `ตารางเวร_${team.name}_${THAI_MONTHS[month - 1]}${year + 543}.xlsx`);
+  }
+
+  // ===================== EXPORT: ATTENDANCE SIGN-IN SHEET (แม่บ้าน) — matches the office's reference form =====================
+  async function exportAttendanceSignSheet() {
+    const FONT_NAME = "TH SarabunPSK";
+    const thin = { style: "thin", color: { rgb: "000000" } };
+    const boxBorder = { top: thin, bottom: thin, left: thin, right: thin };
+    const centerAlign = { horizontal: "center", vertical: "center", wrapText: true };
+    const HOLIDAY_FILL = "FFC000";
+    const cell = (v, { bold = false, border = true, align = centerAlign, sz = 15, fill = null } = {}) => {
+      const style = { font: { name: FONT_NAME, sz, bold }, alignment: align };
+      if (border) style.border = boxBorder;
+      if (fill) style.fill = { patternType: "solid", fgColor: { rgb: fill } };
+      return { v: v == null || v === "" ? "" : v, t: typeof v === "number" ? "n" : "s", s: style };
+    };
+    const colCount = 7; // วันที่ | ชื่อ-สกุล | เวลามา | ลายเซ็น | เวลากลับ | ลายเซ็น | ผู้ควบคุม
+    const blankRow = (n, opts) => Array.from({ length: n }, () => cell("", opts));
+    const fullRow = (text, opts = {}) => {
+      const r = [cell(text, { bold: true, border: false, ...opts })];
+      for (let i = 1; i < colCount; i++) r.push(cell("", { border: false }));
+      return r;
+    };
+    const rows = [];
+    const merges = [];
+    const R = () => rows.length;
+    const workerLabel = docSettings.teamName || workers[0]?.name || "-";
+    const supervisorName = docSettings.supervisorName || "";
+    const supervisorTitle = docSettings.supervisorTitle || "";
+    const managerName = docSettings.managerName || "";
+    const managerTitle = docSettings.managerTitle || "";
+
+    rows.push(fullRow(docSettings.siteName ? `การไฟฟ้าส่วนภูมิภาค สาขา${docSettings.siteName.replace(/^กฟส\.?/, "")}` : "การไฟฟ้าส่วนภูมิภาค", { sz: 18 }));
+    merges.push({ s: { r: R() - 1, c: 0 }, e: { r: R() - 1, c: colCount - 1 } });
+    rows.push(fullRow(`รายงานการมาปฏิบัติงานของ  ${workerLabel}  (ทำความสะอาดสำนักงาน)`, { sz: 16 }));
+    merges.push({ s: { r: R() - 1, c: 0 }, e: { r: R() - 1, c: colCount - 1 } });
+    rows.push(fullRow(`ประจำเดือน….${THAI_MONTHS_FULL[month - 1]}….พ.ศ. ....${year + 543}....`, { sz: 15 }));
+    merges.push({ s: { r: R() - 1, c: 0 }, e: { r: R() - 1, c: colCount - 1 } });
+
+    rows.push([
+      cell("วันที่", { bold: true }),
+      cell("ชื่อ-สกุล", { bold: true }),
+      cell("เวลามา", { bold: true }),
+      cell("ลายเซ็น", { bold: true }),
+      cell("เวลากลับ", { bold: true }),
+      cell("ลายเซ็น", { bold: true }),
+      cell("ผู้ควบคุม", { bold: true }),
+    ]);
+
+    for (let d = 1; d <= dim; d++) {
+      const wd = weekdayOf(year, month, d);
+      const isWeekend = wd === 0 || wd === 6;
+      const isCompanyHoliday = !!companyHolidays[dateKey(year, month, d)];
+      const isOff = isWeekend || isCompanyHoliday;
+      const dayLabel = isWeekend ? (wd === 0 ? "วันอาทิตย์" : "วันเสาร์") : isCompanyHoliday ? "วันหยุด" : "";
+      const fill = isOff ? HOLIDAY_FILL : null;
+      rows.push([
+        cell(d, { sz: 14, fill }),
+        cell(dayLabel, { sz: 14, fill }),
+        cell(isOff ? "-" : "07:00", { sz: 14, fill }),
+        cell("", { fill }),
+        cell(isOff ? "-" : "12:00", { sz: 14, fill }),
+        cell("", { fill }),
+        cell("", { fill }),
+      ]);
+    }
+
+    rows.push(blankRow(colCount, { border: false }));
+    const half = Math.floor(colCount / 2);
+    [
+      ["……………………………………", "……………………………………"],
+      [`( ...${supervisorName}...)`, `(...${managerName}...)`],
+      [supervisorTitle, managerTitle],
+      ["............/......................./...............", "............/......................./............."],
+    ].forEach((pair) => {
+      const row = [cell(pair[0], { sz: 14, border: false, align: { horizontal: "center", vertical: "center" } })];
+      for (let i = 1; i < half; i++) row.push(cell("", { border: false }));
+      row.push(cell(pair[1], { sz: 14, border: false, align: { horizontal: "center", vertical: "center" } }));
+      for (let i = half + 1; i < colCount; i++) row.push(cell("", { border: false }));
+      rows.push(row);
+      const r = R() - 1;
+      merges.push({ s: { r, c: 0 }, e: { r, c: half - 1 } });
+      merges.push({ s: { r, c: half }, e: { r, c: colCount - 1 } });
+    });
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(`${THAI_MONTHS[month - 1]}${year + 543}`.slice(0, 31));
+    writeAoaToWorksheet(ws, rows, merges);
+
+    ws.getColumn(1).width = 7;
+    ws.getColumn(2).width = 16;
+    ws.getColumn(3).width = 10;
+    ws.getColumn(4).width = 12;
+    ws.getColumn(5).width = 10;
+    ws.getColumn(6).width = 12;
+    ws.getColumn(7).width = 14;
+    rows.forEach((_, i) => { ws.getRow(i + 1).height = i < 4 ? 22 : 26; });
+
+    ws.pageSetup = {
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      orientation: "portrait",
+      paperSize: 9, // A4
+      horizontalCentered: true, // จัดตารางให้อยู่กึ่งกลางหน้ากระดาษ ซ้าย-ขวาเท่ากัน
+      margins: { left: 0.5, right: 0.5, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 },
+    };
+
+    await downloadWorkbook(wb, `ใบเซ็นชื่อ_${team.name}_${THAI_MONTHS[month - 1]}${year + 543}.xlsx`);
   }
 
   // Detailed day-by-day payroll report (period blocks with one column per day).
@@ -1310,17 +1450,17 @@ function App() {
       <div className="control-panel">
         <div className="team-switch">
           {teams.map((t) => (
-            <button key={t.id} className={`team-btn ${t.id === activeTeamId ? "active" : ""}`} onClick={() => { setActiveTeamId(t.id); setSelectedDay(null); }}>
+            <button key={t.id} className={`team-btn ${t.id === activeTeamId ? "active" : ""}`} onClick={() => { setActiveTeamId(t.id); setSelectedDay(null); if (t.type === "attendance" && tab !== "schedule") setTab("schedule"); }}>
               {t.name}
             </button>
           ))}
         </div>
 
         <div className="tabs">
-          <button className={`tab-btn ${tab === "schedule" ? "active" : ""}`} onClick={() => setTab("schedule")}>ตารางเวร</button>
-          <button className={`tab-btn ${tab === "workers" ? "active" : ""}`} onClick={() => setTab("workers")}>คนงาน</button>
-          <button className={`tab-btn ${tab === "payroll" ? "active" : ""}`} onClick={() => setTab("payroll")}>สรุปค่าแรง</button>
-          <button className={`tab-btn ${tab === "yearly" ? "active" : ""}`} onClick={() => setTab("yearly")}>สรุปรายปี</button>
+          <button className={`tab-btn ${tab === "schedule" ? "active" : ""}`} onClick={() => setTab("schedule")}>{team.type === "attendance" ? "ตารางมาทำงาน" : "ตารางเวร"}</button>
+          {team.type !== "attendance" && <button className={`tab-btn ${tab === "workers" ? "active" : ""}`} onClick={() => setTab("workers")}>คนงาน</button>}
+          {team.type !== "attendance" && <button className={`tab-btn ${tab === "payroll" ? "active" : ""}`} onClick={() => setTab("payroll")}>สรุปค่าแรง</button>}
+          {team.type !== "attendance" && <button className={`tab-btn ${tab === "yearly" ? "active" : ""}`} onClick={() => setTab("yearly")}>สรุปรายปี</button>}
         </div>
       </div>
 
@@ -1339,19 +1479,55 @@ function App() {
                     <button className="btn" onClick={autoFillMonth}>เติมเวรเดือนนี้ (ตามแพทเทิร์น)</button>
                     <button className="btn danger" onClick={() => regenerateOutagePatternForYear(year)}>รีเซ็ตทั้งปี (ล้าง + สร้างใหม่ {year + 543})</button>
                   </>
+                ) : team.type === "attendance" ? (
+                  <>
+                    <button className="btn" onClick={autoFillMonthWeekday}>ทำเครื่องหมายมาทำงานทั้งเดือน (จ.-ศ.)</button>
+                    <button className="btn danger" onClick={resetMonthWeekday}>ล้างเครื่องหมายเดือนนี้</button>
+                    <button className="btn primary" onClick={exportAttendanceSignSheet}>ดาวน์โหลดใบเซ็นชื่อ (Excel)</button>
+                  </>
                 ) : (
                   <>
                     <button className="btn" onClick={autoFillMonthWeekday}>จัดเวร (จันทร์-ศุกร์)</button>
                     <button className="btn danger" onClick={resetMonthWeekday}>รีเซ็ตเดือนนี้</button>
                   </>
                 )}
-                <button className="btn primary" onClick={exportScheduleExcel}>ดาวน์โหลดตารางเวร (Excel)</button>
+                {team.type !== "attendance" && <button className="btn primary" onClick={exportScheduleExcel}>ดาวน์โหลดตารางเวร (Excel)</button>}
               </div>
             </div>
 
             {team.type === "weekday" && (
               <div className="section-sub" style={{ marginTop: 10 }}>
                 คลิกวันเพื่อสลับ ทำงาน/หยุด · ⭐ วันหยุดพิเศษบริษัท (ทุกทีม): ทำงาน = 2 แรง, หยุด = 1 แรงฟรี
+              </div>
+            )}
+            {team.type === "attendance" && (
+              <div className="section-sub" style={{ marginTop: 10 }}>
+                <div>คลิกวันจันทร์-ศุกร์เพื่อทำเครื่องหมายว่ามาทำงาน (เซ็นชื่อ) · จ้างเหมารายปี {money(team.monthlyRate || 0)} บาท/เดือน แบ่งจ่าย 12 งวด ไม่ผูกกับจำนวนวันมาทำงาน</div>
+                <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span>ชื่อผู้ปฏิบัติงาน:</span>
+                  <input
+                    type="text"
+                    value={docSettings.teamName}
+                    onChange={(e) => setDocSettings((s) => ({ ...s, teamName: e.target.value }))}
+                    placeholder="เช่น น.ส. สม บุญดี"
+                    style={{ minWidth: 160, maxWidth: 220 }}
+                  />
+                  <span>ผู้ควบคุม:</span>
+                  <input
+                    type="text"
+                    value={docSettings.supervisorName}
+                    onChange={(e) => setDocSettings((s) => ({ ...s, supervisorName: e.target.value }))}
+                    style={{ minWidth: 160, maxWidth: 220 }}
+                  />
+                  <span>ผจก.:</span>
+                  <input
+                    type="text"
+                    value={docSettings.managerName}
+                    onChange={(e) => setDocSettings((s) => ({ ...s, managerName: e.target.value }))}
+                    style={{ minWidth: 160, maxWidth: 220 }}
+                  />
+                </div>
+                <div style={{ marginTop: 4, opacity: 0.8 }}>รายชื่อเหล่านี้ใช้พิมพ์ในใบเซ็นชื่อ (Excel) เท่านั้น</div>
               </div>
             )}
             {team.type === "rotation" && (
@@ -1395,6 +1571,27 @@ function App() {
                   );
                 }
 
+                if (team.type === "attendance") {
+                  const wd = weekdayOf(year, month, d);
+                  const isWeekend = wd === 0 || wd === 6;
+                  const present = effectiveWorked(year, month, d);
+                  return (
+                    <div
+                      key={i}
+                      className={`cal-cell ${isSelected ? "selected" : ""} ${isWeekend ? "off" : present ? "worked" : ""}`}
+                      style={isWeekend ? { cursor: "default", opacity: 0.55 } : { cursor: "pointer" }}
+                      onClick={isWeekend ? undefined : () => { setSelectedDay(d); toggleWorked(year, month, d); }}
+                    >
+                      <div className="cal-date"><span>{d}</span></div>
+                      {isWeekend ? (
+                        <span className="cal-badge badge-status-off">วันหยุด</span>
+                      ) : (
+                        <span className={`cal-badge ${present ? "badge-status-work" : "badge-status-off"}`}>{present ? "✓ มาทำงาน" : "ยังไม่มา"}</span>
+                      )}
+                    </div>
+                  );
+                }
+
                 // weekday team
                 const worked = effectiveWorked(year, month, d);
                 return (
@@ -1417,11 +1614,26 @@ function App() {
               })}
             </div>
 
-            <div className="legend">
-              {workers.map((w) => (
-                <span key={w.id}><span className="legend-dot" style={{ background: workerColor(w.id) }} />{w.name}</span>
-              ))}
-            </div>
+            {team.type === "attendance" ? (
+              <div className="legend">
+                {(() => {
+                  let workDays = 0, presentDays = 0;
+                  for (let d = 1; d <= dim; d++) {
+                    const wd = weekdayOf(year, month, d);
+                    if (wd === 0 || wd === 6) continue;
+                    workDays++;
+                    if (effectiveWorked(year, month, d)) presentDays++;
+                  }
+                  return <span>มาทำงานแล้ว <b className="mono">{presentDays}</b> / {workDays} วันทำการ (จ.-ศ.) เดือนนี้</span>;
+                })()}
+              </div>
+            ) : (
+              <div className="legend">
+                {workers.map((w) => (
+                  <span key={w.id}><span className="legend-dot" style={{ background: workerColor(w.id) }} />{w.name}</span>
+                ))}
+              </div>
+            )}
           </div>
 
           {team.type === "rotation" && selectedDay && (
