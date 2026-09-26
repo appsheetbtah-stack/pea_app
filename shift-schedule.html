@@ -1244,6 +1244,7 @@ function App() {
           min-height: 100%;
           padding: 24px 20px 60px;
           box-sizing: border-box;
+          line-height: 1.5;
           transition: background .2s ease, color .2s ease;
         }
         .app-root * { box-sizing: border-box; }
@@ -1328,7 +1329,7 @@ function App() {
         .cal-cell.worked { border-color: rgba(46,204,113,0.4); }
         .cal-cell.off { opacity: 0.55; }
         .cal-date { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
-        .cal-badge { font-size: 9px; padding: 1px 5px; border-radius: 4px; display: inline-block; width: fit-content; }
+        .cal-badge { font-size: 9px; line-height: 1.6; padding: 2px 5px; border-radius: 4px; display: inline-block; width: fit-content; }
         .badge-sunday { background: rgba(138,160,184,0.18); color: var(--text2); }
         .badge-off { background: rgba(231,76,60,0.18); color: var(--red); }
         .badge-worked { background: rgba(231,76,60,0.18); color: var(--red); }
@@ -1339,7 +1340,7 @@ function App() {
         .gov-flag:hover { color: var(--text2); }
         .gov-flag.active { color: var(--red); }
         .gov-flag.active:hover { color: var(--red); transform: scale(1.15); }
-        .shift-chip { font-size: 9.5px; padding: 1px 4px; border-radius: 3px; color: #0f1923; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .shift-chip { font-size: 9.5px; line-height: 1.6; padding: 2px 4px; border-radius: 3px; color: #0f1923; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .holiday-star { cursor: pointer; font-size: 15px; line-height: 1; color: var(--border); transition: color .15s, transform .1s; }
         .holiday-star:hover { color: var(--text2); }
         .holiday-star.active { color: var(--accent); }
@@ -1348,7 +1349,16 @@ function App() {
         .editor-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
         .editor-shift-row { display: flex; align-items: center; gap: 10px; }
         .editor-shift-time { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text2); width: 130px; }
-        select, input[type=text], input[type=number] { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Sarabun', sans-serif; padding: 10px 12px; border-radius: 8px; font-size: 14px; flex: 1; outline: none; }
+        select, input[type=text], input[type=number] { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Sarabun', sans-serif; padding: 10px 12px; border-radius: 8px; font-size: 14px; line-height: 1.6; flex: 1; outline: none; }
+        input[type=text]::placeholder, input[type=number]::placeholder { font-family: 'Sarabun', sans-serif; line-height: 1.6; }
+        /* Native ::placeholder line-height isn't reliably honored in every browser (Thai tone marks can get clipped),
+           so hint text uses a real rendered span instead — see .input-wrap / .input-hint below. */
+        .input-wrap { position: relative; display: inline-flex; flex: 1; }
+        .input-hint {
+          position: absolute; left: 12px; right: 12px; top: 50%; transform: translateY(-50%);
+          font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.6; color: var(--text2); opacity: .6;
+          pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
         select:focus, input[type=text]:focus, input[type=number]:focus { border-color: var(--accent); }
         .holiday-options { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
         .holiday-opt { border: 1px solid var(--border); border-radius: 7px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; color: var(--text2); }
@@ -1505,13 +1515,15 @@ function App() {
                 <div>คลิกวันจันทร์-ศุกร์เพื่อทำเครื่องหมายว่ามาทำงาน (เซ็นชื่อ) · จ้างเหมารายปี {money(team.monthlyRate || 0)} บาท/เดือน แบ่งจ่าย 12 งวด ไม่ผูกกับจำนวนวันมาทำงาน</div>
                 <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span>ชื่อผู้ปฏิบัติงาน:</span>
-                  <input
-                    type="text"
-                    value={docSettings.teamName}
-                    onChange={(e) => setDocSettings((s) => ({ ...s, teamName: e.target.value }))}
-                    placeholder="เช่น น.ส. สม บุญดี"
-                    style={{ minWidth: 160, maxWidth: 220 }}
-                  />
+                  <div className="input-wrap" style={{ minWidth: 160, maxWidth: 220 }}>
+                    <input
+                      type="text"
+                      value={docSettings.teamName}
+                      onChange={(e) => setDocSettings((s) => ({ ...s, teamName: e.target.value }))}
+                      style={{ width: "100%" }}
+                    />
+                    {!docSettings.teamName && <span className="input-hint">เช่น น.ส. สม บุญดี</span>}
+                  </div>
                   <span>ผู้ควบคุม:</span>
                   <input
                     type="text"
