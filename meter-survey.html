@@ -437,6 +437,7 @@ window.POINTS = [];
 let currentTab = 'plans';
 let currentPlanId = null;   // แผนงานที่กำลังเปิดดูอยู่
 let editingPointKey = null; // planId_pointNo ของจุดที่กำลังแก้ไข (null = สร้างใหม่)
+let isUploadingPhoto = false; // true ระหว่างกำลังอัปโหลดรูปขึ้น Drive (กันปิดแอปกลางคัน)
 let currentPointPhoto = { link: '', fileId: '', thumb: '' };
 
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -1269,8 +1270,8 @@ async function getSurveyPhotoFolderId(token) {
   return rootId;
 }
 
-async function uploadPhotoToDrive(file, token, folderId) {
-  const metadata = { name: `${editingPointKey}_${Date.now()}_${file.name}`, parents: [folderId] };
+async function uploadPhotoToDrive(file, token, folderId, pointKey) {
+  const metadata = { name: `${pointKey}_${Date.now()}_${file.name}`, parents: [folderId] };
   const boundary = 'peaAppBoundary' + Date.now();
   const metaBytes = new TextEncoder().encode(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`);
   const filePartHeader = new TextEncoder().encode(`--${boundary}\r\nContent-Type: ${file.type || 'image/jpeg'}\r\n\r\n`);
@@ -1405,20 +1406,21 @@ async function autoAssignPointKeyForNewPoint() {
 async function onRequestPermissionClick() { await ensureDriveAccess(); }
 window.onRequestPermissionClick = onRequestPermissionClick;
 
-async function performPhotoUpload(file, token) {
+async function performPhotoUpload(file, token, pointKey) {
   const folderId = await getSurveyPhotoFolderId(token);
-  const result = await uploadPhotoToDrive(file, token, folderId);
+  const result = await uploadPhotoToDrive(file, token, folderId, pointKey);
   const oldPhotoFileId = currentPointPhoto.fileId;
   currentPointPhoto = { link: result.webViewLink, fileId: result.id, thumb: `https://drive.google.com/thumbnail?id=${result.id}&sz=w1000` };
 
   const { doc, setDoc } = window._fsLib;
-  const [planId, pointNoStr] = editingPointKey.split('_');
+  const [planId, pointNoStr] = pointKey.split('_');
   const pointNo = parseInt(pointNoStr);
-  const existing = window.POINTS.find(p => p.planId === planId && p.pointNo === pointNo) || {};
-  await setDoc(doc(window._db, 'survey_points', editingPointKey), {
-    ...existing, photoLink: currentPointPhoto.link, photoFileId: currentPointPhoto.fileId,
+  const existing = window.POINTS.find(p => p.planId === planId && p.pointNo === pointNo);
+  if (!existing) return; // จุดนี้ถูกลบไปแล้วระหว่างอัปโหลด ไม่ต้องเขียนอะไรต่อ
+  await setDoc(doc(window._db, 'survey_points', pointKey), {
+    photoLink: currentPointPhoto.link, photoFileId: currentPointPhoto.fileId,
     photoThumb: currentPointPhoto.thumb, status: 'surveyed', updatedAt: Date.now()
-  });
+  }, { merge: true });
 
   if (oldPhotoFileId && oldPhotoFileId !== result.id) {
     fetch(`https://www.googleapis.com/drive/v3/files/${oldPhotoFileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
@@ -1429,6 +1431,7 @@ async function handlePhotoSelected(event) {
   const file = event.target.files[0];
   event.target.value = '';
   if (!file || !editingPointKey) return;
+  const pointKey = editingPointKey; // จับค่าไว้ตอนนี้เลย กันกรณีผู้ใช้บันทึก/ปิด/เปิดจุดอื่นก่อนอัปโหลดเสร็จ
 
   const statusEl = document.getElementById('photo-upload-status');
   statusEl.className = 'upload-status uploading'; statusEl.textContent = '🔄 กำลังอัปโหลดรูป...';
@@ -1436,15 +1439,16 @@ async function handlePhotoSelected(event) {
   preview.src = URL.createObjectURL(file); preview.style.display = 'block';
   if (isLikelyBlockedForDriveAuth()) statusEl.textContent = '🔄 กำลังอัปโหลดรูป... (ถ้าค้างนาน อาจเป็นเพราะเปิดแอปผ่านไอคอนหน้าจอโฮม/แอปแชท ลองเปิดผ่าน Chrome/Safari ปกติแทน)';
 
+  isUploadingPhoto = true;
   try {
     let token = driveAccessToken || await requestDriveAccessToken();
     try {
-      await performPhotoUpload(file, token);
+      await performPhotoUpload(file, token, pointKey);
     } catch (err) {
       if (err && err.status === 401) {
         statusEl.textContent = '🔄 การเชื่อมต่อ Google Drive หมดอายุ กำลังเชื่อมต่อใหม่และลองอัปโหลดอีกครั้ง...';
         driveAccessToken = null; try { localStorage.removeItem('msurvey_drive_token'); } catch (e) {}
-        token = await requestDriveAccessToken(''); await performPhotoUpload(file, token);
+        token = await requestDriveAccessToken(''); await performPhotoUpload(file, token, pointKey);
       } else { throw err; }
     }
     statusEl.className = 'upload-status'; statusEl.textContent = '📎 อัปโหลดรูปสำเร็จ';
@@ -1458,9 +1462,19 @@ async function handlePhotoSelected(event) {
     else if (e && e.status === 401) { statusEl.textContent = '⚠️ การเชื่อมต่อ Google Drive หมดอายุ กรุณากดปุ่ม "ขอสิทธิ์เชื่อมต่อ Google Drive" แล้วลองใหม่'; driveAccessToken = null; try { localStorage.removeItem('msurvey_drive_token'); } catch (e2) {} }
     else statusEl.textContent = `⚠️ อัปโหลดรูปไม่สำเร็จ ลองใหม่อีกครั้ง${e && e.message ? ' (' + e.message + ')' : ''}`;
     if (!driveAccessToken) document.getElementById('btn-request-permission').style.display = 'block';
+  } finally {
+    isUploadingPhoto = false;
   }
 }
 window.handlePhotoSelected = handlePhotoSelected;
+
+window.addEventListener('beforeunload', function (e) {
+  if (isUploadingPhoto) {
+    e.preventDefault();
+    e.returnValue = 'กำลังอัปโหลดรูปอยู่ ถ้าออกตอนนี้รูปอาจไม่ถูกอัปโหลด';
+    return e.returnValue;
+  }
+});
 
 async function deletePhoto() {
   if (!editingPointKey) return;
@@ -1471,9 +1485,8 @@ async function deletePhoto() {
   try {
     const [planId, pointNoStr] = editingPointKey.split('_');
     const pointNo = parseInt(pointNoStr);
-    const existing = window.POINTS.find(p => p.planId === planId && p.pointNo === pointNo) || {};
     const { doc, setDoc } = window._fsLib;
-    await setDoc(doc(window._db, 'survey_points', editingPointKey), { ...existing, photoLink: '', photoThumb: '', photoFileId: '', status: 'pending', updatedAt: Date.now() });
+    await setDoc(doc(window._db, 'survey_points', editingPointKey), { photoLink: '', photoThumb: '', photoFileId: '', status: 'pending', updatedAt: Date.now() }, { merge: true });
     currentPointPhoto = { link: '', fileId: '', thumb: '' };
     document.getElementById('d-photo-preview').style.display = 'none';
     document.getElementById('btn-delete-photo').style.display = 'none';
