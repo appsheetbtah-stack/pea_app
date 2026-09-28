@@ -430,6 +430,26 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   font-size:16px; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
 }
 .my-location-btn:disabled { opacity:.6; }
+.btn-gps {
+  width:100%; display:flex; align-items:center; justify-content:center; gap:8px;
+  padding:12px 18px; border:none; border-radius:10px; cursor:pointer;
+  background:linear-gradient(135deg,#2ecc71,#27ae60); color:#fff;
+  font-family:var(--sans); font-size:14px; font-weight:700;
+  box-shadow:0 2px 8px rgba(46,204,113,.3); transition:transform .1s, opacity .2s;
+}
+.btn-gps:active { transform:scale(.98); }
+.btn-gps:disabled { opacity:.6; cursor:default; }
+.btn-manual {
+  width:100%; margin-top:8px; display:flex; align-items:center; justify-content:center; gap:8px;
+  padding:12px 18px; border-radius:10px; cursor:pointer;
+  background:rgba(245,166,35,.10); color:var(--accent);
+  border:1.5px dashed var(--accent);
+  font-family:var(--sans); font-size:14px; font-weight:700;
+  transition:background .2s, transform .1s;
+}
+.btn-manual:hover { background:rgba(245,166,35,.18); }
+.btn-manual:active { transform:scale(.98); }
+.btn-gps.done { background:rgba(46,204,113,.14); color:var(--green); box-shadow:inset 0 0 0 1.5px var(--green); }
 .source-badge { display:inline-block; font-size:10.5px; font-weight:700; color:var(--accent); background:rgba(245,166,35,.12); border:1px solid rgba(245,166,35,.3); border-radius:10px; padding:2px 8px; margin-left:6px; vertical-align:middle; }
 .batch-manage-box { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:10px; }
 .batch-manage-actions { display:flex; gap:8px; }
@@ -576,7 +596,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         </div>
         <div id="customer-suggest" class="suggest-list" style="display:none;"></div>
         <div class="field-hint">ระบบค้นหาจากฐานข้อมูลผู้ใช้ไฟอัตโนมัติ ถ้าหาไม่เจอ กดปุ่มด้านล่างเพื่อกรอกเอง</div>
-        <button class="btn btn-ghost" style="margin-top:8px;width:100%;" onclick="enableManualEntry()" id="btn-manual-entry">✏️ กรอกข้อมูลผู้ใช้ไฟเอง</button>
+        <button class="btn-manual" onclick="enableManualEntry()" id="btn-manual-entry">✏️ กรอกข้อมูลผู้ใช้ไฟเอง</button>
       </div>
 
       <div id="manual-fields" style="display:none; flex-direction:column; gap:14px;">
@@ -624,7 +644,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
       <div>
         <label class="field-label">พิกัดจุดที่ตรวจพบ (GPS หน้างาน)</label>
-        <button class="btn my-location-btn" onclick="captureGPS()" id="btn-gps" style="width:100%;">📍 ใช้ตำแหน่งปัจจุบัน</button>
+        <button class="btn-gps" onclick="captureGPS()" id="btn-gps">📍 ใช้ตำแหน่งปัจจุบัน</button>
         <div class="field-hint" id="gps-hint">ยังไม่ได้บันทึกพิกัดหน้างาน</div>
       </div>
 
@@ -857,6 +877,7 @@ function resetForm() {
   currentGPS = null;
   document.getElementById('gps-hint').textContent = 'ยังไม่ได้บันทึกพิกัดหน้างาน';
   document.getElementById('btn-gps').textContent = '📍 ใช้ตำแหน่งปัจจุบัน';
+  document.getElementById('btn-gps').classList.remove('done');
   pendingPhotoFile = null;
   existingPhoto = { link: '', fileId: '' };
   document.getElementById('d-photo-preview').style.display = 'none';
@@ -1070,14 +1091,14 @@ function captureGPS() {
   const btn = document.getElementById('btn-gps');
   const hint = document.getElementById('gps-hint');
   if (!navigator.geolocation) { hint.textContent = '⚠️ อุปกรณ์นี้ไม่รองรับ GPS'; return; }
-  btn.disabled = true; btn.textContent = '📍 กำลังค้นหาตำแหน่ง...';
+  btn.disabled = true; btn.classList.remove('done'); btn.textContent = '📍 กำลังค้นหาตำแหน่ง...';
   navigator.geolocation.getCurrentPosition(pos => {
     currentGPS = { lat: pos.coords.latitude, lng: pos.coords.longitude };
     hint.textContent = `บันทึกพิกัดแล้ว: ${currentGPS.lat.toFixed(6)}, ${currentGPS.lng.toFixed(6)} (ความแม่นยำ ~${Math.round(pos.coords.accuracy)} ม.)`;
-    btn.disabled = false; btn.textContent = '📍 ใช้ตำแหน่งปัจจุบัน (แตะเพื่ออัปเดต)';
+    btn.disabled = false; btn.classList.add('done'); btn.textContent = '📍 ใช้ตำแหน่งปัจจุบัน (แตะเพื่ออัปเดต)';
   }, err => {
     hint.textContent = '⚠️ ไม่สามารถระบุตำแหน่งได้: ' + err.message;
-    btn.disabled = false; btn.textContent = '📍 ใช้ตำแหน่งปัจจุบัน';
+    btn.disabled = false; btn.classList.remove('done'); btn.textContent = '📍 ใช้ตำแหน่งปัจจุบัน';
   }, { enableHighAccuracy: true, timeout: 15000 });
 }
 window.captureGPS = captureGPS;
