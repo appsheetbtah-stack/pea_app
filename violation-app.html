@@ -374,7 +374,17 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .btn-scan { flex-shrink:0; width:44px; background:var(--blue); border:none; border-radius:8px; color:#fff; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
 
 .photo-row { display:flex; align-items:center; gap:10px; }
-.photo-preview { width:100%; max-height:340px; border-radius:10px; object-fit:contain; background:var(--surface2); border:1px solid var(--border); margin-bottom:10px; }
+.photo-thumb-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(84px,1fr)); gap:8px; margin-bottom:10px; }
+.photo-thumb-grid:empty { display:none; }
+.photo-thumb { position:relative; aspect-ratio:1; border-radius:10px; overflow:hidden; background:var(--surface2); border:1px solid var(--border); }
+.photo-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+.photo-thumb.pending img { opacity:.55; }
+.photo-thumb .thumb-spinner { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:18px; animation:spin 1s linear infinite; }
+.photo-thumb .thumb-del {
+  position:absolute; top:3px; right:3px; width:22px; height:22px; border-radius:50%;
+  background:rgba(0,0,0,.6); color:#fff; border:none; font-size:13px; line-height:1;
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
 .btn { padding:10px 18px; border-radius:8px; border:none; cursor:pointer; font-family:var(--sans); font-size:14px; font-weight:600; white-space:nowrap; }
 .btn-primary { background:var(--accent); color:#000; flex:1; }
 .btn-ghost { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
@@ -653,17 +663,16 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       </div>
 
       <div>
-        <label class="field-label">รูปถ่ายหลักฐาน</label>
-        <div class="detail-photo-pending" id="photo-pending-banner" style="display:none;">⚠️ ใบงานนี้บันทึกข้อมูลไว้แล้ว แต่ยังไม่มีรูป — ถ่าย/เลือกรูปแล้วกดบันทึกอีกครั้งเพื่อแนบรูป</div>
-        <img id="d-photo-preview" class="photo-preview" style="display:none;">
+        <label class="field-label">รูปถ่ายหลักฐาน <span id="photo-count-label" style="font-weight:400;color:var(--text2);">(0/4 ขั้นต่ำ)</span></label>
+        <div class="detail-photo-pending" id="photo-pending-banner" style="display:none;">⚠️ ใบงานนี้บันทึกข้อมูลไว้แล้ว แต่ยังอัปโหลดรูปไม่ครบ — ถ่าย/เลือกรูปแล้วกดบันทึกอีกครั้งเพื่อแนบรูปเพิ่ม</div>
+        <div class="photo-thumb-grid" id="photo-thumb-grid"></div>
         <div class="photo-row">
           <button class="btn btn-blue" style="flex:1;" onclick="onPhotoButtonClick()">📷 ถ่ายรูป</button>
           <button class="btn btn-blue" style="flex:1;" onclick="onGalleryButtonClick()">🖼️ เลือกรูป</button>
-          <button class="btn btn-danger" id="btn-delete-photo" style="flex:1;display:none;" onclick="deletePhoto()">🗑️ ลบรูป</button>
         </div>
         <button class="btn btn-accent" id="btn-request-permission" style="display:none;width:100%;margin-top:8px;" onclick="onRequestPermissionClick()">🔑 ขอสิทธิ์เชื่อมต่อ Google Drive</button>
         <input type="file" id="d-photo-input" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoSelected(event)">
-        <input type="file" id="d-gallery-input" accept="image/*" style="display:none;" onchange="handlePhotoSelected(event)">
+        <input type="file" id="d-gallery-input" accept="image/*" multiple style="display:none;" onchange="handlePhotoSelected(event)">
         <div class="upload-status" id="photo-upload-status"></div>
         <div class="field-hint" id="drive-account-info"></div>
       </div>
@@ -749,14 +758,24 @@ let editingId = null;       // Firestore doc id ที่กำลังแก�
 let manualMode = false;     // true = ปลดล็อกให้กรอกข้อมูลผู้ใช้ไฟเอง
 let currentGPS = null;      // {lat,lng} ตำแหน่งหน้างานที่เพิ่งจับ (ยังไม่ได้บันทึก)
 let violationTypeSelected = null;
-let pendingPhotoFile = null;      // ไฟล์รูปที่เลือกแล้วแต่ยังไม่อัปโหลด (อัปโหลดตอนกดบันทึก)
+let pendingPhotoFiles = [];       // ไฟล์รูปที่เลือก/ถ่ายแล้วแต่ยังไม่อัปโหลด (อัปโหลดตอนกดบันทึก) — แต่ละตัว {file, previewUrl}
 let isSavingTicket = false;       // true ระหว่างที่ saveTicket() กำลังอัปโหลดรูป/บันทึกอยู่ (กันปิดแอปกลางคัน)
-let existingPhoto = { link: '', fileId: '' }; // รูปเดิมของ ticket (ตอนแก้ไข)
+let existingPhotos = [];          // รูปเดิมของ ticket ที่อัปโหลดขึ้น Drive แล้วจริงๆ (ตอนแก้ไข) — [{link, fileId, thumb}]
+const MIN_PHOTOS = 4;
 let mapInited = false;
 let searchResultsCache = [];
 
 const STATUS_LABEL = { pending: 'รอดำเนินการ', reported: 'รายงานแล้ว', prosecuting: 'ดำเนินคดี', closed: 'ยุติเรื่อง' };
 const STATUS_CLASS = { pending: 'status-pending', reported: 'status-reported', prosecuting: 'status-prosecuting', closed: 'status-closed' };
+
+// คืนรูปทั้งหมดของใบงานเป็น array เสมอ ไม่ว่าจะเป็นข้อมูลเก่า (photoLink/photoFileId เดี่ยวๆ)
+// หรือข้อมูลใหม่ (photos: [{link,fileId,thumb}]) — ให้ทั้งแอปเรียกใช้ผ่านฟังก์ชันนี้ที่เดียว
+function ticketPhotos(t) {
+  if (!t) return [];
+  if (Array.isArray(t.photos) && t.photos.length) return t.photos;
+  if (t.photoFileId) return [{ link: t.photoLink || '', fileId: t.photoFileId, thumb: t.photoThumb || `https://drive.google.com/thumbnail?id=${t.photoFileId}&sz=w1000` }];
+  return [];
+}
 const STATUS_COLOR = { pending: '#a9bdd1', reported: '#3b9ede', prosecuting: '#f39c12', closed: '#2ecc71' };
 
 const VIOLATION_TYPES = [
@@ -836,11 +855,14 @@ function renderList() {
     return;
   }
 
-  container.innerHTML = `<div class="list-wrap" style="padding:0;">` + items.map(t => `
+  container.innerHTML = `<div class="list-wrap" style="padding:0;">` + items.map(t => {
+    const photos = ticketPhotos(t);
+    const firstId = photos[0] && photos[0].fileId;
+    return `
     <div class="ticket-card" onclick="openEditModal('${escAttr(t.id)}')">
       <div class="ticket-top">
-        ${t.photoFileId
-          ? `<img class="ticket-thumb-lg" loading="lazy" src="https://drive.google.com/thumbnail?id=${escAttr(t.photoFileId)}&sz=w1000" onerror="this.outerHTML='<div class=&quot;tc-photo-placeholder&quot;>📷</div>';">`
+        ${firstId
+          ? `<img class="ticket-thumb-lg" loading="lazy" src="https://drive.google.com/thumbnail?id=${escAttr(firstId)}&sz=w1000" onerror="this.outerHTML='<div class=&quot;tc-photo-placeholder&quot;>📷</div>';">`
           : `<div class="tc-photo-placeholder">📷</div>`}
         <div style="flex:1;">
           <div class="ticket-name">${esc(fullName(t))}</div>
@@ -849,11 +871,12 @@ function renderList() {
         <span class="status-badge ${STATUS_CLASS[t.status] || 'status-pending'}">${STATUS_LABEL[t.status] || 'รอดำเนินการ'}</span>
       </div>
       <div class="tc-reason">⚠️ ${esc(t.violationType || '-')}${t.violationOther ? ' — ' + esc(t.violationOther) : ''}</div>
-      ${t.photoPending && !t.photoFileId ? `<div class="tc-photo-pending">📷 รอเพิ่มรูปภาพ — แตะที่รายการนี้เพื่อแนบรูปใหม่</div>` : ''}
+      ${photos.length < MIN_PHOTOS ? `<div class="tc-photo-pending">📷 มีรูป ${photos.length}/${MIN_PHOTOS} — แตะที่รายการนี้เพื่อแนบรูปเพิ่ม</div>` : ''}
       <div class="ticket-detail-row">CA: ${esc(t.ca || '-')} · เลขมิเตอร์: ${esc(t.peaNo || '-')}</div>
       ${t.detectDate ? `<div class="ticket-detail-row">🗓️ ตรวจพบ: ${esc(t.detectDate.replace('T', ' '))}</div>` : ''}
     </div>
-  `).join('') + `</div>`;
+  `;
+  }).join('') + `</div>`;
 }
 window.renderList = renderList;
 
@@ -882,15 +905,36 @@ function resetForm() {
   document.getElementById('gps-hint').textContent = 'ยังไม่ได้บันทึกพิกัดหน้างาน';
   document.getElementById('btn-gps').textContent = '📍 ใช้ตำแหน่งปัจจุบัน';
   document.getElementById('btn-gps').classList.remove('done');
-  pendingPhotoFile = null;
-  existingPhoto = { link: '', fileId: '' };
-  document.getElementById('d-photo-preview').style.display = 'none';
-  document.getElementById('btn-delete-photo').style.display = 'none';
+  pendingPhotoFiles.forEach(p => { try { URL.revokeObjectURL(p.previewUrl); } catch (e) {} });
+  pendingPhotoFiles = [];
+  existingPhotos = [];
   document.getElementById('photo-pending-banner').style.display = 'none';
   document.getElementById('photo-upload-status').textContent = '';
   document.getElementById('photo-upload-status').className = 'upload-status';
   document.getElementById('btn-request-permission').style.display = 'none';
+  renderPhotoThumbs();
   renderDriveAccountInfo();
+}
+
+// วาดกริดรูปภาพทั้งหมด: existingPhotos (อัปโหลดแล้วจริง) + pendingPhotoFiles (เพิ่งเลือก ยังไม่อัปโหลด)
+function renderPhotoThumbs() {
+  const grid = document.getElementById('photo-thumb-grid');
+  const existingHtml = existingPhotos.map((p, i) => `
+    <div class="photo-thumb">
+      <img src="${escAttr(p.thumb || `https://drive.google.com/thumbnail?id=${p.fileId}&sz=w400`)}" loading="lazy">
+      <button type="button" class="thumb-del" onclick="deleteExistingPhoto(${i})" title="ลบรูปนี้">✕</button>
+    </div>`).join('');
+  const pendingHtml = pendingPhotoFiles.map((p, i) => `
+    <div class="photo-thumb pending">
+      <img src="${escAttr(p.previewUrl)}">
+      <div class="thumb-spinner" style="display:${p.uploading ? 'flex' : 'none'};">🔄</div>
+      <button type="button" class="thumb-del" onclick="deletePendingPhoto(${i})" title="ลบรูปนี้">✕</button>
+    </div>`).join('');
+  grid.innerHTML = existingHtml + pendingHtml;
+  const total = existingPhotos.length + pendingPhotoFiles.length;
+  const label = document.getElementById('photo-count-label');
+  label.textContent = `(${total}/${MIN_PHOTOS} ขั้นต่ำ)`;
+  label.style.color = total < MIN_PHOTOS ? 'var(--accent2)' : 'var(--green)';
 }
 
 function openAddModal() {
@@ -948,14 +992,9 @@ function openEditModal(id) {
     document.getElementById('gps-hint').textContent = `บันทึกพิกัดไว้แล้ว: ${t.foundLat.toFixed(6)}, ${t.foundLng.toFixed(6)}`;
   }
 
-  existingPhoto = { link: t.photoLink || '', fileId: t.photoFileId || '' };
-  if (t.photoFileId) {
-    const preview = document.getElementById('d-photo-preview');
-    preview.src = `https://drive.google.com/thumbnail?id=${t.photoFileId}&sz=w1000`;
-    preview.style.display = 'block';
-    document.getElementById('btn-delete-photo').style.display = 'block';
-  }
-  document.getElementById('photo-pending-banner').style.display = (t.photoPending && !t.photoFileId) ? 'flex' : 'none';
+  existingPhotos = ticketPhotos(t).slice();
+  renderPhotoThumbs();
+  document.getElementById('photo-pending-banner').style.display = (t.photoPending && existingPhotos.length < MIN_PHOTOS) ? 'flex' : 'none';
 
   document.getElementById('edit-overlay').classList.add('active');
 }
@@ -1279,35 +1318,60 @@ async function onRequestPermissionClick() { await ensureDriveAccess(); }
 window.onRequestPermissionClick = onRequestPermissionClick;
 
 function handlePhotoSelected(event) {
-  const file = event.target.files[0];
+  const files = Array.from(event.target.files || []);
   event.target.value = '';
-  if (!file) return;
-  pendingPhotoFile = file;
-  const preview = document.getElementById('d-photo-preview');
-  preview.src = URL.createObjectURL(file);
-  preview.style.display = 'block';
+  if (!files.length) return;
+  files.forEach(file => {
+    pendingPhotoFiles.push({ file, previewUrl: URL.createObjectURL(file), uploading: false });
+  });
+  renderPhotoThumbs();
   document.getElementById('photo-upload-status').className = 'upload-status';
-  document.getElementById('photo-upload-status').textContent = '📎 เลือกรูปแล้ว (จะอัปโหลดขึ้น Drive ตอนกดบันทึก)';
-  document.getElementById('btn-delete-photo').style.display = 'block';
+  document.getElementById('photo-upload-status').textContent = `📎 เลือกรูปแล้ว ${pendingPhotoFiles.length} รูป (จะอัปโหลดขึ้น Drive ตอนกดบันทึก)`;
 }
 window.handlePhotoSelected = handlePhotoSelected;
 
-function deletePhoto() {
-  if (!confirm('ลบรูปนี้ออกจากรายการหรือไม่?')) return;
-  pendingPhotoFile = null;
-  existingPhoto = { link: '', fileId: '' };
-  document.getElementById('d-photo-preview').style.display = 'none';
-  document.getElementById('btn-delete-photo').style.display = 'none';
-  document.getElementById('photo-upload-status').textContent = '';
-  showToast('ลบรูปแล้ว (กดบันทึกเพื่อยืนยัน)');
+// ลบรูปที่ "เพิ่งเลือก ยังไม่อัปโหลด" — แค่ตัดออกจากรายการในเครื่อง ไม่ต้องยิง request ใดๆ
+function deletePendingPhoto(index) {
+  const p = pendingPhotoFiles[index];
+  if (!p) return;
+  try { URL.revokeObjectURL(p.previewUrl); } catch (e) {}
+  pendingPhotoFiles.splice(index, 1);
+  renderPhotoThumbs();
 }
-window.deletePhoto = deletePhoto;
+window.deletePendingPhoto = deletePendingPhoto;
+
+// ลบรูปที่ "อัปโหลดขึ้น Drive และผูกกับใบงานนี้แล้วจริงๆ" — ลบทันทีทั้งจาก Firestore และ Drive
+async function deleteExistingPhoto(index) {
+  const p = existingPhotos[index];
+  if (!p) return;
+  if (!confirm('ลบรูปนี้ออกจากใบงานหรือไม่?')) return;
+  const removed = existingPhotos.splice(index, 1)[0];
+  renderPhotoThumbs();
+  try {
+    if (editingId) {
+      const { doc, setDoc } = window._fsLib;
+      await setDoc(doc(window._db, 'violation_tickets', editingId), { photos: existingPhotos.slice() }, { merge: true });
+    }
+    if (removed.fileId && driveAccessToken) {
+      fetch(`https://www.googleapis.com/drive/v3/files/${removed.fileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${driveAccessToken}` } }).catch(() => {});
+    }
+    showToast('ลบรูปแล้ว');
+  } catch (e) {
+    console.error(e);
+    showToast('⚠️ ลบรูปไม่สำเร็จ ลองใหม่อีกครั้ง');
+    existingPhotos.splice(index, 0, removed); // คืนค่ากลับถ้าลบไม่สำเร็จ
+    renderPhotoThumbs();
+  }
+}
+window.deleteExistingPhoto = deleteExistingPhoto;
 
 // ══════════════════════════ SAVE / DELETE ══════════════════════════
 async function saveTicket() {
   const name = document.getElementById('m-name').value.trim();
   if (!name) { showToast('⚠️ กรุณาค้นหาแล้วเลือกผู้ใช้ไฟ หรือกรอกชื่ออย่างน้อย 1 ช่อง'); return; }
   if (!violationTypeSelected) { showToast('⚠️ กรุณาเลือกประเภทการละเมิด'); return; }
+  const totalPhotos = existingPhotos.length + pendingPhotoFiles.length;
+  if (totalPhotos < MIN_PHOTOS) { showToast(`⚠️ กรุณาแนบรูปหลักฐานอย่างน้อย ${MIN_PHOTOS} รูป (ตอนนี้มี ${totalPhotos} รูป)`); return; }
 
   const saveBtn = document.querySelector('#edit-overlay .btn-primary');
   saveBtn.disabled = true; saveBtn.textContent = '💾 กำลังบันทึก...';
@@ -1319,7 +1383,9 @@ async function saveTicket() {
     const id = editingId || doc(collection(window._db, 'violation_tickets')).id;
     const old = editingId ? (window.TICKETS || []).find(x => x.id === editingId) : null;
 
-    const hasNewPhoto = !!pendingPhotoFile;
+    const filesToUpload = pendingPhotoFiles.map(p => p.file);
+    const hasNewPhoto = filesToUpload.length > 0;
+    const keptExisting = existingPhotos.slice();
 
     // บันทึกข้อมูลหลักลง Firestore "ทันที" โดยยังไม่รอรูปอัปโหลดเสร็จ
     // — ถ้าปิดแอปกลางคันตอนอัปโหลดรูป ข้อมูลส่วนนี้จะปลอดภัยอยู่แล้ว
@@ -1346,8 +1412,7 @@ async function saveTicket() {
       status: document.getElementById('violation-status').value,
       notes: document.getElementById('violation-notes').value.trim(),
       isManualEntry: !document.getElementById('m-name').readOnly,
-      photoLink: existingPhoto.link || '',
-      photoFileId: existingPhoto.fileId || '',
+      photos: keptExisting,
       photoPending: hasNewPhoto ? true : (old ? !!old.photoPending : false),
       createdAt: old ? (old.createdAt || Date.now()) : Date.now(),
       updatedAt: Date.now()
@@ -1359,11 +1424,10 @@ async function saveTicket() {
 
     // อัปโหลดรูป (ถ้ามี) เป็นขั้นตอนถัดไปแบบไม่บล็อกผู้ใช้แล้ว — ข้อมูลหลักปลอดภัยไปแล้วข้างบน
     if (hasNewPhoto) {
-      const fileToUpload = pendingPhotoFile;
-      pendingPhotoFile = null;
-      uploadPhotoInBackground(id, fileToUpload, old);
+      pendingPhotoFiles = [];
+      uploadPhotosInBackground(id, filesToUpload, keptExisting);
     } else {
-      pendingPhotoFile = null;
+      pendingPhotoFiles = [];
     }
   } catch (e) {
     console.error(e);
@@ -1376,36 +1440,44 @@ async function saveTicket() {
 }
 window.saveTicket = saveTicket;
 
-// อัปโหลดรูปขึ้น Drive แบบ background หลังจากข้อมูลหลักบันทึกไปแล้ว
-// ถ้าอัปโหลดไม่สำเร็จ (เน็ตหลุด/ปิดแอป) ตัวใบงานจะยังอยู่ครบ แค่ photoPending ยังเป็น true
-// ให้ผู้ใช้เปิดใบงานนั้นมาแนบรูปใหม่ได้ทีหลัง โดยไม่ต้องกรอกข้อมูลซ้ำ
-async function uploadPhotoInBackground(id, file, old) {
-  try {
-    let token = driveAccessToken || await requestDriveAccessToken();
-    let result;
+// อัปโหลดรูป (หลายรูป) ขึ้น Drive แบบ background หลังจากข้อมูลหลักบันทึกไปแล้ว
+// อัปโหลดทีละรูปแล้วเขียนผลลัพธ์ลง Firestore ทันทีทุกครั้งที่สำเร็จ 1 รูป — ถ้าปิดแอปกลางคัน
+// รูปที่อัปโหลดสำเร็จไปแล้วก่อนหน้าจะไม่หาย เหลือแค่รูปที่ยังไม่ทันอัปโหลดที่ต้องแนบเพิ่มทีหลัง
+async function uploadPhotosInBackground(id, files, baseExisting) {
+  const { doc, setDoc } = window._fsLib;
+  const uploaded = [];
+  let failCount = 0;
+  let token = driveAccessToken || await requestDriveAccessToken();
+  for (const file of files) {
     try {
-      result = await uploadPhotoToDrive(file, token, await getPhotoFolderId(token), id);
-    } catch (err) {
-      if (err && err.status === 401) {
-        driveAccessToken = null; try { localStorage.removeItem('vlt_drive_token'); } catch (e) {}
-        token = await requestDriveAccessToken('');
+      let result;
+      try {
         result = await uploadPhotoToDrive(file, token, await getPhotoFolderId(token), id);
-      } else { throw err; }
+      } catch (err) {
+        if (err && err.status === 401) {
+          driveAccessToken = null; try { localStorage.removeItem('vlt_drive_token'); } catch (e) {}
+          token = await requestDriveAccessToken('');
+          result = await uploadPhotoToDrive(file, token, await getPhotoFolderId(token), id);
+        } else { throw err; }
+      }
+      uploaded.push({ link: result.webViewLink, fileId: result.id, thumb: `https://drive.google.com/thumbnail?id=${result.id}&sz=w1000` });
+    } catch (e) {
+      console.error('background photo upload failed', e);
+      failCount++;
+      continue; // ไปอัปโหลดรูปถัดไปต่อ ไม่ให้รูปเดียวที่พังทำให้รูปที่เหลือไม่ได้อัปโหลดไปด้วย
     }
-    const { doc, setDoc } = window._fsLib;
-    await setDoc(doc(window._db, 'violation_tickets', id), {
-      photoLink: result.webViewLink, photoFileId: result.id, photoPending: false
-    }, { merge: true });
-    if (old && old.photoFileId && old.photoFileId !== result.id) {
-      fetch(`https://www.googleapis.com/drive/v3/files/${old.photoFileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
-    }
-    showToast('📎 อัปโหลดรูปสำเร็จ ✓');
-  } catch (e) {
-    console.error('background photo upload failed', e);
-    showToast('⚠️ อัปโหลดรูปไม่สำเร็จ — ใบงานถูกบันทึกไว้แล้ว เปิดรายการนี้แล้วแนบรูปใหม่ได้ภายหลัง');
+    // เขียนผลที่อัปโหลดสำเร็จแล้ว "ทุกครั้ง" ไม่รอให้ครบทุกรูปก่อน — กันปิดแอปกลางคันแล้วรูปที่เพิ่งอัปโหลดเสร็จหาย
+    const stillPending = uploaded.length + failCount < files.length;
+    try {
+      await setDoc(doc(window._db, 'violation_tickets', id), {
+        photos: baseExisting.concat(uploaded), photoPending: stillPending || failCount > 0
+      }, { merge: true });
+    } catch (e) { console.error('failed to save uploaded photo progress', e); }
   }
+  if (failCount === 0) showToast(`📎 อัปโหลดรูปสำเร็จทั้ง ${files.length} รูป ✓`);
+  else showToast(`⚠️ อัปโหลดสำเร็จ ${uploaded.length}/${files.length} รูป — เปิดรายการนี้แล้วแนบรูปที่เหลือเพิ่มได้ภายหลัง`);
 }
-window.uploadPhotoInBackground = uploadPhotoInBackground;
+window.uploadPhotosInBackground = uploadPhotosInBackground;
 
 async function deleteTicket() {
   if (!editingId) return;
@@ -1414,8 +1486,10 @@ async function deleteTicket() {
     const t = (window.TICKETS || []).find(x => x.id === editingId);
     const { doc, deleteDoc } = window._fsLib;
     await deleteDoc(doc(window._db, 'violation_tickets', editingId));
-    if (t && t.photoFileId && driveAccessToken) {
-      fetch(`https://www.googleapis.com/drive/v3/files/${t.photoFileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${driveAccessToken}` } }).catch(() => {});
+    if (t && driveAccessToken) {
+      ticketPhotos(t).forEach(p => {
+        if (p.fileId) fetch(`https://www.googleapis.com/drive/v3/files/${p.fileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${driveAccessToken}` } }).catch(() => {});
+      });
     }
     showToast('ลบรายการแล้ว ✓');
     closeEditModal();
