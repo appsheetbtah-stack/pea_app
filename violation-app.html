@@ -288,7 +288,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 /* ── MODAL ── */
 .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:900; display:none; align-items:flex-end; justify-content:center; }
 .modal-overlay.active { display:flex; }
-.modal { background:var(--bg); width:100%; max-width:600px; max-height:92vh; overflow-y:auto; border-radius:16px 16px 0 0; border:1px solid var(--border); border-bottom:none; position:relative; }
+.modal { background:var(--bg); width:100%; max-width:600px; max-height:92vh; overflow:hidden; border-radius:16px 16px 0 0; border:1px solid var(--border); border-bottom:none; position:relative; display:flex; flex-direction:column; }
 .saving-lock {
   display:none; position:absolute; inset:0; z-index:20; background:rgba(0,0,0,.72);
   color:#fff; flex-direction:column; align-items:center; justify-content:center; text-align:center;
@@ -299,11 +299,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 @keyframes spin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
 .saving-lock .saving-title { font-size:15px; font-weight:700; }
 .saving-lock .saving-sub { font-size:13px; color:#ddd; line-height:1.6; max-width:320px; }
-.modal-header { position:sticky; top:0; background:var(--surface); border-bottom:1px solid var(--border); padding:14px 16px; display:flex; align-items:center; justify-content:space-between; z-index:2; }
+.modal-header { flex-shrink:0; background:var(--surface); border-bottom:1px solid var(--border); padding:14px 16px; display:flex; align-items:center; justify-content:space-between; z-index:2; }
 .modal-title { font-weight:700; font-size:15px; }
 .modal-close { background:none; border:none; color:var(--text2); font-size:20px; cursor:pointer; }
-.modal-body { padding:16px; display:flex; flex-direction:column; gap:16px; }
-.modal-footer { position:sticky; bottom:0; background:var(--surface); border-top:1px solid var(--border); padding:12px 16px; display:flex; gap:10px; }
+.modal-body { flex:1; min-height:0; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:16px; }
+.modal-footer { flex-shrink:0; background:var(--surface); border-top:1px solid var(--border); padding:12px 16px; display:flex; gap:10px; }
 
 .info-block { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
 .info-row { display:flex; gap:10px; font-size:14px; align-items:center; }
@@ -449,6 +449,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 }
 .btn-manual:hover { background:rgba(245,166,35,.18); }
 .btn-manual:active { transform:scale(.98); }
+.field-notes {
+  background:rgba(245,166,35,.08); border:1.5px dashed var(--accent);
+}
+.field-notes:focus { border-style:solid; }
 .btn-gps.done { background:rgba(46,204,113,.14); color:var(--green); box-shadow:inset 0 0 0 1.5px var(--green); }
 .source-badge { display:inline-block; font-size:10.5px; font-weight:700; color:var(--accent); background:rgba(245,166,35,.12); border:1px solid rgba(245,166,35,.3); border-radius:10px; padding:2px 8px; margin-left:6px; vertical-align:middle; }
 .batch-manage-box { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:10px; }
@@ -676,7 +680,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
       <div>
         <label class="field-label">หมายเหตุเพิ่มเติม</label>
-        <textarea class="field-input" id="violation-notes" rows="3" style="resize:vertical;"></textarea>
+        <textarea class="field-input field-notes" id="violation-notes" rows="3" style="resize:vertical;"></textarea>
       </div>
 
     </div>
