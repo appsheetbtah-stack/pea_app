@@ -138,7 +138,7 @@ details summary { cursor:pointer; font-size:12.5px; color:var(--blue); }
     <div class="card-title">📂 1. เลือกไฟล์ Excel</div>
     <div class="card-desc">
       เลือกไฟล์ .xlsx ได้หลายไฟล์พร้อมกัน ระบบจะดึงเฉพาะข้อมูลที่จำเป็นจากชีท
-      <b>DS_LowVoltageMeter</b> (ผู้ใช้ไฟฟ้า), <b>DS_Recloser</b>, <b>DS_Switch</b>, <b>DS_Transformer</b> (อุปกรณ์)
+      <b>DS_LowVoltageMeter</b> (ผู้ใช้ไฟฟ้า), <b>DS_PrimaryMeter</b> (ผู้ใช้ไฟรายใหญ่ 22 kV), <b>DS_Recloser</b>, <b>DS_Switch</b>, <b>DS_Transformer</b> (อุปกรณ์)
       — ชีทอื่นๆ จะถูกข้ามไปอัตโนมัติ
     </div>
     <div class="dropzone" id="dropzone">
@@ -312,7 +312,7 @@ function looksNumeric(str) {
 
 const CUSTOMER_FIELDS = ['CA','PEANO','PREFIX','CUSTOMERNAME','CUSTOMERSIRNAME','ADDRESSNO','MOO','TUMBOL','AMPHOE','CHANGWAT','MOBILE_NO','METERTYPE','AMPFROMCIS'];
 
-function extractCustomers(rows, map, stats, fileName) {
+function extractCustomers(rows, map, stats, fileName, sheetName = 'DS_LowVoltageMeter', defaultVolt = '') {
   for (const row of rows) {
     const peano = s(pick(row, ['PEANO']));
     const ca = s(pick(row, ['CA']));
@@ -321,7 +321,7 @@ function extractCustomers(rows, map, stats, fileName) {
 
     if (!peano) {
       stats.customerDropped++;
-      stats.droppedDetails.push({ file: fileName, sheet: 'DS_LowVoltageMeter', type: 'ผู้ใช้ไฟฟ้า', reason: 'ไม่มีเลข PEANO', label: name || ca || '(ไม่มีข้อมูลระบุตัวตนเลย)' });
+      stats.droppedDetails.push({ file: fileName, sheet: sheetName, type: 'ผู้ใช้ไฟฟ้า', reason: 'ไม่มีเลข PEANO', label: name || ca || '(ไม่มีข้อมูลระบุตัวตนเลย)' });
       continue;
     }
 
@@ -334,7 +334,7 @@ function extractCustomers(rows, map, stats, fileName) {
     }
     if (!isLat(lat) || !isLon(lon)) {
       stats.customerDropped++;
-      stats.droppedDetails.push({ file: fileName, sheet: 'DS_LowVoltageMeter', type: 'ผู้ใช้ไฟฟ้า', reason: 'ไม่มีพิกัด/พิกัดใช้งานไม่ได้', label: `PEANO ${peano}${name ? ' — ' + name : ''}${addrHint ? ' (' + addrHint + ')' : ''}` });
+      stats.droppedDetails.push({ file: fileName, sheet: sheetName, type: 'ผู้ใช้ไฟฟ้า', reason: 'ไม่มีพิกัด/พิกัดใช้งานไม่ได้', label: `PEANO ${peano}${name ? ' — ' + name : ''}${addrHint ? ' (' + addrHint + ')' : ''}` });
       continue;
     }
 
@@ -342,6 +342,8 @@ function extractCustomers(rows, map, stats, fileName) {
     CUSTOMER_FIELDS.forEach(k => rec[k] = s(pick(row, [k])));
     rec.LATITUDE = lat;
     rec.LONGITUDE = lon;
+    // ผู้ใช้ไฟรายใหญ่ (แรงสูง): เก็บระดับแรงดันไว้ใช้แสดงป้าย 22 kV ในหน้าค้นหา
+    if (defaultVolt) rec.VOLT = s(pick(row, ['ระดับแรงดัน'])) || defaultVolt;
     map.set(peano, rec);
   }
 }
@@ -425,6 +427,13 @@ async function convertFiles() {
         const rows = XLSX.utils.sheet_to_json(wb.Sheets['DS_LowVoltageMeter'], { defval: null, raw: true });
         extractCustomers(rows, customersMap, stats, file.name);
         log(`   ✓ DS_LowVoltageMeter: ${rows.length} แถว`, 'ok');
+        foundAny = true;
+      }
+      // ลูกค้ารายใหญ่ซื้อไฟแรงสูง 22 kV (ชีทใหม่ ไตรมาส 4/2569)
+      if (wb.SheetNames.includes('DS_PrimaryMeter')) {
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets['DS_PrimaryMeter'], { defval: null, raw: true });
+        extractCustomers(rows, customersMap, stats, file.name, 'DS_PrimaryMeter', '22 kV');
+        log(`   ✓ DS_PrimaryMeter: ${rows.length} แถว (ลูกค้าแรงสูง 22 kV)`, 'ok');
         foundAny = true;
       }
       for (const [sheetName, tp] of Object.entries(EQUIP_SHEETS)) {
