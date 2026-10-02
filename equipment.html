@@ -109,7 +109,7 @@ html[data-theme="dark"] #pane-sim{--dead:#4a5866;--pld:#2fd27a;--plz:#ff5a5f;--l
 #simsvg{display:block;position:absolute;left:0;top:0;transform-origin:0 0;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 #simsvg [tabindex]:focus-visible{outline:2px solid var(--lka);outline-offset:2px}
 #simsvg text{font-family:var(--sans);fill:var(--ink)}
-#simsvg .sw,#simsvg .stn{cursor:pointer}#simsvg .hit{cursor:crosshair}
+#simsvg .sw{cursor:pointer}
 #simsvg .flow{fill:none;stroke-width:4;stroke-linecap:round;stroke-dasharray:3 17;animation:simfl .9s linear infinite}
 #simsvg .rev{animation-direction:reverse}
 @keyframes simfl{to{stroke-dashoffset:-20}}
@@ -570,8 +570,8 @@ body.pick-mode #btn-tab-dashboard { display:none; }
 <!-- TAB: SWITCHING SIMULATOR -->
 <div class="tab-pane sim-pane" id="pane-sim">
   <div class="sim-head"><b>Switching Simulator ระบบจำหน่าย 22 kV</b>
-  <div>กฟส.บ้านทุ่งอ้ายโห้ · PLD02 / PLZ03 / LKA02 · แตะสวิตช์เพื่อเปิด-ปิด แตะสายไฟเพื่อจำลองลัดวงจร แตะสถานีเพื่อจำลองจ่ายไฟไม่ได้</div></div>
-  <div id="simmap"><div id="simstage"><svg id="simsvg" viewBox="-40 -55 1380 795" role="img" aria-label="ผังระบบจำหน่าย 22 kV"></svg></div></div>
+  <div>กฟส.บ้านทุ่งอ้ายโห้ · PLD02 / PLZ03 / LKA02 · แตะสวิตช์เพื่อเปิด-ปิด</div></div>
+  <div id="simmap"><div id="simstage"><svg id="simsvg" viewBox="-175 -55 1515 795" role="img" aria-label="ผังระบบจำหน่าย 22 kV"></svg></div></div>
 </div>
 
 <div class="pick-confirm-bar" id="pick-confirm-bar" style="display:none;">
@@ -1115,12 +1115,12 @@ const NS='http://www.w3.org/2000/svg',$=id=>document.getElementById(id);
 // id, ชื่อ, ชนิด, x, y, แนว, ปิดปกติ (1=ปิด, 0=เปิดปกติ NO)
 const SWL=[['PD','PLD02VS-118','VS',537,25,'h',0],['Z3','PLZ03VR-103','VR',657,169,'h',1],['Z2','PLZ03VS-112','VS',879,169,'h',1],
 ['Z1','PLZ03VR-02','VR',1041,169,'h',1],['L13','LKA02VS-13','VS',1132,215,'v',1],['L9','LKA02VS-09','VS',1132,469,'v',0],
-['LR2','LKA02VR-02','VR',1024,406,'h',1],['L14','LKA02VS-14','VS',287,406,'h',0],['L118','LKA02VS-118','VS',201,478,'v',1],['LR1','LKA02VR-01','VR',201,655,'v',1]];
+['LR2','LKA02VR-02','VR',1024,406,'h',1],['L14','LKA02VS-14','VS',287,406,'h',0],['L118','LKA02VS-118','VS',201,478,'v',1],['LR1','LKA02VR-01','VR',201,655,'v',1],['L5','LKA02VS-05','VS',121,702,'h',1]];
 const SWM={};SWL.forEach(s=>SWM[s[0]]={name:s[1],t:s[2],x:s[3],y:s[4],o:s[5],n:s[6]});
-const T={sP:[200,26],sZ:[1230,169],sL:[61,702],jP:[717,169],jZ:[1132,169],jJ:[1132,406],jA:[201,406],jB:[1132,702],jL:[201,702],eA:[201,203],eD:[476,312]};
+const T={sP:[200,26],sZ:[1230,169],sL:[-59,702],jP:[717,169],jZ:[1132,169],jJ:[1132,406],jA:[201,406],jB:[1132,702],jL:[201,702],eA:[201,203],eD:[476,312]};
 for(const id in SWM){const s=SWM[id];T[id+'a']=s.o=='h'?[s.x-26,s.y]:[s.x,s.y-26];T[id+'b']=s.o=='h'?[s.x+26,s.y]:[s.x,s.y+26]}
 const W=[['sP','PDa'],['PDb','jP',[[717,25]],1],['jP','Z3b'],['jP','Z2a',0,1],['Z2b','Z1a',0,1],['Z1b','jZ'],['jZ','sZ'],['jZ','L13a'],['L13b','jJ',0,1],
-['jJ','LR2b'],['LR2a','L14b',0,1],['L14a','jA'],['jJ','L9a'],['L9b','jB',0,1],['jB','jL'],['jL','sL'],['jL','LR1b'],['LR1a','L118b',0,1],['L118a','jA'],['jA','eA',0,1],['Z3a','eD',[[476,169]],1]];
+['jJ','LR2b'],['LR2a','L14b',0,1],['L14a','jA'],['jJ','L9a'],['L9b','jB',0,1],['jB','jL'],['sL','L5a'],['L5b','jL'],['jL','LR1b'],['LR1a','L118b',0,1],['L118a','jA'],['jA','eA',0,1],['Z3a','eD',[[476,169]],1]];
 const SRC=[{id:'PLD',n:'sP',name:'PLD02',c:'var(--pld)'},{id:'PLZ',n:'sZ',name:'PLZ03',c:'var(--plz)'},{id:'LKA',n:'sL',name:'LKA02',c:'var(--lka)'}];
 const CL={};SRC.forEach(s=>CL[s.id]=s.c);
 const ADJ={};const add=(a,e)=>(ADJ[a]=ADJ[a]||[]).push(e);
@@ -1158,12 +1158,9 @@ const WE=[],SE={},STE={};
 W.forEach((w,i)=>{const p=pts(w),g=el('g',{},svg);
  const base=el('path',{d:pd(p),fill:'none','stroke-width':3,'stroke-linecap':'round'},g);
  const flow=el('path',{d:pd(p),class:'flow'},g);
- const hit=el('path',{d:pd(p),class:'hit',fill:'none',stroke:'transparent','stroke-width':18,tabindex:0,role:'button','aria-label':'สลับจุดลัดวงจรบนสาย'},g);
  const m=mid(p),bolt=el('text',{x:m.x,y:m.y+8,'text-anchor':'middle','font-size':26,fill:'var(--warn)',style:'display:none;fill:var(--warn)'},g);bolt.textContent='⚡';
  let lamp=null;if(w[3]){const o=m.v?[16,0]:[0,16];el('line',{x1:m.x,y1:m.y,x2:m.x+o[0],y2:m.y+o[1],stroke:'var(--dead)','stroke-width':2},g);
   lamp=el('circle',{cx:m.x+o[0]*1.5,cy:m.y+o[1]*1.5,r:7,'stroke-width':2},g)}
- const tg=()=>{st.flt[i]=!st.flt[i];log((st.flt[i]?'เกิดลัดวงจรที่สายช่วงที่ ':'แก้ไขจุดลัดวงจรช่วงที่ ')+(i+1));render()};
- hit.onclick=tg;hit.onkeydown=e=>{if(e.key=='Enter'||e.key==' '){e.preventDefault();tg()}};
  WE[i]={base,flow,bolt,lamp}});
 for(const id in SWM){const s=SWM[id],g=el('g',{class:'sw',transform:`translate(${s.x} ${s.y})`,tabindex:0,role:'button'},svg),h=s.o=='h';
  el('rect',{x:-30,y:-30,width:60,height:60,fill:'transparent'},g);
@@ -1177,12 +1174,11 @@ for(const id in SWM){const s=SWM[id],g=el('g',{class:'sw',transform:`translate($
  g.onclick=tg;g.onkeydown=e=>{if(e.key=='Enter'||e.key==' '){e.preventDefault();tg()}};
  SE[id]={g,r,bl,t2}}
 // สถานี
-[['sP',[88,8,112,34],'PLD02'],['sZ',[1230,152,100,34],'PLZ03'],['sL',[-40,686,101,34],'LKA02']].forEach(([n,b,nm])=>{
- const s=SRC.find(x=>x.name==nm),g=el('g',{class:'stn',tabindex:0,role:'button','aria-label':'สลับสถานี '+nm},svg);
+[['sP',[88,8,112,34],'PLD02'],['sZ',[1230,152,100,34],'PLZ03'],['sL',[-160,686,101,34],'LKA02']].forEach(([n,b,nm])=>{
+ const s=SRC.find(x=>x.name==nm),g=el('g',{class:'stn','aria-label':'สถานี '+nm},svg);
  const r=el('rect',{x:b[0],y:b[1],width:b[2],height:b[3],rx:6},g);
  const t=el('text',{x:b[0]+b[2]/2,y:b[1]+22,'text-anchor':'middle','font-size':16,'font-weight':700,style:'fill:var(--bg)'},g);t.textContent='สถานี '+nm;
- const tg=()=>{st.out[s.id]=!st.out[s.id];log('สถานี '+nm+(st.out[s.id]?' จ่ายไฟไม่ได้':' กลับมาจ่ายไฟได้'));render()};
- g.onclick=tg;g.onkeydown=e=>{if(e.key=='Enter'||e.key==' '){e.preventDefault();tg()}};STE[s.id]={r}});
+ STE[s.id]={r}});
 [['eA',[201,203]],['eD',[476,312]]].forEach(([n,p])=>{el('circle',{cx:p[0],cy:p[1],r:5,fill:'var(--panel)',stroke:'var(--dead)','stroke-width':2.5},svg);
  const t=el('text',{x:p[0]+10,y:p[1]+5,'font-size':13,style:'fill:var(--mute)'},svg);t.textContent='ปลายสาย'});
 function render(){
@@ -1203,7 +1199,7 @@ function render(){
   e.t2.textContent=(cl?'ปิด':'เปิด')+(s.n?'':' (ปกติเปิด)');e.g.setAttribute('aria-label',s.name+(cl?' ปิดอยู่':' เปิดอยู่'));}
  SRC.forEach(s=>{const bad=st.out[s.id]||tripped[s.id];STE[s.id].r.style.fill=bad?'var(--warn)':s.c});
 }
-const VW=1380,VH=795,mapEl=$('simmap'),stage=$('simstage');
+const VW=1515,VH=795,mapEl=$('simmap'),stage=$('simstage');
 function fit(){
  const w=mapEl.clientWidth,h=mapEl.clientHeight;if(!w||!h)return;
  const rot=h>w*1.15;           // จอแนวตั้ง: หมุนผัง 90° ให้เต็มจอ
