@@ -725,7 +725,7 @@ function App() {
       cell("วันที่", { bold: true, sz: 14 }),
     ];
     for (let i = 1; i < numDays; i++) topRow.push(cell("", { bold: true }));
-    ["รวม", "ค่าจ้างวันละ", "รวมเป็นเงิน", "หักประกันสังคม (5%)", "จ่ายสุทธิ", "อัตราผู้รับจ้าง (วันละ)", "รวมจ่ายให้ผู้รับจ้าง", "หมายเหตุ"].forEach((t) =>
+    ["รวม", "ค่าจ้างวันละ", "รวมเป็นเงิน", "หักประกันสังคม (5%)", "จ่ายสุทธิ", "อัตราผู้รับจ้าง\n(วันละ)", "รวมจ่ายให้ผู้รับจ้าง", "หมายเหตุ"].forEach((t) =>
       topRow.push(cell(t, { bold: true, sz: 13 }))
     );
     rows.push(topRow);
@@ -869,12 +869,13 @@ function App() {
   }
 
   async function exportExcelMonth() {
-    const FONT_NAME = "TH SarabunPSK";
+    const FONT_NAME = "Angsana New";
+    const FORCE_SZ = 16; // ใช้ขนาด 16 กับทุกเซลล์ในไฟล์ Excel สรุปค่าแรง
     const thin = { style: "thin", color: { rgb: "000000" } };
     const boxBorder = { top: thin, bottom: thin, left: thin, right: thin };
     const centerAlign = { horizontal: "center", vertical: "center", wrapText: true };
     const cell = (v, { bold = false, fill = null, border = true, align = centerAlign, sz = 16, color = null, numFmt = null } = {}) => {
-      const font = { name: FONT_NAME, sz, bold };
+      const font = { name: FONT_NAME, sz: FORCE_SZ, bold: false }; // ไม่ใช้ตัวหนา
       if (color) font.color = { rgb: color };
       const style = { font, alignment: align };
       if (border) style.border = boxBorder;
@@ -902,10 +903,10 @@ function App() {
     const colWidths = [5, 10, 22, ...Array.from({ length: maxCols - 11 }, () => 4), 6, 10, 12, 13, 14, 11, 14, 10];
     colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
-    rows.forEach((_, i) => { ws.getRow(i + 1).height = 20; });
+    rows.forEach((_, i) => { ws.getRow(i + 1).height = 22; });
     const b2Offset = b1.rows.length + 1;
     [b1.headerRow, b1.headerRow + 1, b2Offset + b2.headerRow, b2Offset + b2.headerRow + 1].forEach((r) => {
-      if (r < rows.length) ws.getRow(r + 1).height = 26;
+      if (r < rows.length) ws.getRow(r + 1).height = 34;
     });
 
     // ทำให้คอลัมน์ทั้งหมดพอดีกับ 1 หน้ากว้าง (fitToWidth) และบังคับทั้งชีทให้อยู่ใน 2 หน้าสูงพอดี (fitToHeight: 2)
