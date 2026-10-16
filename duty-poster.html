@@ -58,14 +58,14 @@ tr.cl{cursor:pointer}tr.cl:hover{background:var(--bg)}
 .people{margin-top:14px;width:100%;display:flex;gap:22px}
 .pc{flex:1;text-align:center;position:relative}
 .tag{position:absolute;top:10px;left:10px;z-index:2;background:#e8b53a;color:#3a1d7a;font-weight:700;font-size:18px;padding:2px 14px;border-radius:20px}
-.ph{width:100%;height:305px;border-radius:16px 16px 0 0;background:#2b1760 center top/cover no-repeat;border:3px solid #e8b53a;border-bottom:0;display:flex;align-items:center;justify-content:center;font-size:16px;color:#c9b8ee}
+.ph{width:100%;height:275px;border-radius:16px 16px 0 0;background:#2b1760 center top/cover no-repeat;border:3px solid #e8b53a;border-bottom:0;display:flex;align-items:center;justify-content:center;font-size:16px;color:#c9b8ee}
 .nm{background:#fff;color:#3a1d7a;font-weight:700;font-size:25px;padding:7px 4px 0;line-height:1.25}
 .rl{background:#e8b53a;color:#3a1d7a;font-weight:600;font-size:18px;padding:2px 4px 6px;border-radius:0 0 14px 14px}.tl{display:none;background:#3a1d7a;color:#ffd96a;font-weight:600;font-size:20px;padding:3px 4px 6px;border:3px solid #e8b53a;border-top:0;border-radius:0 0 14px 14px}
 .svc{margin-top:14px;width:100%;background:#fff;color:#3a1d7a;font-weight:600;font-size:22px;text-align:center;padding:6px;border-radius:30px;border:3px solid #e8b53a}
 .call{margin-top:10px;width:100%;display:flex;align-items:center;gap:14px;background:linear-gradient(90deg,#4b208f,#6a3fb0);border:3px solid #e8b53a;border-radius:44px;padding:6px 22px}
 .call .a{font-size:23px;font-weight:600}.call .n{font-size:44px;font-weight:700;color:#ffd96a;line-height:1.05}
 .ct{margin-top:10px;background:#fff;color:#3a1d7a;border-radius:12px;padding:5px 26px;text-align:center;font-size:16px;line-height:1.3}
-.ct b{font-size:18px}.mimg{width:60px;height:60px;border-radius:50%;margin:0 auto 3px;background:#d9d4e8 center top/cover no-repeat;border:2px solid #e8b53a}
+.ct b{font-size:18px}.mimg{width:100px;height:100px;border-radius:50%;margin:0 auto 3px;background:#d9d4e8 center top/cover no-repeat;border:2px solid #e8b53a}
 .ft{margin-top:auto;font-size:17px;text-align:center}.ft small{display:block;font-size:12px;letter-spacing:1px;color:#ffd96a}
 #modal{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;flex-direction:column;align-items:center;justify-content:center;padding:16px;z-index:50;gap:10px}
 #modal img{max-width:100%;max-height:78vh;border-radius:8px}
@@ -90,7 +90,8 @@ tr.cl{cursor:pointer}tr.cl:hover{background:var(--bg)}
     <button class="sec" id="auto">🗑️ ล้างเวรของวัน/กะนี้</button>
     <h3>ข้อความอื่นๆ บนโปสเตอร์</h3>
     <div id="txf"></div>
-    <h3>พื้นหลังและโลโก้</h3><label>ภาพพื้นหลัง (แนวตั้ง สัดส่วนประมาณ 9:14 ไม่มีตัวหนังสือและไม่มีคน)</label><input type="file" accept="image/*" onchange="pic(this,'bg',1500)"><button class="sec" onclick="S.bg='';S.bgId='';save();applyDeco()">ลบพื้นหลัง (กลับเป็นสีม่วงเดิม)</button><label>โลโก้ PEA</label><input type="file" accept="image/*" onchange="pic(this,'logo',300)"><button class="sec" onclick="S.logo='';S.logoId='';save();applyDeco()">ลบโลโก้</button><button id="exp">⬇️ สร้างรูปภาพ (PNG)</button>
+    <h3>พื้นหลังและโลโก้</h3><label>ภาพพื้นหลัง (แนวตั้ง สัดส่วนประมาณ 9:14 ไม่มีตัวหนังสือและไม่มีคน)</label><input type="file" accept="image/*" onchange="pic(this,'bg',1500)"><button class="sec" onclick="S.bg='';S.bgId='';save();applyDeco()">ลบพื้นหลัง (กลับเป็นสีม่วงเดิม)</button><label>โลโก้ PEA</label><input type="file" accept="image/*" onchange="pic(this,'logo',300)"><button class="sec" onclick="S.logo='';S.logoId='';save();applyDeco()">ลบโลโก้</button><button id="exp">🖼️ สร้างรูปภาพ (PNG)</button>
+    <div style="display:flex;gap:8px"><button id="sv" style="flex:1;margin-top:8px">💾 บันทึกรูปภาพ</button><button id="shr" class="sec" style="flex:1;margin-top:8px;font-size:16px;padding:11px 16px">📤 แชร์รูปภาพ</button></div>
   </div>
   <div class="stage" id="stage"><div id="wrap">
     <div id="poster"><div class="ov"></div><div class="in">
@@ -194,9 +195,22 @@ function tab(t){['poster','people','sched'].forEach(x=>$('#t-'+x).classList.togg
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>tab(b.dataset.tab));
 function fit(){const s=$('#stage'),k=Math.min(s.clientWidth,720)/720;$('#wrap').style.transform=`scale(${k})`;s.style.height=(1220*k)+'px'}
 addEventListener('resize',fit);
-$('#exp').onclick=async()=>{const b=$('#exp'),w=$('#wrap'),old=w.style.transform;b.textContent="กำลังสร้างรูป...";w.style.transform='none';
- try{await prep();await document.fonts.ready;const c=await html2canvas($('#poster'),{scale:2,backgroundColor:null,useCORS:true});$('#out').src=c.toDataURL('image/png');$('#modal').style.display='flex'}catch(e){alert("\u0e2a\u0e23\u0e49\u0e32\u0e07\u0e23\u0e39\u0e1b\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08: "+(e.message||""))}
- w.style.transform=old;b.textContent="⬇️ สร้างรูปภาพ (PNG)"};
+let lastBlob=null;
+async function makePng(btn){const w=$('#wrap'),old=w.style.transform,t0=btn.textContent;btn.textContent='กำลังสร้างรูป...';w.style.transform='none';
+ try{await prep();await document.fonts.ready;const c=await html2canvas($('#poster'),{scale:2,backgroundColor:null,useCORS:true});
+  const b=await new Promise((res,rej)=>c.toBlob(x=>x?res(x):rej(new Error('สร้างไฟล์ภาพไม่สำเร็จ')),'image/png'));lastBlob={k:$('#poster').innerHTML,b};return b}
+ finally{w.style.transform=old;btn.textContent=t0}}
+const fname=()=>'เวร_'+$('#dt').value+(isHol($('#dt').value)?(SH==0?'_กะเช้า':'_กะบ่าย'):'')+'.png';
+function saveBlob(b){const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=fname();document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
+const fail=e=>alert('ทำรายการไม่สำเร็จ: '+(e&&e.message||''));
+$('#exp').onclick=async()=>{try{const b=await makePng($('#exp'));$('#out').src=URL.createObjectURL(b);$('#modal').style.display='flex'}catch(e){fail(e)}};
+$('#sv').onclick=async()=>{try{saveBlob(await makePng($('#sv')))}catch(e){fail(e)}};
+$('#shr').onclick=async()=>{try{let b=lastBlob&&lastBlob.k===$('#poster').innerHTML?lastBlob.b:null,fresh=false;if(!b){b=await makePng($('#shr'));fresh=true}
+ const f=new File([b],fname(),{type:'image/png'});
+ if(!(navigator.canShare&&navigator.canShare({files:[f]}))){saveBlob(b);alert('เครื่องหรือเบราว์เซอร์นี้ไม่รองรับการแชร์โดยตรง จึงบันทึกรูปให้แทน นำไฟล์ที่บันทึกไปส่งต่อได้เลย');return}
+ try{await navigator.share({files:[f],title:'เวรแก้กระแสไฟฟ้าขัดข้อง',text:'เวรแก้กระแสไฟฟ้าขัดข้อง '+$('#p-date').textContent})}
+ catch(e){if(e&&e.name==='AbortError')return;if(e&&e.name==='NotAllowedError'&&fresh){alert('รูปพร้อมแล้ว กดปุ่ม "แชร์รูปภาพ" อีกครั้งเพื่อส่งต่อ');return}throw e}}
+ catch(e){fail(e)}};
 $('#cl').onclick=()=>$('#modal').style.display='none';
 const t=new Date(),pad=n=>String(n).padStart(2,'0');$('#dt').value=`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;SH=isHol($('#dt').value)?0:1;$('#mon').value=$('#dt').value.slice(0,7);$('#mon').onchange=sched;
 function applyDeco(){const p=$('#poster'),l=$('#logo');if(S.bg){p.style.backgroundImage=`url('${S.bg}')`;p.classList.add('hasbg')}else{p.style.backgroundImage='';p.classList.remove('hasbg')}if(S.logo){l.style.backgroundImage=`url('${S.logo}')`;l.textContent=''}else{l.style.backgroundImage='';l.textContent='PEA'}}
