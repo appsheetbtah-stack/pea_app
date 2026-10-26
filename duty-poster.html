@@ -231,7 +231,7 @@ body{padding-top:52px}
       <div class="pill">พนักงานอยู่เวร</div>
       <div class="people">
         <div class="pc"><div class="tab6">หัวหน้าเวร</div><div class="ph" id="ph0"></div><div class="inf"><span class="av6"><i></i><b></b></span><div class="nm" id="nm0"></div><div class="rl" id="rl0"></div><div class="tl" id="tl0"></div></div></div>
-        <div class="pc"><div class="tab6">ผู้ช่วยเวร</div><div class="ph" id="ph1"></div><div class="inf"><span class="av6"><i></i><b></b></span><div class="nm" id="nm1"></div><div class="rl" id="rl1"></div><div class="tl" id="tl1"></div></div></div>
+        <div class="pc"><div class="tab6">ผู้ช่วยช่าง</div><div class="ph" id="ph1"></div><div class="inf"><span class="av6"><i></i><b></b></span><div class="nm" id="nm1"></div><div class="rl" id="rl1"></div><div class="tl" id="tl1"></div></div></div>
       </div>
       <div class="svc">⛑️ พร้อมให้บริการแก้ไขไฟฟ้าขัดข้องในพื้นที่รับผิดชอบ</div>
       <div class="call"><div class="ic">📞</div><div><div class="a">แจ้งไฟฟ้าขัดข้อง ตลอด 24 ชั่วโมง</div><div class="n" id="p-phone"></div></div></div>
@@ -268,10 +268,10 @@ const KEY='pea-roster-v1',$=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const DAYS=['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'],MON=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 const DEF={heads:[["นายชาคริต บุญม่วง","พชง.6 กฟส.ทอห."],["นายอนลัส เลี่ยมสกุล","พชง.5 กฟส.ทอห."],["นายนิติพัฒน์ พุกสุข","พชง.4 กฟส.ทอห."],["นายสัตตยา นุเครือ","พชง.3 กฟส.ทอห."]].map(([n,p])=>({n,p,img:""})),
-assists:["นายประเสริฐ ทิมทอง","นายดนุภพ คำมาเปียง","นายชารี ราชอ่อง"].map(n=>({n,p:"ผู้ช่วยเวร กฟส.ทอห.",img:""})),
+assists:["นายประเสริฐ ทิมทอง","นายดนุภพ คำมาเปียง","นายชารี ราชอ่อง"].map(n=>({n,p:"ผู้ช่วยช่าง กฟส.ทอห.",img:""})),
 log:{},t:{t1:"08.30-16.30",t2:"16.30-00.30",phone:"055-982026 หรือ 1129",mgr:"นายวรุฒ พ่วงท่าโก",mt:"ผู้จัดการ การไฟฟ้าส่วนภูมิภาคสาขาบ้านทุ่งอ้ายโห้",tel:"โทร. 089-7728843"}};
 let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
-if(!S||!S.heads)S=JSON.parse(JSON.stringify(DEF));
+if(!S||!S.heads)S=JSON.parse(JSON.stringify(DEF));function fixRole(){let c=0;[...(S.heads||[]),...(S.assists||[])].forEach(p=>{if(p&&typeof p.p==='string'&&p.p.indexOf('ผู้ช่วยเวร')>-1){p.p=p.p.split('ผู้ช่วยเวร').join('ผู้ช่วยช่าง');c++}});return c}fixRole();
 const OLD={phone:"042-372119 หรือ 1129",mgr:"นายพัฒนชัย พฤฒิฤทธิกร",mt:"ผู้จัดการ การไฟฟ้าส่วนภูมิภาค สาขาสุวรรณคูหา",tel:"โทร. 064-936-6978"};
 Object.keys(OLD).forEach(k=>{if(S.t&&S.t[k]===OLD[k])S.t[k]=DEF.t[k]});S.t=Object.assign({},DEF.t,S.t);S.hol=S.hol||{};delete S.ov;delete S.start;delete S.si;S.log=S.log||{};delete S.bg;delete S.bgId;delete S.logo;delete S.logoId;ensureMgr();ensureUid();
 const FB={apiKey:'AIzaSyC7bzImCV7c89fLGhIq8OycWKQWRYdvZvE',authDomain:'pea-system.firebaseapp.com',projectId:'pea-system',storageBucket:'pea-system.firebasestorage.app',messagingSenderId:'1006235611544',appId:'1:1006235611544:web:a7453d71ff56748166fbed'};
@@ -296,7 +296,7 @@ function poster(){const date=$('#dt').value;if(!date)return;const hol=isHol(date
  $('#sh').innerHTML=optU('heads',e.h,e.hn,'— เลือกหัวหน้าเวร —');$('#sa').innerHTML=optU('assists',e.a,e.an,'— เลือกผู้ช่วย —');
  $('#p-date').textContent=thai(date);$('#hol').checked=hol;$('#shrow').style.display=hol?'block':'none';$('#shift').value=SH;$('#shift').options[0].text='กะเช้า '+S.t.t1;$('#shift').options[1].text='กะบ่าย '+S.t.t2;
  {const tt=(hol&&SH==0?S.t.t1:S.t.t2)||'',p=tt.split('-'),ts=(p[0]||'').trim(),te=(p[1]||'').trim();$('#p-time').textContent='เวลา '+tt+' น.';$('#p-until').textContent=te?'ถึงเวลา '+te+' น. '+thai(te<ts?addD(date,1):date):'';const dd=new Date(utc(date));$('#x-date').textContent=dd.getUTCDate()+' '+MON[dd.getUTCMonth()]+' '+(dd.getUTCFullYear()+543);$('#x-wd').textContent='(วัน'+DAYS[dd.getUTCDay()]+')';const sh=parseInt(ts,10);$('#x-shift').textContent=isNaN(sh)?'':(sh>=6&&sh<16?'เวรกลางวัน':'เวรกลางคืน');$('#x-time').textContent=tt.replace('-',' - ')+' น.'}
- [[H,'0','หัวหน้าเวร'],[A,'1','ผู้ช่วยเวร']].forEach(([P,i,role])=>{const ph=$('#ph'+i);ph.style.backgroundImage=P.img?`url('${P.img}')`:'none';ph.textContent=P.img?'':(P.n?'(ยังไม่มีรูป)':'(ยังไม่ได้เลือก)');$('#nm'+i).textContent=P.n;$('#rl'+i).textContent=i=='0'?role+' '+P.p:P.p;const tl=$('#tl'+i);tl.textContent=P.tel?'โทร. '+P.tel:'';tl.style.display=P.tel?'block':'none';$('#rl'+i).style.borderRadius=P.tel?'0':'0 0 14px 14px'});
+ [[H,'0','หัวหน้าเวร'],[A,'1','ผู้ช่วยช่าง']].forEach(([P,i,role])=>{const ph=$('#ph'+i);ph.style.backgroundImage=P.img?`url('${P.img}')`:'none';ph.textContent=P.img?'':(P.n?'(ยังไม่มีรูป)':'(ยังไม่ได้เลือก)');$('#nm'+i).textContent=P.n;$('#rl'+i).textContent=i=='0'?role+' '+P.p:P.p;const tl=$('#tl'+i);tl.textContent=P.tel?'โทร. '+P.tel:'';tl.style.display=P.tel?'block':'none';$('#rl'+i).style.borderRadius=P.tel?'0':'0 0 14px 14px'});
  $('#p-phone').textContent=S.t.phone;{const M=S.mgrs[0]||{};$('#p-mgr').textContent=M.n||'';$('#p-mt').textContent=M.p||'';$('#p-tel').textContent=M.tel?'โทร. '+M.tel:'';const mi=$('#p-mimg');mi.style.display=M.img?'block':'none';mi.style.backgroundImage=M.img?`url('${M.img}')`:'none'}}
 function setDuty(){const d=$('#dt').value,h=$('#sh').value,a=$('#sa').value,key=lk(d,SH),old=S.log[key]||{};
  if(!h&&!a)delete S.log[key];else{const H=S.heads.find(p=>p.uid===h)||{},A=S.assists.find(p=>p.uid===a)||{};S.log[key]={h,hn:H.n||(h&&old.h===h?old.hn:''),hp:H.p||(h&&old.h===h?old.hp:''),a,an:A.n||(a&&old.a===a?old.an:''),ap:A.p||(a&&old.a===a?old.ap:'')}}
@@ -311,7 +311,7 @@ $('#txf').innerHTML=Object.keys(TL).map(k=>`<label>${TL[k]}</label><input id="tx
 Object.keys(TL).forEach(k=>$('#tx-'+k).oninput=e=>{S.t[k]=e.target.value;save();poster()});
 function people(){['heads','assists','mgrs'].forEach(k=>{$({heads:'#lh',assists:'#la',mgrs:'#lm'}[k]).innerHTML=S[k].map((p,i)=>`<div class="row"><div class="th" style="background-image:url('${p.img}')"></div><div class="f"><input value="${esc(p.n)}" oninput="ed('${k}',${i},'n',this.value)"><input value="${esc(p.p)}" placeholder="ตำแหน่ง" oninput="ed('${k}',${i},'p',this.value)"><input type="tel" value="${esc(p.tel||'')}" placeholder="เบอร์โทรศัพท์" oninput="ed('${k}',${i},'tel',this.value)"><input type="file" accept="image/*" onchange="up('${k}',${i},this)"></div>${k=='mgrs'?'':`<button class="x" onclick="rm('${k}',${i})">✕</button>`}</div>`).join('')})}
 function ed(k,i,f,v){S[k][i][f]=v;save();poster();sched()}
-function add(k){S[k].push({n:"ชื่อใหม่",p:k=='heads'?"ตำแหน่ง":"ผู้ช่วยเวร กฟส.ทอห.",img:"",uid:uidOf()});save();people();poster();sched()}
+function add(k){S[k].push({n:"ชื่อใหม่",p:k=='heads'?"ตำแหน่ง":"ผู้ช่วยช่าง กฟส.ทอห.",img:"",uid:uidOf()});save();people();poster();sched()}
 function rm(k,i){if(S[k].length<2||!confirm('ลบคนนี้ออกจากรายชื่อ? (ประวัติเวรที่ผ่านมายังเก็บชื่อไว้)'))return;S[k].splice(i,1);save();people();poster();sched()}
 function up(k,i,inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const s=Math.min(1,520/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);S[k][i].img=c.toDataURL('image/jpeg',.82);S[k][i].id='';save();people();poster();sync(S[k][i],'img','id')};im.src=r.result};r.readAsDataURL(f)}
 function sched(){const m=$('#mon').value;if(!m)return;const[y,mo]=m.split('-').map(Number),n=new Date(Date.UTC(y,mo,0)).getUTCDate(),cnt={};let h='';
@@ -413,7 +413,7 @@ document.querySelector('.tabs').addEventListener('click',()=>setTimeout(qFit,0))
 async function boot(){rr();sched();fit();
  if(typeof firebase!=='undefined'){try{firebase.initializeApp(FB);DB=firebase.firestore();st('กำลังโหลดข้อมูลจาก Firebase...');
   const snap=await Promise.race([DB.doc('roster/main').get(),new Promise((_,r)=>setTimeout(()=>r(new Error('หมดเวลาเชื่อมต่อ')),8000))]);
-  if(snap.exists){const L=S;S=snap.data();delete S.ov;delete S.start;delete S.si;S.log=S.log||{};S.t=Object.assign({},DEF.t,S.t);S.hol=S.hol||{};delete S.bg;delete S.bgId;delete S.logo;delete S.logoId;ensureMgr();if(ensureUid())save();['heads','assists','mgrs'].forEach(k=>(S[k]||[]).forEach((p,i)=>{const l=((L[k]||[])[i])||{};if(!p.id&&l.img)p.img=l.img}));if(!S.bgId&&L.bg)S.bg=L.bg;if(!S.logoId&&L.logo)S.logo=L.logo
+  if(snap.exists){const L=S;S=snap.data();delete S.ov;delete S.start;delete S.si;S.log=S.log||{};S.t=Object.assign({},DEF.t,S.t);S.hol=S.hol||{};delete S.bg;delete S.bgId;delete S.logo;delete S.logoId;ensureMgr();if(fixRole()+ensureUid())save();['heads','assists','mgrs'].forEach(k=>(S[k]||[]).forEach((p,i)=>{const l=((L[k]||[])[i])||{};if(!p.id&&l.img)p.img=l.img}));if(!S.bgId&&L.bg)S.bg=L.bg;if(!S.logoId&&L.logo)S.logo=L.logo
    document.querySelectorAll('#txf input').forEach(i=>i.value=S.t[i.id.slice(3)]||'');rr();sched();st('โหลดข้อมูลจาก Firebase แล้ว ✓')}
   else{st('สร้างข้อมูลชุดแรกบน Firebase...');save()}}
  catch(e){DB=null;st('ใช้ข้อมูลในเบราว์เซอร์นี้ (เชื่อม Firebase ไม่ได้: '+e.message+')',1)}}
