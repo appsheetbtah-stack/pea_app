@@ -151,6 +151,76 @@ function writeAoaToWorksheet(ws, rows, merges) {
     try { ws.mergeCells(m.s.r + 1, m.s.c + 1, m.e.r + 1, m.e.c + 1); } catch (e) { /* ignore duplicate-merge errors */ }
   });
 }
+// พิมพ์ worksheet ของ ExcelJS ออกเครื่องพิมพ์ โดยแปลงเป็นตาราง HTML หน้าตาเดียวกับไฟล์ Excel
+function colLetterToNum(s) { let n = 0; for (const ch of s) n = n * 26 + ch.charCodeAt(0) - 64; return n; }
+function printWorksheet(ws) {
+  const escapeHtml = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const nCols = ws.columnCount, nRows = ws.rowCount;
+  const spans = {}; const covered = new Set();
+  ((ws.model && ws.model.merges) || []).forEach((ref) => {
+    const m = /^([A-Z]+)(\d+):([A-Z]+)(\d+)$/.exec(ref);
+    if (!m) return;
+    const c1 = colLetterToNum(m[1]), r1 = +m[2], c2 = colLetterToNum(m[3]), r2 = +m[4];
+    spans[r1 + "," + c1] = { rs: r2 - r1 + 1, cs: c2 - c1 + 1 };
+    for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) if (r !== r1 || c !== c1) covered.add(r + "," + c);
+  });
+  const widths = [];
+  let totalPx = 0;
+  for (let c = 1; c <= nCols; c++) { const px = Math.round((ws.getColumn(c).width || 8.43) * 7 + 5); widths.push(px); totalPx += px; }
+  const pagePx = 1040; // A4 แนวนอนกว้าง ~1122px หักขอบซ้าย/ขวาข้างละ 10 มม. (~38px) เหลือ ~1046px
+  const zoom = Math.min(1, pagePx / totalPx);
+  const bd = (b) => (b && b.style ? "1px solid #000" : "none");
+  let html = "";
+  for (let r = 1; r <= nRows; r++) {
+    const row = ws.getRow(r);
+    const h = row.height ? `height:${row.height}pt;` : "";
+    html += `<tr style="${h}">`;
+    for (let c = 1; c <= nCols; c++) {
+      const key = r + "," + c;
+      if (covered.has(key)) continue;
+      const cell = row.getCell(c);
+      let v = cell.value;
+      if (v && typeof v === "object") v = v.result != null ? v.result : v.text != null ? v.text : "";
+      let text = "";
+      if (typeof v === "number") {
+        const nf = cell.numFmt || "";
+        if (/0\.00/.test(nf)) text = v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        else if (/#,##0/.test(nf)) text = v.toLocaleString("en-US", { maximumFractionDigits: 0 });
+        else text = String(v);
+      } else if (v != null) text = String(v);
+      const al = cell.alignment || {};
+      const hAlign = al.horizontal || (typeof v === "number" ? "right" : "left");
+      const vAlign = al.vertical === "middle" ? "middle" : al.vertical || "middle";
+      const b = cell.border || {};
+      const fill = cell.fill && cell.fill.fgColor && cell.fill.fgColor.argb ? `background:#${cell.fill.fgColor.argb.slice(2)};` : "";
+      const f = cell.font || {};
+      const color = f.color && f.color.argb ? `color:#${f.color.argb.slice(2)};` : "";
+      const sp = spans[key];
+      html += `<td${sp ? ` rowspan="${sp.rs}" colspan="${sp.cs}"` : ""} style="border-top:${bd(b.top)};border-bottom:${bd(b.bottom)};border-left:${bd(b.left)};border-right:${bd(b.right)};text-align:${hAlign};vertical-align:${vAlign};font-size:${f.size || 16}pt;font-weight:${f.bold ? 700 : 400};white-space:${al.wrapText ? "pre-wrap" : "nowrap"};${fill}${color}">${escapeHtml(text)}</td>`;
+    }
+    html += "</tr>";
+  }
+  const cols = widths.map((w) => `<col style="width:${w}px">`).join("");
+  const doc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>พิมพ์ค่าแรง</title><style>
+    @page { size: A4 landscape; margin: 0; } /* margin 0 = Chrome ไม่พิมพ์วันที่/ชื่อหน้า/URL/เลขหน้า */
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    html, body { margin: 0; padding: 0; background: #fff; }
+    body { padding: 10mm; box-sizing: border-box; }
+    table { border-collapse: collapse; table-layout: fixed; width: ${totalPx}px; zoom: ${zoom}; font-family: "Angsana New", "TH Sarabun New", "Sarabun", serif; color: #000; }
+    td { padding: 0 2px; overflow: hidden; line-height: 1.1; }
+  </style></head><body><div style="display:flex;justify-content:center;"><table><colgroup>${cols}</colgroup><tbody>${html}</tbody></table></div></body></html>`;
+  const iframe = document.createElement("iframe");
+  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+  document.body.appendChild(iframe);
+  const idoc = iframe.contentWindow.document;
+  idoc.open(); idoc.write(doc); idoc.close();
+  setTimeout(() => {
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+    setTimeout(() => iframe.remove(), 2000);
+  }, 400);
+}
+
 async function downloadWorkbook(wb, filename) {
   const buf = await wb.xlsx.writeBuffer();
   const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -301,6 +371,14 @@ function App() {
       }
     } catch (e) {
       if (e && e.name !== "AbortError") setShareMsg("แชร์ไม่สำเร็จ: " + (e.message || e));
+    }
+  }
+  function printShareExcel() {
+    try {
+      const wb = buildPayrollWorkbook(sharePeriod);
+      printWorksheet(wb.worksheets[0]);
+    } catch (e) {
+      setShareMsg("พิมพ์ไม่สำเร็จ: " + (e.message || e));
     }
   }
   useEffect(() => {
@@ -819,14 +897,15 @@ function App() {
     merges.push({ s: { r: R() - 1, c: mergeL }, e: { r: R() - 1, c: mergeS } });
 
     // ---- Table header (2 rows) ----
+    const DATE_HDR_FILL = null; // ไม่เติมสีหัวคอลัมน์ "วันที่" (คงเฉพาะสีวันหยุดแดง/เหลือง)
     const hdrTopRowIdx = R();
     const topRow = [
       cell("ที่", { bold: true, sz: 14 }),
       cell("รหัสประเภทคนงาน", { bold: true, sz: 14 }),
       cell("ชื่อ - สกุล", { bold: true, sz: 14 }),
-      cell("วันที่", { bold: true, sz: 14 }),
+      cell("วันที่", { bold: true, sz: 14, fill: DATE_HDR_FILL }),
     ];
-    for (let i = 1; i < numDays; i++) topRow.push(cell("", { bold: true }));
+    for (let i = 1; i < numDays; i++) topRow.push(cell("", { bold: true, fill: DATE_HDR_FILL }));
     ["รวม", "ค่าจ้างวันละ", "รวมเป็นเงิน", "หักประกันสังคม (5%)", "หักกองทุนสงเคราะห์ลูกจ้าง (0.25%)", "จ่ายสุทธิ", "อัตราผู้รับจ้าง\n(วันละ)", "รวมจ่ายให้ผู้รับจ้าง", "หมายเหตุ"].forEach((t) =>
       topRow.push(cell(t, { bold: true, sz: 13 }))
     );
@@ -834,7 +913,7 @@ function App() {
 
     const subRow = [cell("", { bold: true }), cell("", { bold: true }), cell("", { bold: true })];
     days.forEach((d) => {
-      let fill = null;
+      let fill = DATE_HDR_FILL;
       if (isYellowDay(d)) fill = "FFFF00";
       else if (isRedDay(d)) fill = "FF0000";
       subRow.push(cell(d, { bold: true, sz: 13, fill }));
@@ -935,19 +1014,46 @@ function App() {
     // ---- Signatures ----
     rows.push(blankRow(colCount, { border: false }));
     const half = Math.floor(colCount / 2);
+    // ช่องลงชื่อ: ทั้งบรรทัด (ลงชื่อ....... + ตำแหน่ง) จัดกึ่งกลางในช่องผสานช่องเดียว และ ชื่อ/วันที่ ก็จัดกึ่งกลางในช่องเดียวกัน
+    // ตำแหน่งช่องผสานคำนวณจากความกว้างคอลัมน์จริง ให้ศูนย์กลางอยู่ที่ ~21% (ซ้าย) และ ~72% (ขวา) ของความกว้างตาราง ตามไฟล์ต้นแบบ
+    const colW = (i) => (i < 3 ? [5, 10, 22][i] : i < 3 + numDays ? 4 : [6, 10, 12, 13, 14, 14, 11, 14, 10][i - 3 - numDays] || 10);
+    const widthsArr = Array.from({ length: colCount }, (_, i) => colW(i));
+    const prefix = [0]; widthsArr.forEach((w) => prefix.push(prefix[prefix.length - 1] + w));
+    const totalW = prefix[colCount];
+    const pickMerge = (frac, minW) => {
+      const target = frac * totalW;
+      let best = null;
+      for (let i = 0; i < colCount; i++) {
+        for (let j = i; j < colCount; j++) {
+          const w = prefix[j + 1] - prefix[i];
+          if (w < minW) continue;
+          const score = Math.abs(prefix[i] + w / 2 - target) + w * 0.01;
+          if (!best || score < best.score) best = { i, j, score };
+        }
+      }
+      return best || { i: 0, j: colCount - 1 };
+    };
+    const L = pickMerge(0.212, 38);
+    let Rm = pickMerge(0.717, 42);
+    if (Rm.i <= L.j) Rm = { i: L.j + 1, j: colCount - 1 };
+    // บรรทัด "ลงชื่อ......." ขยับไปทางขวาอีกเล็กน้อย (ซ้าย +1.5% / ขวา +2% ของความกว้างตาราง) ให้ชื่อ/วันที่ด้านล่างอยู่ตรงกลางเส้น
+    const L1 = pickMerge(0.212 + 0.015, 38);
+    let R1 = pickMerge(0.717 + 0.02, 42);
+    if (R1.i <= L1.j) R1 = { i: L1.j + 1, j: colCount - 1 };
+    const sigAlign = { horizontal: "center", vertical: "center" };
     [
-      [`             ลงชื่อ.......................................... ตัวแทนผู้รับจ้าง`, `                 ลงชื่อ.......................................... พขบ. ผู้คุมงบคู่สัญญา`],
+      [`ลงชื่อ.......................................... ตัวแทนผู้รับจ้าง`, `ลงชื่อ.......................................... พขบ. ผู้คุมงบคู่สัญญา`],
       [`นางสาวจิระวดี  มีสวัสดิ์`, docSettings.teamName],
       [`วันที่.........../.........../...........`, `วันที่.........../.........../...........`],
-    ].forEach((pair) => {
-      const row = [cell(pair[0], { sz: 14, border: false, align: { horizontal: "center", vertical: "center" } })];
-      for (let i = 1; i < half; i++) row.push(cell("", { border: false }));
-      row.push(cell(pair[1], { sz: 14, border: false, align: { horizontal: "center", vertical: "center" } }));
-      for (let i = half + 1; i < colCount; i++) row.push(cell("", { border: false }));
+    ].forEach(([lText, rText], sigIdx) => {
+      const LL = sigIdx === 0 ? L1 : L, RR = sigIdx === 0 ? R1 : Rm;
+      const row = blankRow(colCount, { border: false });
+      row[LL.i] = cell(lText, { sz: 14, border: false, align: sigAlign });
+      row[RR.i] = cell(rText, { sz: 14, border: false, align: sigAlign });
       rows.push(row);
       const r = R() - 1;
-      merges.push({ s: { r, c: 0 }, e: { r, c: half - 1 } });
-      merges.push({ s: { r, c: half }, e: { r, c: colCount - 1 } });
+      merges.push({ s: { r, c: LL.i }, e: { r, c: LL.j } });
+      merges.push({ s: { r, c: RR.i }, e: { r, c: RR.j } });
     });
 
     rows.push(blankRow(colCount, { border: false }));
@@ -1322,24 +1428,34 @@ function App() {
                 </tbody>
               </table>
               {opts.leaveNotes && team.type === "rotation" && (() => {
-                const notes = [];
+                const leaveRows = [];
                 days.forEach((d) => {
                   const entry = getEntry(dateKey(year, month, d));
                   (entry.subs || []).forEach((s, si) => {
                     const orig = entry.shifts[si];
                     if (!s || !orig) return;
-                    const when = `วันที่ ${d} ${THAI_MONTHS[month - 1]}`;
-                    const shiftTxt = `กะ ${SHIFT_LABELS[si]} น.`;
-                    notes.push(s === "none"
-                      ? `${when} ${shiftTxt}: ${workerName(orig)} ลา (ไม่มีผู้แทน)`
-                      : `${when} ${shiftTxt}: ${workerName(orig)} ลา — ${workerName(s)} แทน`);
+                    leaveRows.push({
+                      date: `${d} ${THAI_MONTHS[month - 1]}`,
+                      time: `${SHIFT_LABELS[si]} น.`,
+                      leaver: workerName(orig),
+                      sub: s === "none" ? "ไม่มีผู้แทน" : workerName(s),
+                    });
                   });
                 });
-                if (!notes.length) return null;
+                if (!leaveRows.length) return null;
                 return (
-                  <div style={{ marginTop: 8, fontSize: 12, textAlign: "left" }}>
-                    <div style={{ fontWeight: 600 }}>หมายเหตุ</div>
-                    {notes.map((t, ni) => <div key={ni}>{ni + 1}. {t}</div>)}
+                  <div style={{ marginTop: 10, textAlign: "left" }}>
+                    <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 4 }}>หมายเหตุ การลา / แทนเวร</div>
+                    <table className="leave-table">
+                      <thead>
+                        <tr><th>วันที่</th><th>ช่วงเวลา</th><th>ผู้ลา</th><th>ผู้แทนเวร</th></tr>
+                      </thead>
+                      <tbody>
+                        {leaveRows.map((r, ri) => (
+                          <tr key={ri}><td>{r.date}</td><td>{r.time}</td><td>{r.leaver}</td><td>{r.sub}</td></tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 );
               })()}
@@ -1558,13 +1674,19 @@ function App() {
         .period-block h2 { font-size: 15px; margin: 10px 0 8px; color: var(--text); text-align: center; }
         .period-block table { font-size: 11px; }
         .period-block th, .period-block td { padding: 5px 6px; white-space: nowrap; }
+        .period-block th:nth-child(2), .period-block td:nth-child(2) { text-align: left; padding-left: 12px; }
+        .period-block .leave-table { width: auto; font-size: 12px; margin: 0; }
+        .period-block .leave-table th, .period-block .leave-table td { text-align: center; padding: 4px 14px; border: 1px solid var(--border); white-space: nowrap; }
+        .period-block .leave-table th { color: var(--text); font-weight: 600; background: var(--surface2); }
+        #printable-area .leave-table { width: auto; font-size: 10px; }
         .share-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
         .share-modal { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 18px; width: 100%; max-width: 720px; max-height: 92vh; overflow-y: auto; }
         .share-modal img { width: 100%; height: auto; border: 1px solid var(--border); border-radius: 6px; background: #fff; margin: 12px 0; }
         .share-msg { font-size: 12.5px; color: var(--accent); margin-top: 8px; }
         .share-capture { position: fixed; left: -99999px; top: 0; width: 1200px; padding: 24px; background: #fff; color: #000;
           --text: #000; --text2: #333; --border: #888; --surface: #fff; --surface2: #f0f0f0; font-family: 'Sarabun', sans-serif; }
-        .share-capture .sign-row { margin-top: 28px; font-size: 13px; }
+        @media screen { .sign-row { display: none !important; } } /* ไม่แสดงช่องลงชื่อบนหน้าจอ (ยังอยู่ในโหมดพิมพ์) */
+        .share-capture .sign-row { display: none; } /* รูปที่ส่งออกไม่ใส่ช่องลงชื่อ */
         .sign-row { display: flex; justify-content: space-between; margin-top: 20px; font-size: 12px; color: var(--text2); flex-wrap: wrap; gap: 10px; }
         @media print {
           body * { visibility: hidden; }
@@ -1982,6 +2104,7 @@ function App() {
                 <div className="row">
                   <button className="btn" onClick={saveShareImage}>{shareMode === "excel" ? "บันทึกไฟล์" : "บันทึกรูป"}</button>
                   <button className="btn primary" onClick={doShareImage}>{shareMode === "excel" ? "แชร์ไฟล์" : "แชร์รูป"}</button>
+                  {shareMode === "excel" && <button className="btn" onClick={printShareExcel}>พิมพ์</button>}
                 </div>
               </>
             )}
