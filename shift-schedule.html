@@ -22,6 +22,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 /* ExcelJS (browser build) - bundled for offline use */
 /*! ExcelJS 19-10-2023 */
@@ -97,7 +98,14 @@ const THAI_DAYS_SHORT = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 const THAI_DAYS_FULL = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
 const SHIFT_LABELS = ["00:00 - 08:00", "08:00 - 16:00", "16:00 - 24:00"];
 const WORKER_COLORS = ["#F2A93B", "#3FB88F", "#7C8CF8", "#E85D42", "#4FC3E0", "#C97BD1"];
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const SSO_RATE = 0.05;
+// เงินสะสมเข้ากองทุนสงเคราะห์ลูกจ้าง 0.25% ของค่าจ้าง (ประกาศ 7 ก.ย. 2569) — หักตั้งแต่ค่าจ้างเดือน ต.ค. 2569 (ค.ศ. 2026) เป็นต้นไป
+const WELFARE_RATE = 0.0025;
+const WELFARE_START = { year: 2026, month: 10 };
+function welfareRate(y, m) {
+  return (y > WELFARE_START.year || (y === WELFARE_START.year && m >= WELFARE_START.month)) ? WELFARE_RATE : 0;
+}
 
 const pad2 = (n) => String(n).padStart(2, "0");
 const dateKey = (y, m, d) => `${y}-${pad2(m)}-${pad2(d)}`;
@@ -253,6 +261,79 @@ function App() {
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [tab, setTab] = useState("schedule");
   const [selectedDay, setSelectedDay] = useState(null);
+  // ---- แชร์รูปรายงานค่าแรง ----
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareMode, setShareMode] = useState("image"); // "image" | "excel"
+  const [sharePeriod, setSharePeriod] = useState(null); // 0 = งวด 1-15, 1 = งวด 16-สิ้นเดือน
+  const [shareBlob, setShareBlob] = useState(null);
+  const [shareUrl, setShareUrl] = useState(null);
+  const [shareMsg, setShareMsg] = useState("");
+  const shareCaptureRef = useRef(null);
+
+  function openShare(mode) { setShareMode(mode); setShareOpen(true); setSharePeriod(null); setShareBlob(null); setShareUrl(null); setShareMsg(""); }
+  function closeShare() {
+    if (shareUrl) URL.revokeObjectURL(shareUrl);
+    setShareOpen(false); setSharePeriod(null); setShareBlob(null); setShareUrl(null); setShareMsg("");
+  }
+  function backToPickPeriod() {
+    if (shareUrl) URL.revokeObjectURL(shareUrl);
+    setSharePeriod(null); setShareBlob(null); setShareUrl(null); setShareMsg("");
+  }
+  function shareFileName() {
+    const lbl = sharePeriod === 0 ? "1-15" : `16-${daysInMonth(year, month)}`;
+    return `ค่าแรง_${team.name}_งวด${lbl}_${THAI_MONTHS[month - 1]}${year + 543}.${shareMode === "excel" ? "xlsx" : "png"}`;
+  }
+  function saveShareImage() {
+    if (!shareUrl) return;
+    const a = document.createElement("a");
+    a.href = shareUrl; a.download = shareFileName();
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  async function doShareImage() {
+    if (!shareBlob) return;
+    const file = new File([shareBlob], shareFileName(), { type: shareMode === "excel" ? XLSX_MIME : "image/png" });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "สรุปค่าแรงและค่าจ้าง" });
+      } else {
+        saveShareImage();
+        setShareMsg("เบราว์เซอร์นี้ไม่รองรับการแชร์โดยตรง จึงบันทึกไฟล์ให้แทน — นำไฟล์ไปส่งต่อได้เลย");
+      }
+    } catch (e) {
+      if (e && e.name !== "AbortError") setShareMsg("แชร์ไม่สำเร็จ: " + (e.message || e));
+    }
+  }
+  useEffect(() => {
+    if (!shareOpen || sharePeriod === null) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        if (shareMode === "excel") {
+          const wb = buildPayrollWorkbook(sharePeriod);
+          const buf = await wb.xlsx.writeBuffer();
+          if (cancelled) return;
+          const xblob = new Blob([buf], { type: XLSX_MIME });
+          setShareBlob(xblob);
+          setShareUrl(URL.createObjectURL(xblob));
+          return;
+        }
+        if (!window.html2canvas) throw new Error("โหลดตัวสร้างรูปไม่สำเร็จ (ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่)");
+        if (document.fonts && document.fonts.ready) await document.fonts.ready;
+        await new Promise((r) => setTimeout(r, 200));
+        const el = shareCaptureRef.current;
+        if (!el) return;
+        const canvas = await window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false });
+        const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
+        if (cancelled) return;
+        if (!blob) throw new Error("สร้างรูปไม่สำเร็จ");
+        setShareBlob(blob);
+        setShareUrl(URL.createObjectURL(blob));
+      } catch (e) {
+        if (!cancelled) setShareMsg("สร้างไฟล์ไม่สำเร็จ: " + (e.message || e));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [shareOpen, sharePeriod, shareMode]);
   const [syncStatus, setSyncStatus] = useState("loading"); // loading | synced | saving | error
   const [syncError, setSyncError] = useState("");
   const skipNextSave = useRef(true); // avoid re-saving the data we just loaded
@@ -613,7 +694,7 @@ function App() {
         workers.forEach((w) => {
           const units = perWorker[w.id];
           const gross = units * w.dailyRate;
-          const net = gross - gross * SSO_RATE;
+          const net = gross - gross * SSO_RATE - gross * welfareRate(year, m);
           totals[w.id].net += net;
           totals[w.id].contractor += units * w.contractorRate;
         });
@@ -670,7 +751,7 @@ function App() {
     const days = [];
     for (let d = fromDay; d <= toDay; d++) days.push(d);
     const numDays = days.length;
-    const colCount = numDays + 11;
+    const colCount = numDays + 12;
     const rows = [];
     const merges = [];
     const R = () => rows.length;
@@ -725,7 +806,7 @@ function App() {
       cell("วันที่", { bold: true, sz: 14 }),
     ];
     for (let i = 1; i < numDays; i++) topRow.push(cell("", { bold: true }));
-    ["รวม", "ค่าจ้างวันละ", "รวมเป็นเงิน", "หักประกันสังคม (5%)", "จ่ายสุทธิ", "อัตราผู้รับจ้าง\n(วันละ)", "รวมจ่ายให้ผู้รับจ้าง", "หมายเหตุ"].forEach((t) =>
+    ["รวม", "ค่าจ้างวันละ", "รวมเป็นเงิน", "หักประกันสังคม (5%)", "หักกองทุนสงเคราะห์ลูกจ้าง (0.25%)", "จ่ายสุทธิ", "อัตราผู้รับจ้าง\n(วันละ)", "รวมจ่ายให้ผู้รับจ้าง", "หมายเหตุ"].forEach((t) =>
       topRow.push(cell(t, { bold: true, sz: 13 }))
     );
     rows.push(topRow);
@@ -737,18 +818,19 @@ function App() {
       else if (isRedDay(d)) fill = "FF0000";
       subRow.push(cell(d, { bold: true, sz: 13, fill }));
     });
-    for (let i = 0; i < 8; i++) subRow.push(cell("", { bold: true }));
+    for (let i = 0; i < 9; i++) subRow.push(cell("", { bold: true }));
     rows.push(subRow);
 
     for (let c = 0; c < 3; c++) merges.push({ s: { r: hdrTopRowIdx, c }, e: { r: hdrTopRowIdx + 1, c } });
     merges.push({ s: { r: hdrTopRowIdx, c: 3 }, e: { r: hdrTopRowIdx, c: 3 + numDays - 1 } });
-    for (let c = 0; c < 8; c++) {
+    for (let c = 0; c < 9; c++) {
       const col = 3 + numDays + c;
       merges.push({ s: { r: hdrTopRowIdx, c: col }, e: { r: hdrTopRowIdx + 1, c: col } });
     }
 
     // ---- Data rows ----
-    let sumUnits = 0, sumGross = 0, sumSso = 0, sumNet = 0, sumContractor = 0;
+    let sumUnits = 0, sumGross = 0, sumSso = 0, sumWelfare = 0, sumNet = 0, sumContractor = 0;
+    const wRate = welfareRate(year, month);
     const dataRowCount = Math.max(workers.length, 10);
     for (let i = 0; i < dataRowCount; i++) {
       const w = workers[i];
@@ -757,9 +839,10 @@ function App() {
       const units = dayVals.reduce((a, b) => a + b, 0);
       const gross = units * w.dailyRate;
       const sso = gross * SSO_RATE;
-      const net = gross - sso;
+      const welfare = gross * wRate;
+      const net = gross - sso - welfare;
       const contractor = units * w.contractorRate;
-      sumUnits += units; sumGross += gross; sumSso += sso; sumNet += net; sumContractor += contractor;
+      sumUnits += units; sumGross += gross; sumSso += sso; sumWelfare += welfare; sumNet += net; sumContractor += contractor;
       rows.push([
         cell(i + 1, { sz: 14 }),
         cell(w.workerType ?? "", { sz: 14 }),
@@ -769,6 +852,7 @@ function App() {
         cell(w.dailyRate, { sz: 14, numFmt: "#,##0" }),
         cell(gross, { sz: 14, numFmt: "#,##0" }),
         cell(Number(sso.toFixed(2)), { sz: 14, numFmt: "#,##0.00" }),
+        cell(Number(welfare.toFixed(2)), { sz: 14, numFmt: "#,##0.00" }),
         cell(Number(net.toFixed(2)), { sz: 14, numFmt: "#,##0.00" }),
         cell(w.contractorRate, { sz: 14, numFmt: "#,##0" }),
         cell(contractor, { sz: 14, numFmt: "#,##0.00" }),
@@ -787,6 +871,7 @@ function App() {
       cell(""),
       cell(Number(sumGross.toFixed(2)), { bold: true, sz: 14, numFmt: "#,##0" }),
       cell(Number(sumSso.toFixed(2)), { bold: true, sz: 14, numFmt: "#,##0.00" }),
+      cell(Number(sumWelfare.toFixed(2)), { bold: true, sz: 14, numFmt: "#,##0.00" }),
       cell(Number(sumNet.toFixed(2)), { bold: true, sz: 14, numFmt: "#,##0.00" }),
       cell(""),
       cell(Number(sumContractor.toFixed(2)), { bold: true, sz: 14, numFmt: "#,##0.00" }),
@@ -868,7 +953,7 @@ function App() {
     return { rows, merges, colCount, headerRow: hdrTopRowIdx };
   }
 
-  async function exportExcelMonth() {
+  function buildPayrollWorkbook(only) { // only: 0 = งวด 1-15, 1 = งวด 16-สิ้นเดือน, undefined = ทั้งเดือน
     const FONT_NAME = "Angsana New";
     const FORCE_SZ = 16; // ใช้ขนาด 16 กับทุกเซลล์ในไฟล์ Excel สรุปค่าแรง
     const thin = { style: "thin", color: { rgb: "000000" } };
@@ -888,44 +973,45 @@ function App() {
 
     const b1 = buildPayrollBlock(1, Math.min(15, dim), styleHelpers);
     const b2 = buildPayrollBlock(16, dim, styleHelpers);
+    const parts = only === 0 ? [b1] : only === 1 ? [b2] : [b1, b2];
 
-    const rows = [...b1.rows, blankRow(b1.colCount, { border: false }), ...b2.rows];
-    const merges = [
-      ...b1.merges,
-      ...b2.merges.map((m) => ({ s: { r: m.s.r + b1.rows.length + 1, c: m.s.c }, e: { r: m.e.r + b1.rows.length + 1, c: m.e.c } })),
-    ];
+    const rows = [];
+    const merges = [];
+    const headerRows = [];
+    parts.forEach((p, pi) => {
+      const off = rows.length ? rows.length + 1 : 0;
+      if (rows.length) rows.push(blankRow(p.colCount, { border: false }));
+      rows.push(...p.rows);
+      p.merges.forEach((m) => merges.push({ s: { r: m.s.r + off, c: m.s.c }, e: { r: m.e.r + off, c: m.e.c } }));
+      headerRows.push(off + p.headerRow, off + p.headerRow + 1);
+    });
 
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet(`${THAI_MONTHS[month - 1]}${year + 543}`.slice(0, 31));
+    const sheetName = only === 0 ? `1-15 ${THAI_MONTHS[month - 1]}${year + 543}` : only === 1 ? `16-${dim} ${THAI_MONTHS[month - 1]}${year + 543}` : `${THAI_MONTHS[month - 1]}${year + 543}`;
+    const ws = wb.addWorksheet(sheetName.slice(0, 31));
     writeAoaToWorksheet(ws, rows, merges);
 
-    const maxCols = Math.max(b1.colCount, b2.colCount);
-    const colWidths = [5, 10, 22, ...Array.from({ length: maxCols - 11 }, () => 4), 6, 10, 12, 13, 14, 11, 14, 10];
+    const maxCols = Math.max(...parts.map((p) => p.colCount));
+    const colWidths = [5, 10, 22, ...Array.from({ length: maxCols - 12 }, () => 4), 6, 10, 12, 13, 14, 14, 11, 14, 10];
     colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
     rows.forEach((_, i) => { ws.getRow(i + 1).height = 22; });
-    const b2Offset = b1.rows.length + 1;
-    [b1.headerRow, b1.headerRow + 1, b2Offset + b2.headerRow, b2Offset + b2.headerRow + 1].forEach((r) => {
-      if (r < rows.length) ws.getRow(r + 1).height = 34;
-    });
+    headerRows.forEach((r) => { if (r < rows.length) ws.getRow(r + 1).height = 34; });
 
-    // ทำให้คอลัมน์ทั้งหมดพอดีกับ 1 หน้ากว้าง (fitToWidth) และบังคับทั้งชีทให้อยู่ใน 2 หน้าสูงพอดี (fitToHeight: 2)
-    // ร่วมกับเส้นแบ่งหน้าแบบบังคับด้านล่าง ทำให้ได้ 2 หน้าเป๊ะ: งวด 1 = หน้า 1, งวด 2 = หน้า 2
+    // พอดี 1 หน้ากว้าง; ทั้งเดือน = 2 หน้า (งวดละหน้า) / เลือกงวดเดียว = 1 หน้า
     ws.pageSetup = {
       fitToPage: true,
       fitToWidth: 1,
-      fitToHeight: 2,
+      fitToHeight: parts.length,
       orientation: "landscape",
       paperSize: 9,
       margins: { left: 0.25, right: 0.25, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 },
     };
+    if (parts.length === 2) ws.getRow(b1.rows.length).addPageBreak();
 
-    // แบ่งหน้าแบบบังคับ (manual page break) ระหว่างงวดที่ 1 กับงวดที่ 2 พอดี
-    // เพื่อไม่ให้เนื้อหางวดใดงวดหนึ่งล้นไปคาบเกี่ยวอีกหน้า (เหลือ 2 หน้าพอดี แทนที่จะเป็น 3 หน้า)
-    ws.getRow(b1.rows.length).addPageBreak();
-
-    await downloadWorkbook(wb, `ค่าแรง_${team.name}_${THAI_MONTHS[month - 1]}${year + 543}.xlsx`);
+    return wb;
   }
+
 
   // ===================== EXPORT: SCHEDULE EXCEL (differs per team type) =====================
   async function exportScheduleExcel() {
@@ -1160,7 +1246,7 @@ function App() {
 
   // Detailed day-by-day payroll report (period blocks with one column per day).
   // Reused both for the on-screen "รายงาน" table and the hidden print layout.
-  function renderDetailedReport() {
+  function renderDetailedReport(only) {
     const blocks = [
       { label: `1 - ${Math.min(15, dim)}`, from: 1, to: Math.min(15, dim) },
       { label: `16 - ${dim}`, from: 16, to: dim },
@@ -1170,10 +1256,11 @@ function App() {
         <div className="doc-head">{docSettings.companyName}</div>
         <h2 className="doc-title">สรุปค่าแรงและค่าจ้าง — ตามสัญญาจ้างเลขที่ {docSettings.contractNo}</h2>
         <div className="doc-head">ทีม: {team.name} ({docSettings.teamName}) &nbsp;|&nbsp; สถานที่ปฏิบัติงาน: {docSettings.siteName}</div>
-        {blocks.map((b) => {
+        {blocks.filter((_, bi) => only === undefined || bi === only).map((b) => {
           const days = [];
           for (let d = b.from; d <= b.to; d++) days.push(d);
-          let sumUnits = 0, sumGross = 0, sumSso = 0, sumNet = 0, sumContractor = 0;
+          let sumUnits = 0, sumGross = 0, sumSso = 0, sumWelfare = 0, sumNet = 0, sumContractor = 0;
+          const wRate = welfareRate(year, month);
           return (
             <div className="period-block" key={b.label}>
               <h2>ประจำงวดที่ {b.label} {THAI_MONTHS_FULL[month - 1]} {year + 543}</h2>
@@ -1182,7 +1269,7 @@ function App() {
                   <tr>
                     <th>ลำดับ</th><th>ชื่อ - สกุล</th>
                     {days.map((d) => <th key={d}>{d}</th>)}
-                    <th>รวม</th><th>ค่าจ้างวันละ</th><th>รวมเป็นเงิน</th><th>ประกันสังคม 5%</th><th>จ่ายสุทธิ</th><th>อัตรา ผรจ.</th><th>รวมจ่าย ผรจ.</th>
+                    <th>รวม</th><th>ค่าจ้างวันละ</th><th>รวมเป็นเงิน</th><th>ประกันสังคม 5%</th><th>กองทุนสงเคราะห์ 0.25%</th><th>จ่ายสุทธิ</th><th>อัตรา ผรจ.</th><th>รวมจ่าย ผรจ.</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1195,20 +1282,21 @@ function App() {
                     });
                     const gross = units * w.dailyRate;
                     const sso = gross * SSO_RATE;
-                    const net = gross - sso;
+                    const welfare = gross * wRate;
+                    const net = gross - sso - welfare;
                     const contractor = units * w.contractorRate;
-                    sumUnits += units; sumGross += gross; sumSso += sso; sumNet += net; sumContractor += contractor;
+                    sumUnits += units; sumGross += gross; sumSso += sso; sumWelfare += welfare; sumNet += net; sumContractor += contractor;
                     return (
                       <tr key={w.id}>
                         <td>{i + 1}</td><td>{w.name}</td>
                         {dayVals.map((v, vi) => <td key={vi}>{v || "-"}</td>)}
-                        <td>{units}</td><td>{w.dailyRate}</td><td>{money(gross)}</td><td>{money(sso)}</td><td>{money(net)}</td><td>{w.contractorRate}</td><td>{money(contractor)}</td>
+                        <td>{units}</td><td>{w.dailyRate}</td><td>{money(gross)}</td><td>{money(sso)}</td><td>{money(welfare)}</td><td>{money(net)}</td><td>{w.contractorRate}</td><td>{money(contractor)}</td>
                       </tr>
                     );
                   })}
                   <tr>
                     <td colSpan={2 + days.length}>รวม</td>
-                    <td>{sumUnits}</td><td></td><td>{money(sumGross)}</td><td>{money(sumSso)}</td><td>{money(sumNet)}</td><td></td><td>{money(sumContractor)}</td>
+                    <td>{sumUnits}</td><td></td><td>{money(sumGross)}</td><td>{money(sumSso)}</td><td>{money(sumWelfare)}</td><td>{money(sumNet)}</td><td></td><td>{money(sumContractor)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -1427,6 +1515,13 @@ function App() {
         .period-block h2 { font-size: 15px; margin: 10px 0 8px; color: var(--text); text-align: center; }
         .period-block table { font-size: 11px; }
         .period-block th, .period-block td { padding: 5px 6px; white-space: nowrap; }
+        .share-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
+        .share-modal { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 18px; width: 100%; max-width: 720px; max-height: 92vh; overflow-y: auto; }
+        .share-modal img { width: 100%; height: auto; border: 1px solid var(--border); border-radius: 6px; background: #fff; margin: 12px 0; }
+        .share-msg { font-size: 12.5px; color: var(--accent); margin-top: 8px; }
+        .share-capture { position: fixed; left: -99999px; top: 0; width: 1200px; padding: 24px; background: #fff; color: #000;
+          --text: #000; --text2: #333; --border: #888; --surface: #fff; --surface2: #f0f0f0; font-family: 'Sarabun', sans-serif; }
+        .share-capture .sign-row { margin-top: 28px; font-size: 13px; }
         .sign-row { display: flex; justify-content: space-between; margin-top: 20px; font-size: 12px; color: var(--text2); flex-wrap: wrap; gap: 10px; }
         @media print {
           body * { visibility: hidden; }
@@ -1747,7 +1842,7 @@ function App() {
               const u1 = period1[w.id] || 0, u2 = period2[w.id] || 0;
               const units = u1 + u2;
               const gross = units * w.dailyRate;
-              totalNet += gross - gross * SSO_RATE;
+              totalNet += gross - gross * SSO_RATE - gross * welfareRate(year, month);
               totalContractor += units * w.contractorRate;
             });
             return (
@@ -1755,7 +1850,7 @@ function App() {
                 <div className="stat-card blue">
                   <div className="stat-label">รวมจ่ายสุทธิ</div>
                   <div className="stat-value mono">{money(totalNet)}</div>
-                  <div className="stat-unit">บาท (หลังหักประกันสังคม)</div>
+                  <div className="stat-unit">บาท (หลังหักประกันสังคมและกองทุนสงเคราะห์ฯ)</div>
                 </div>
                 <div className="stat-card green">
                   <div className="stat-label">รวมจ่ายผู้รับจ้าง</div>
@@ -1768,7 +1863,8 @@ function App() {
 
           <div className="card">
             <div className="row" style={{ justifyContent: "flex-end", marginBottom: 12 }}>
-              <button className="btn primary" onClick={exportExcelMonth}>ส่งออกเป็น Excel</button>
+              <button className="btn" onClick={() => openShare("image")}>ส่งออกเป็นรูปภาพ</button>
+              <button className="btn primary" onClick={() => openShare("excel")}>ส่งออกเป็น Excel</button>
             </div>
             <div className="table-scroll">
               {renderDetailedReport()}
@@ -1797,6 +1893,47 @@ function App() {
           </table>
           </div>
           <div className="section-sub" style={{ marginTop: 12 }}>หมายเหตุ: ยอดคำนวณจากตารางเวรที่กรอกไว้ในแต่ละเดือนของปีนี้เท่านั้น เดือนที่ยังไม่ได้กรอกจะถือค่าเริ่มต้นของทีมนั้น (ทีมแก้ไฟฯ = ไม่มีเวร, ทีมซ่อมบำรุงฯ = ทำงานจันทร์-ศุกร์ตามปกติ)</div>
+        </div>
+      )}
+
+      {shareOpen && (
+        <div className="share-overlay" onClick={closeShare}>
+          <div className="share-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="section-title">{shareMode === "excel" ? "ส่งออกเป็น Excel" : "ส่งออกเป็นรูปภาพ"} — {THAI_MONTHS_FULL[month - 1]} {year + 543}</div>
+            {sharePeriod === null && (
+              <>
+                <div className="section-sub" style={{ marginBottom: 12 }}>เลือกงวดค่าแรงที่ต้องการส่งออก</div>
+                <div className="row">
+                  <button className="btn primary" onClick={() => setSharePeriod(0)}>งวดที่ 1 - 15</button>
+                  <button className="btn primary" onClick={() => setSharePeriod(1)}>งวดที่ 16 - {dim}</button>
+                </div>
+              </>
+            )}
+            {sharePeriod !== null && !shareUrl && !shareMsg.startsWith("สร้าง") && (
+              <div className="section-sub" style={{ margin: "16px 0" }}>กำลังสร้างไฟล์...</div>
+            )}
+            {shareUrl && (
+              <>
+                {shareMode === "image"
+                  ? <img src={shareUrl} alt="รูปสรุปค่าแรง" />
+                  : <div className="section-sub" style={{ margin: "14px 0" }}>ไฟล์ Excel พร้อมแล้ว: {shareFileName()}</div>}
+                <div className="row">
+                  <button className="btn" onClick={saveShareImage}>{shareMode === "excel" ? "บันทึกไฟล์" : "บันทึกรูป"}</button>
+                  <button className="btn primary" onClick={doShareImage}>{shareMode === "excel" ? "แชร์ไฟล์" : "แชร์รูป"}</button>
+                </div>
+              </>
+            )}
+            {shareMsg && <div className="share-msg">{shareMsg}</div>}
+            <div className="row" style={{ marginTop: 14 }}>
+              {sharePeriod !== null && <button className="btn small" onClick={backToPickPeriod}>← เลือกงวดใหม่</button>}
+              <button className="btn small" onClick={closeShare}>ปิด</button>
+            </div>
+          </div>
+          {shareMode === "image" && sharePeriod !== null && (
+            <div className="share-capture" ref={shareCaptureRef} onClick={(e) => e.stopPropagation()}>
+              {renderDetailedReport(sharePeriod)}
+            </div>
+          )}
         </div>
       )}
 
