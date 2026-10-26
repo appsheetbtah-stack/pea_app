@@ -447,6 +447,15 @@ function App() {
   const getEntry = (key) => schedule[key] || emptyRotationEntry();
   const updateEntry = (key, patch) => setSchedule((prev) => ({ ...prev, [key]: { ...emptyRotationEntry(), ...prev[key], ...patch } }));
 
+  const shiftCellText = (entry, si) => {
+    const orig = entry.shifts[si];
+    if (!orig) return "";
+    const sub = (entry.subs || [])[si];
+    if (sub && sub !== "none") return `${workerName(sub)} (แทน ${firstNameOf(workerName(orig))})`;
+    if (sub === "none") return `${workerName(orig)} (ลา)`;
+    return workerName(orig) || "";
+  };
+
   const rotationShiftsForDate = (date) => {
     const n = workers.length;
     if (n === 0) return [null, null, null];
@@ -458,8 +467,31 @@ function App() {
     const entry = getEntry(key);
     const shifts = [...entry.shifts];
     shifts[shiftIdx] = workerId || null;
-    updateEntry(key, { shifts });
+    const subs = [...(entry.subs || [null, null, null])];
+    subs[shiftIdx] = null; // เปลี่ยนคนเข้าเวร = ล้างข้อมูลลา/แทนของกะนั้น
+    updateEntry(key, { shifts, subs });
   };
+
+  // ลา/แทนเวร: subs[si] = null (ไม่ลา) | "none" (ลา ไม่มีคนแทน) | รหัสคนงานที่มาแทน
+  // คนลา = ได้แรงเท่าเดิมตามตาราง (ไม่ถูกหัก) · คนแทน = ได้แรงเพิ่ม 1 กะ (x2 ถ้าเป็นวันหยุดพิเศษบริษัท)
+  const setSub = (key, shiftIdx, val) => {
+    const entry = getEntry(key);
+    const subs = [...(entry.subs || [null, null, null])];
+    subs[shiftIdx] = val || null;
+    updateEntry(key, { subs });
+  };
+
+  function rotationUnitsForEntry(key, entry) {
+    const { mode, mult } = dayMultiplierRotation(key, entry);
+    const u = {};
+    if (mode === "off") { workers.forEach((w) => (u[w.id] = 1)); return u; }
+    const workedToday = new Set(entry.shifts.filter(Boolean));
+    workers.forEach((w) => (u[w.id] = workedToday.has(w.id) ? mult : 0));
+    (entry.subs || []).forEach((s, i) => {
+      if (s && s !== "none" && entry.shifts[i] && s !== entry.shifts[i] && u[s] !== undefined) u[s] += mult;
+    });
+    return u;
+  }
 
   const autoFillMonth = () => {
     if (workers.length === 0) return;
@@ -473,7 +505,10 @@ function App() {
         const existing = next[key] || emptyRotationEntry();
         const fillShift2 = isWeekend || !!companyHolidays[key];
         const [s1, s2, s3] = rotationShiftsForDate(thisDate);
-        next[key] = { ...existing, shifts: [s1, fillShift2 ? s2 : null, s3] };
+        const newShifts = [s1, fillShift2 ? s2 : null, s3];
+        const oldSubs = existing.subs || [null, null, null];
+        const subs = newShifts.map((s, i) => (s && s === existing.shifts[i] ? oldSubs[i] || null : null));
+        next[key] = { ...existing, shifts: newShifts, subs };
       }
       return next;
     });
@@ -626,15 +661,7 @@ function App() {
     const units = {};
     const key = dateKey(y, m, d);
     if (team.type === "rotation") {
-      const entry = getEntry(key);
-      const { mode, mult } = dayMultiplierRotation(key, entry);
-      if (mode === "off") {
-        workers.forEach((w) => (units[w.id] = 1));
-        return units;
-      }
-      const workedToday = new Set(entry.shifts.filter(Boolean));
-      workers.forEach((w) => (units[w.id] = workedToday.has(w.id) ? mult : 0));
-      return units;
+      return rotationUnitsForEntry(key, getEntry(key));
     }
     // weekday team: whole team shares the same value
     const worked = effectiveWorked(y, m, d);
@@ -673,13 +700,7 @@ function App() {
           let u;
           if (team.type === "rotation") {
             const entry = schedule[key] || emptyRotationEntry();
-            const { mode, mult } = dayMultiplierRotation(key, entry);
-            u = {};
-            if (mode === "off") workers.forEach((w) => (u[w.id] = 1));
-            else {
-              const workedToday = new Set(entry.shifts.filter(Boolean));
-              workers.forEach((w) => (u[w.id] = workedToday.has(w.id) ? mult : 0));
-            }
+            u = rotationUnitsForEntry(key, entry);
           } else {
             const entry = schedule[key] || {};
             const wd = weekdayOf(year, m, d);
@@ -1068,9 +1089,9 @@ function App() {
         rows.push([
           cell(THAI_DAYS_FULL[weekday]),
           cell(d, { fill }),
-          cell(workerName(entry.shifts[0]) || ""),
-          cell(workerName(entry.shifts[1]) || ""),
-          cell(workerName(entry.shifts[2]) || ""),
+          cell(shiftCellText(entry, 0)),
+          cell(shiftCellText(entry, 1)),
+          cell(shiftCellText(entry, 2)),
         ]);
       }
     } else {
@@ -1246,7 +1267,7 @@ function App() {
 
   // Detailed day-by-day payroll report (period blocks with one column per day).
   // Reused both for the on-screen "รายงาน" table and the hidden print layout.
-  function renderDetailedReport(only) {
+  function renderDetailedReport(only, opts = { leaveNotes: true }) {
     const blocks = [
       { label: `1 - ${Math.min(15, dim)}`, from: 1, to: Math.min(15, dim) },
       { label: `16 - ${dim}`, from: 16, to: dim },
@@ -1300,6 +1321,28 @@ function App() {
                   </tr>
                 </tbody>
               </table>
+              {opts.leaveNotes && team.type === "rotation" && (() => {
+                const notes = [];
+                days.forEach((d) => {
+                  const entry = getEntry(dateKey(year, month, d));
+                  (entry.subs || []).forEach((s, si) => {
+                    const orig = entry.shifts[si];
+                    if (!s || !orig) return;
+                    const when = `วันที่ ${d} ${THAI_MONTHS[month - 1]}`;
+                    const shiftTxt = `กะ ${SHIFT_LABELS[si]} น.`;
+                    notes.push(s === "none"
+                      ? `${when} ${shiftTxt}: ${workerName(orig)} ลา (ไม่มีผู้แทน)`
+                      : `${when} ${shiftTxt}: ${workerName(orig)} ลา — ${workerName(s)} แทน`);
+                  });
+                });
+                if (!notes.length) return null;
+                return (
+                  <div style={{ marginTop: 8, fontSize: 12, textAlign: "left" }}>
+                    <div style={{ fontWeight: 600 }}>หมายเหตุ</div>
+                    {notes.map((t, ni) => <div key={ni}>{ni + 1}. {t}</div>)}
+                  </div>
+                );
+              })()}
             </div>
           );
         })}
@@ -1672,9 +1715,17 @@ function App() {
                       {isHoliday && hasAnyShift && <span className="cal-badge badge-worked">หยุดทำงาน x2</span>}
                       {!isHoliday && isGovHoliday && <span className="cal-badge badge-gov">หยุดราชการ</span>}
                       {!isHoliday && !isGovHoliday && sunday && <span className="cal-badge badge-sunday">อาทิตย์</span>}
-                      {entry.shifts.map((wid, si) =>
-                        wid ? <div key={si} className="shift-chip" style={{ background: workerColor(wid) }}>{firstNameOf(workerName(wid))}</div> : null
-                      )}
+                      {entry.shifts.map((wid, si) => {
+                        if (!wid) return null;
+                        const sub = (entry.subs || [])[si];
+                        const onLeave = !!sub;
+                        return (
+                          <React.Fragment key={si}>
+                            <div className="shift-chip" style={{ background: workerColor(wid), opacity: onLeave ? 0.55 : 1 }}>{firstNameOf(workerName(wid))}{onLeave ? " (ลา)" : ""}</div>
+                            {sub && sub !== "none" && <div className="shift-chip" style={{ background: workerColor(sub), outline: "1px dashed #000" }}>↳ {firstNameOf(workerName(sub))} แทน</div>}
+                          </React.Fragment>
+                        );
+                      })}
                     </div>
                   );
                 }
@@ -1749,13 +1800,13 @@ function App() {
               <div className="section-title">แก้ไขวันที่ {selectedDay} {THAI_MONTHS_FULL[month - 1]} {year + 543}
                 {isSunday(year, month, selectedDay) && <span style={{ color: "var(--text2)", fontWeight: 400, fontSize: 13 }}> (วันอาทิตย์ — จ่าย 1 แรงเท่าปกติ)</span>}
               </div>
-              <div className="section-sub">เลือกคนเข้าเวรแต่ละกะ และประเภทของวัน</div>
+              <div className="section-sub">เลือกคนเข้าเวรแต่ละกะ และประเภทของวัน · ช่องที่สอง = ลา/แทนเวร (คนลาได้แรงเท่าเดิม คนแทนได้เพิ่ม 1 กะ)</div>
 
               <div className="editor-grid">
                 {SHIFT_LABELS.map((label, si) => {
                   const entry = getEntry(dateKey(year, month, selectedDay));
                   return (
-                    <div key={si} className="editor-shift-row">
+                    <div key={si} className="editor-shift-row" style={{ flexWrap: "wrap" }}>
                       <div className="editor-shift-time mono">{label} น.</div>
                       <select
                         value={entry.shifts[si] || ""}
@@ -1764,6 +1815,17 @@ function App() {
                         <option value="">— ว่าง —</option>
                         {workers.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
                       </select>
+                      {entry.shifts[si] && (
+                        <select
+                          value={(entry.subs || [])[si] || ""}
+                          onChange={(e) => setSub(dateKey(year, month, selectedDay), si, e.target.value)}
+                          title="ลา / แทนเวร"
+                        >
+                          <option value="">ไม่ลา</option>
+                          <option value="none">ลา (ไม่มีคนแทน)</option>
+                          {workers.filter((w) => w.id !== entry.shifts[si]).map((w) => <option key={w.id} value={w.id}>ลา — {firstNameOf(w.name)} แทน</option>)}
+                        </select>
+                      )}
                     </div>
                   );
                 })}
@@ -1931,7 +1993,7 @@ function App() {
           </div>
           {shareMode === "image" && sharePeriod !== null && (
             <div className="share-capture" ref={shareCaptureRef} onClick={(e) => e.stopPropagation()}>
-              {renderDetailedReport(sharePeriod)}
+              {renderDetailedReport(sharePeriod, { leaveNotes: true })}
             </div>
           )}
         </div>
