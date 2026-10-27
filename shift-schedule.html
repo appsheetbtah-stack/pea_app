@@ -1286,7 +1286,11 @@ function App() {
     const rows = [];
     const merges = [];
     const R = () => rows.length;
-    const workerLabel = docSettings.teamName || workers[0]?.name || "-";
+    const rawWorkerName = (docSettings.teamName || workers[0]?.name || "").trim();
+    // เติมคำนำหน้าชื่ออัตโนมัติ (ค่าเริ่มต้น น.ส.) ถ้าชื่อที่กรอกยังไม่มีคำนำหน้า
+    const hasTitle = /^(นางสาว|นาง|นาย|น\.ส\.?|ด\.ช\.?|ด\.ญ\.?|คุณ)/.test(rawWorkerName);
+    const workerTitle = hasTitle ? "" : (docSettings.workerTitle ?? "น.ส.");
+    const workerLabel = rawWorkerName ? `${workerTitle ? workerTitle + " " : ""}${rawWorkerName}` : "-";
     const supervisorName = docSettings.supervisorName || "";
     const supervisorTitle = docSettings.supervisorTitle || "";
     const managerName = docSettings.managerName || "";
@@ -1353,7 +1357,7 @@ function App() {
     [8, 20, 12, 16, 12, 16, 16].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     // ความสูงแถวกระชับ เพื่อให้ทั้งเดือน (31 วัน) + ช่องลงชื่อ พอดี 1 หน้าโดยไม่ต้องย่อตารางจนแคบ
     rows.forEach((_, i) => {
-      let h = 19;
+      let h = 20.25; // สูงขึ้นเล็กน้อยให้เซ็นง่าย แต่ยังพอดี 1 หน้า (ตั้งค่า fitToPage 1x1 กันล้นไว้แล้ว)
       if (i === 0) h = 24; else if (i < 3) h = 22; else if (i === 3) h = 24;
       else if (i === 4 + dim) h = 14;          // แถวว่างก่อนช่องลงชื่อ
       else if (i > 4 + dim) h = 18;            // แถวช่องลงชื่อ
@@ -1778,6 +1782,17 @@ function App() {
                 <div>คลิกวันจันทร์-ศุกร์เพื่อทำเครื่องหมายว่ามาทำงาน (เซ็นชื่อ) · จ้างเหมารายปี {money(team.monthlyRate || 0)} บาท/เดือน แบ่งจ่าย 12 งวด ไม่ผูกกับจำนวนวันมาทำงาน</div>
                 <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span>ชื่อผู้ปฏิบัติงาน:</span>
+                  <select
+                    value={docSettings.workerTitle ?? "น.ส."}
+                    onChange={(e) => setDocSettings((s) => ({ ...s, workerTitle: e.target.value }))}
+                    title="คำนำหน้าชื่อ (ใช้เมื่อชื่อที่กรอกยังไม่มีคำนำหน้า)"
+                    style={{ width: 130, flex: "0 0 auto" }}
+                  >
+                    <option value="น.ส.">น.ส.</option>
+                    <option value="นาง">นาง</option>
+                    <option value="นาย">นาย</option>
+                    <option value="">ไม่ใส่คำนำหน้า</option>
+                  </select>
                   <div className="input-wrap" style={{ minWidth: 160, maxWidth: 220 }}>
                     <input
                       type="text"
