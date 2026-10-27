@@ -1349,23 +1349,25 @@ function App() {
     const ws = wb.addWorksheet(`${THAI_MONTHS[month - 1]}${year + 543}`.slice(0, 31));
     writeAoaToWorksheet(ws, rows, merges);
 
-    ws.getColumn(1).width = 7;
-    ws.getColumn(2).width = 16;
-    ws.getColumn(3).width = 10;
-    ws.getColumn(4).width = 12;
-    ws.getColumn(5).width = 10;
-    ws.getColumn(6).width = 12;
-    ws.getColumn(7).width = 14;
-    rows.forEach((_, i) => { ws.getRow(i + 1).height = i < 4 ? 22 : 26; });
+    // ขยายความกว้างคอลัมน์ให้ตารางกว้างเกือบเต็มหน้า A4 แนวตั้ง (รวม 100 ตัวอักษร ≈ 551pt) — พอดีหน้าแม้ผู้ใช้เลือกตัวเลือกย่อขนาดแบบอื่น
+    [8, 20, 12, 16, 12, 16, 16].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    // ความสูงแถวกระชับ เพื่อให้ทั้งเดือน (31 วัน) + ช่องลงชื่อ พอดี 1 หน้าโดยไม่ต้องย่อตารางจนแคบ
+    rows.forEach((_, i) => {
+      let h = 19;
+      if (i === 0) h = 24; else if (i < 3) h = 22; else if (i === 3) h = 24;
+      else if (i === 4 + dim) h = 14;          // แถวว่างก่อนช่องลงชื่อ
+      else if (i > 4 + dim) h = 18;            // แถวช่องลงชื่อ
+      ws.getRow(i + 1).height = h;
+    });
 
     ws.pageSetup = {
       fitToPage: true,
       fitToWidth: 1,
-      fitToHeight: 0,
+      fitToHeight: 1, // พอดี 1 หน้า (ไม่ต้องตั้งค่าเองตอนพิมพ์)
       orientation: "portrait",
       paperSize: 9, // A4
       horizontalCentered: true, // จัดตารางให้อยู่กึ่งกลางหน้ากระดาษ ซ้าย-ขวาเท่ากัน
-      margins: { left: 0.5, right: 0.5, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 },
+      margins: { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 },
     };
 
     await downloadWorkbook(wb, `ใบเซ็นชื่อ_${team.name}_${THAI_MONTHS[month - 1]}${year + 543}.xlsx`);
