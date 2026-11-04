@@ -143,6 +143,7 @@ function writeAoaToWorksheet(ws, rows, merges) {
       if (s.border) {
         const conv = (b) => (b ? { style: b.style, color: { argb: argb(b.color && b.color.rgb) } } : undefined);
         xc.border = { top: conv(s.border.top), bottom: conv(s.border.bottom), left: conv(s.border.left), right: conv(s.border.right) };
+        if (s.border.diagonal) xc.border.diagonal = { up: true, down: false, style: s.border.diagonal.style, color: { argb: argb(s.border.diagonal.color && s.border.diagonal.color.rgb) } };
       }
       if (s.fill && s.fill.fgColor) xc.fill = { type: "pattern", pattern: "solid", fgColor: { argb: argb(s.fill.fgColor.rgb) } };
       if (s.numFmt) xc.numFmt = s.numFmt;
@@ -198,7 +199,8 @@ function printWorksheet(ws, opts) {
       const f = cell.font || {};
       const color = f.color && f.color.argb ? `color:#${f.color.argb.slice(2)};` : "";
       const sp = spans[key];
-      html += `<td${sp ? ` rowspan="${sp.rs}" colspan="${sp.cs}"` : ""} style="border-top:${bd(b.top)};border-bottom:${bd(b.bottom)};border-left:${bd(b.left)};border-right:${bd(b.right)};text-align:${hAlign};vertical-align:${vAlign};font-size:${f.size || 16}pt;font-weight:${f.bold ? 700 : 400};white-space:${al.wrapText ? "pre-wrap" : "nowrap"};${fill}${color}">${ws._logo && ws._logo.key === key ? `<img src="${ws._logo.src}" style="display:block;margin:0 auto;height:92px;width:auto;">` : escapeHtml(text)}</td>`;
+      const diag = b.diagonal && b.diagonal.up ? "background-image:linear-gradient(to top left,transparent calc(50% - 0.6px),#000 50%,transparent calc(50% + 0.6px));" : "";
+      html += `<td${sp ? ` rowspan="${sp.rs}" colspan="${sp.cs}"` : ""} style="border-top:${bd(b.top)};border-bottom:${bd(b.bottom)};border-left:${bd(b.left)};border-right:${bd(b.right)};text-align:${hAlign};vertical-align:${vAlign};font-size:${f.size || 16}pt;font-weight:${f.bold ? 700 : 400};white-space:${al.wrapText ? "pre-wrap" : "nowrap"};${fill}${diag}${color}">${ws._logo && ws._logo.key === key ? `<img src="${ws._logo.src}" style="display:block;margin:0 auto;height:92px;width:auto;">` : escapeHtml(text)}</td>`;
     }
     html += "</tr>";
   }
@@ -995,6 +997,16 @@ function TechScheduleTab({ team, year, month, setMonth, setYear, updateTeam, com
   const ts = team.techSchedule || {};
   const slotsOf = (d) => ts[dateKey(year, month, d)] || [null, null, null];
   const byId = (id) => team.workers.find((w) => w.id === id);
+  // วันหยุดพิเศษที่ผู้ใช้กำหนดเอง (นอกเหนือจากที่ระบบตั้งไว้) เก็บเป็น { "2026-11-10": { n: "ชื่อวันหยุด" } }
+  const customHol = team.techHolidays || {};
+  const isHolidayKey = (key) => !!((companyHolidays && companyHolidays[key]) || customHol[key]);
+  const setHolidayKey = (key, on) => updateTeam((t) => {
+    const cur = { ...(t.techHolidays || {}) };
+    if (on) cur[key] = cur[key] || { n: "" }; else delete cur[key];
+    return { techHolidays: cur };
+  });
+  const setHolidayName = (key, n) => updateTeam((t) => ({ techHolidays: { ...(t.techHolidays || {}), [key]: { n } } }));
+  const monthHolidays = Object.entries(customHol).filter(([k]) => k.startsWith(`${year}-${pad2(month)}-`)).sort((a, b) => (a[0] < b[0] ? -1 : 1));
   const setSlot = (d, si, id) => updateTeam((t) => {
     const cur = t.techSchedule || {};
     const key = dateKey(year, month, d);
@@ -1025,16 +1037,20 @@ function TechScheduleTab({ team, year, month, setMonth, setYear, updateTeam, com
     const thin = { style: "thin", color: { rgb: "000000" } };
     const box = { top: thin, bottom: thin, left: thin, right: thin };
     const byear = year + 543;
-    const nP = eligible.length;
+    // เรียงชื่อตามไฟล์ต้นฉบับ (อนลัส → นิติพัฒน์ → ชาคริต) คนอื่นต่อท้ายตามลำดับเดิม
+    const TECH_NAME_ORDER = ["อนลัส", "นิติพัฒน์", "ชาคริต"];
+    const rank = (w) => { const k = TECH_NAME_ORDER.findIndex((n) => String(w.name || "").includes(n)); return k < 0 ? 99 : k; };
+    const people = eligible.map((w, i) => ({ w, i })).sort((x, y) => rank(x.w) - rank(y.w) || x.i - y.i).map((x) => x.w);
+    const nP = people.length;
     const cP0 = 3;                       // คอลัมน์แรกของช่วง 1 ของคนแรก (D)
     const cNote = cP0 + 3 * nP;          // คอลัมน์หมายเหตุ
     const cLeg = cNote + 2;              // ช่องสีของคำอธิบาย
     const nCols = cLeg + 5;              // คำอธิบาย merge 4 คอลัมน์
     const last = nCols - 1;
     const grid = []; const heights = []; const merges = [];
-    const cell = (v, { sz = 12, bold = false, fill = null, border = false, h = "center", wrap = false } = {}) => {
+    const cell = (v, { sz = 12, bold = false, fill = null, border = false, diag = false, h = "center", wrap = false } = {}) => {
       const st = { font: { name: FONT, sz, bold }, alignment: { horizontal: h, vertical: "center", wrapText: wrap } };
-      if (border) st.border = box;
+      if (border) st.border = diag ? { ...box, diagonal: { style: "thin", color: { rgb: "000000" } } } : box;
       if (fill) st.fill = { patternType: "solid", fgColor: { rgb: fill } };
       return { v: v == null ? "" : v, t: typeof v === "number" ? "n" : "s", s: st };
     };
@@ -1050,21 +1066,21 @@ function TechScheduleTab({ team, year, month, setMonth, setYear, updateTeam, com
     merges.push({ s: { r: 0, c: 1 }, e: { r: 5, c: 3 } });
     let r = addRow(20);
     const cTo = cP0 + Math.floor((nP * 5) / 3) + 1; // "ถึง" / "วันที่" (เว้นที่ให้เลขที่หนังสือยาว ๆ)
-    put(r, 1, "จาก", { ...H14, bold: true }); merge(r, 1, 2);
-    put(r, 3, "กฟส.ทอห.", H14); merge(r, 3, cTo - 1);
-    put(r, cTo, "ถึง", { sz: 14, bold: true }); put(r, cTo + 1, "กฟส.บรก.", H14); merge(r, cTo + 1, last);
+    put(r, 1, "จาก", { ...H14, bold: true });
+    put(r, 2, "กฟส.ทอห.", H14); merge(r, 2, cTo - 1);
+    put(r, cTo, "ถึง", { sz: 14, bold: true, h: "left" }); put(r, cTo + 1, "กฟส.บรก.", H14); merge(r, cTo + 1, last);
     r = addRow(20);
-    put(r, 1, "เลขที่", { ...H14, bold: true }); merge(r, 1, 2);
-    put(r, 3, `น.2 กฟส.ทอห. ${docNo}/${byear}`, H14); merge(r, 3, cTo - 1);
-    put(r, cTo, "วันที่", { sz: 14, bold: true });
+    put(r, 1, "เลขที่", { ...H14, bold: true });
+    put(r, 2, `น.2 กฟส.ทอห. ${docNo}/${byear}`, H14); merge(r, 2, cTo - 1);
+    put(r, cTo, "วันที่", { sz: 14, bold: true, h: "left" });
     r = addRow(38);
-    put(r, 1, "เรื่อง", { ...H14, bold: true }); merge(r, 1, 2);
-    put(r, 3, `ขออนุมัติจัดตารางการปฏิบัติงานของชุดพนักงานช่างปฏิบัติการระบบไฟฟ้า (กฟส. ขนาด XS) ประจำเดือน ${monthName} ${byear}`, { ...H14, wrap: true }); merge(r, 3, last);
+    put(r, 1, "เรื่อง", { ...H14, bold: true });
+    put(r, 2, `ขออนุมัติจัดตารางการปฏิบัติงานของชุดพนักงานช่างปฏิบัติการระบบไฟฟ้า (กฟส. ขนาด XS) ประจำเดือน ${monthName} ${byear}`, { ...H14, wrap: true }); merge(r, 2, last);
     r = addRow(20);
-    put(r, 1, "เรียน", H14); merge(r, 1, 2);
-    put(r, 3, "ผจก.กฟส.บรก.", H14); merge(r, 3, last);
+    put(r, 1, "เรียน", H14);
+    put(r, 2, "ผจก.กฟส.บรก.", H14); merge(r, 2, last);
     r = addRow(20);
-    put(r, 2, "เพื่อให้งานปฏิบัติการระบบไฟฟ้าเป็นไปด้วยความเรียบร้อยจึงขออนุมัติจัดตารางการปฏิบัติงานของชุดพนักงานช่าง", H14); merge(r, 2, last);
+    put(r, 2, "\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0เพื่อให้งานปฏิบัติการระบบไฟฟ้าเป็นไปด้วยความเรียบร้อยจึงขออนุมัติจัดตารางการปฏิบัติงานของชุดพนักงานช่าง", H14); merge(r, 2, last);
     r = addRow(22);
     put(r, 1, `ปฏิบัติการระบบไฟฟ้า กฟส.ทอห. ประจำเดือน ${monthName} ${byear} ดังต่อไปนี้`, H14); merge(r, 1, last);
 
@@ -1072,17 +1088,17 @@ function TechScheduleTab({ team, year, month, setMonth, setYear, updateTeam, com
     const B = { border: true };
     r = addRow(34);
     put(r, 1, "ชื่อ", B); merge(r, 1, 2);
-    eligible.forEach((w, i) => { put(r, cP0 + 3 * i, w.name, { ...B, wrap: true }); merge(r, cP0 + 3 * i, cP0 + 3 * i + 2); });
+    people.forEach((w, i) => { put(r, cP0 + 3 * i, w.name, { ...B, wrap: true }); merge(r, cP0 + 3 * i, cP0 + 3 * i + 2); });
     put(r, cNote, "หมายเหตุ", B);
     r = addRow(18);
     put(r, 1, "วันที่", B); put(r, 2, "วัน", B);
-    eligible.forEach((w, i) => [1, 2, 3].forEach((n, s) => put(r, cP0 + 3 * i + s, `ช่วง ${n}`, B)));
+    people.forEach((w, i) => [1, 2, 3].forEach((n, s) => put(r, cP0 + 3 * i + s, `ช่วง ${n}`, B)));
     put(r, cNote, "", B);
 
     // ----- แถววันที่ -----
-    const counts3 = eligible.map(() => [0, 0, 0]);
+    const counts3 = people.map(() => [0, 0, 0]);
     const legendAt = {
-      1: { box: { border: true }, text: "วันทำการ", h: "left" },
+      1: { box: { border: true, diag: true }, text: "วันทำการ", h: "left" },
       2: { text: "(ไม่ได้ค่าตอบแทน)", h: "left" },
       4: { box: { border: true }, boxV: 1, text: "ได้ค่าตอบแทน", h: "left" },
       6: { box: { border: true, fill: "FFFF00" }, text: "วันหยุดราชการ", h: "left" },
@@ -1095,15 +1111,19 @@ function TechScheduleTab({ team, year, month, setMonth, setYear, updateTeam, com
     };
     for (let d = 1; d <= dim; d++) {
       const wd = weekdayOf(year, month, d);
-      const isSpecial = !!(companyHolidays && companyHolidays[dateKey(year, month, d)]);
+      const isSpecial = isHolidayKey(dateKey(year, month, d));
       const fill = isSpecial ? "FF0000" : (wd === 0 || wd === 6 ? "FFFF00" : null);
       const slots = slotsOf(d);
       r = addRow(13.5);
       put(r, 1, d, B); put(r, 2, THAI_DAYS_SHORT[wd], { ...B, fill });
-      eligible.forEach((w, i) => [0, 1, 2].forEach((s) => {
+      const plainDay = !fill; // วันทำการปกติ (ไม่ใช่เสาร์-อาทิตย์/วันหยุดพิเศษ)
+      people.forEach((w, i) => [0, 1, 2].forEach((s) => {
         const on = slots[s] === w.id;
+        const col = cP0 + 3 * i + s;
+        if (s === 0 && on) { put(r, col, "", { ...B, fill: "000000" }); return; }            // เตรียมพร้อม (ช่วง 1) = ช่องดำ ไม่นับค่าตอบแทน
+        if (s === 1 && plainDay && !slots[1] && slots[2] === w.id) { put(r, col, "", { ...B, diag: true }); return; } // วันทำการ ไม่ได้ค่าตอบแทน = ขีดทแยง
         if (on) counts3[i][s]++;
-        put(r, cP0 + 3 * i + s, on ? 1 : "", B);
+        put(r, col, on ? 1 : "", B);
       }));
       put(r, cNote, "", B);
       const lg = legendAt[d];
@@ -1116,41 +1136,58 @@ function TechScheduleTab({ team, year, month, setMonth, setYear, updateTeam, com
     // ----- สรุปรวม -----
     r = addRow(15);
     put(r, 1, "รวม(ครั้ง)", { ...B, wrap: true }); merge(r, 1, 2);
-    eligible.forEach((w, i) => [0, 1, 2].forEach((s) => put(r, cP0 + 3 * i + s, counts3[i][s], B)));
+    people.forEach((w, i) => [0, 1, 2].forEach((s) => put(r, cP0 + 3 * i + s, counts3[i][s], B)));
     r = addRow(30);
     put(r, 1, "รวมจำนวนชั่วโมง", { ...B, wrap: true }); merge(r, 1, 2);
-    eligible.forEach((w, i) => { put(r, cP0 + 3 * i, (counts3[i][0] + counts3[i][1] + counts3[i][2]) * 8, B); merge(r, cP0 + 3 * i, cP0 + 3 * i + 2); });
+    people.forEach((w, i) => { put(r, cP0 + 3 * i, (counts3[i][0] + counts3[i][1] + counts3[i][2]) * 8, B); merge(r, cP0 + 3 * i, cP0 + 3 * i + 2); });
     r = addRow(24);
     put(r, 1, "ทราบ", B); merge(r, 1, 2);
-    eligible.forEach((w, i) => { put(r, cP0 + 3 * i, "", B); merge(r, cP0 + 3 * i, cP0 + 3 * i + 2); });
+    people.forEach((w, i) => { put(r, cP0 + 3 * i, "", B); merge(r, cP0 + 3 * i, cP0 + 3 * i + 2); });
 
     // ----- ท้ายบันทึก -----
     r = addRow(20);
-    put(r, 1, "เรียน", H14); merge(r, 1, 2);
-    put(r, 3, "ผจก.กฟส.บรก.", H14); merge(r, 3, last);
+    put(r, 1, "เรียน", H14);
+    put(r, 2, "ผจก.กฟส.บรก.", H14); merge(r, 2, last);
     const cAp = cP0 + Math.floor((nP * 8) / 3);
     r = addRow(22);
-    put(r, 2, "   จึงเรียนมาเพื่อโปรดพิจารณาอนุมัติ", H14); merge(r, 2, cAp - 1);
+    put(r, 2, "\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0จึงเรียนมาเพื่อโปรดพิจารณาอนุมัติ", H14); merge(r, 2, cAp - 1);
     put(r, cAp, "อนุมัติ", { sz: 16, bold: true }); merge(r, cAp, cNote);
     addRow(18); addRow(22);
-    const leftEnd = Math.min(4, Math.floor((cNote + 2) / 2) - 1);
-    const rightStart = Math.max(cNote - 2, leftEnd + 1);
+    const leftEnd = Math.min(5, Math.floor((cNote + 2) / 2) - 1);
+    const rightStart = Math.max(cNote - 3, leftEnd + 1);
     r = addRow(20);
     put(r, 2, "(นายวรุฒ  พ่วงท่าโก)", { sz: 14 }); merge(r, 2, leftEnd);
     put(r, rightStart, "(นายณัฐพงศ์  โพธิพรต)", { sz: 14 }); merge(r, rightStart, cNote);
     r = addRow(20);
     put(r, 2, "ผจก.กฟส.(8)กฟส.ทอห.", { sz: 14 }); merge(r, 2, leftEnd);
     put(r, rightStart, "ผจก.กฟส.(9)กฟส.บรก.", { sz: 14 }); merge(r, rightStart, cNote);
-    r = addRow(26);
+    r = addRow(38);
     put(r, 1, "หมายเหตุ ช่วง 1 เวลา (00:30-08:30 น.) , ช่วง 2 เวลา (08:30-16:30 น.) ,ช่วง 3 เวลา (16:30-00:30 น.วันรุ่งขึ้น)", { ...H14, bold: true, wrap: true }); merge(r, 1, last);
 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("tech");
     writeAoaToWorksheet(ws, grid, merges);
-    [4.1, 5.2, 8, ...new Array(3 * nP).fill(5), 9, 5, 5.2, 4.9, 7.2, 7.4, 9.0].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    [4.1, 7, 6, ...new Array(3 * nP).fill(5), 9, 5, 5.2, 4.9, 7.2, 7.4, 9.0].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     heights.forEach((h, i) => { ws.getRow(i + 1).height = h; });
     ws._logo = { key: "1,2", src: TECH_LOGO };
     return ws;
+  };
+  const exportTech = async () => {
+    if (!eligible.length) { window.alert("ยังไม่มีพนักงานที่ \"อยู่เวรได้\" — ไปติ๊กที่แท็บ พนักงานช่าง ก่อน"); return; }
+    try {
+      const ws = buildTechSheet();
+      const wb = ws._workbook;
+      const imgId = wb.addImage({ base64: TECH_LOGO.split(",")[1], extension: "png" });
+      ws.addImage(imgId, { tl: { col: 1.1, row: 0.1 }, ext: { width: 118, height: 97 } });
+      ws.pageSetup = {
+        paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 1,
+        margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 },
+      };
+      ws.name = `${monthName} ${year + 543}`;
+      await downloadWorkbook(wb, `ตารางเวรช่าง_${monthName}_${year + 543}.xlsx`);
+    } catch (e) {
+      window.alert("ส่งออก Excel ไม่สำเร็จ: " + (e && e.message ? e.message : e));
+    }
   };
   const printTech = () => {
     if (!eligible.length) { window.alert("ยังไม่มีพนักงานที่ \"อยู่เวรได้\" — ไปติ๊กที่แท็บ พนักงานช่าง ก่อน"); return; }
@@ -1165,8 +1202,8 @@ function TechScheduleTab({ team, year, month, setMonth, setYear, updateTeam, com
     const key = dateKey(year, month, d);
     const dup = slots.filter((x) => x).length !== new Set(slots.filter((x) => x)).size;
     cells.push(
-      <div key={d} className={`cal-cell ${sel === d ? "selected" : ""}`} onClick={() => setSel(sel === d ? null : d)}>
-        <div className="cal-date"><span style={weekdayOf(year, month, d) === 0 ? { color: "var(--red)" } : null}>{d}</span><span>{dup ? "⚠" : companyHolidays && companyHolidays[key] ? "★" : ""}</span></div>
+      <div key={d} className={`cal-cell ${sel === d ? "selected" : ""}`} onClick={() => setSel(sel === d ? null : d)} style={customHol[key] ? { boxShadow: "inset 0 0 0 2px var(--red)" } : null} title={customHol[key] ? `วันหยุดพิเศษ${customHol[key].n ? ": " + customHol[key].n : ""}` : undefined}>
+        <div className="cal-date"><span style={weekdayOf(year, month, d) === 0 ? { color: "var(--red)" } : null}>{d}</span><span>{dup ? "⚠" : isHolidayKey(key) ? "★" : ""}</span></div>
         {slots.map((id, si) => {
           const w = id ? byId(id) : null;
           return w
@@ -1196,12 +1233,43 @@ function TechScheduleTab({ team, year, month, setMonth, setYear, updateTeam, com
                 </div>
               );
             })}
+            {(() => {
+              const hk = dateKey(year, month, sel);
+              const builtIn = !!(companyHolidays && companyHolidays[hk]);
+              const c = customHol[hk];
+              return (
+                <div style={{ marginBottom: 12, paddingTop: 10, borderTop: "1px solid rgba(128,128,128,.3)" }}>
+                  {builtIn ? (
+                    <div className="section-sub">★ วันหยุดพิเศษตามที่ระบบตั้งไว้</div>
+                  ) : (
+                    <>
+                      <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14, cursor: "pointer" }}>
+                        <input type="checkbox" checked={!!c} onChange={(e) => setHolidayKey(hk, e.target.checked)} />
+                        วันหยุดพิเศษ (กำหนดเอง)
+                      </label>
+                      {c && <input type="text" value={c.n || ""} placeholder="ชื่อวันหยุด (ไม่ใส่ก็ได้)" onChange={(e) => setHolidayName(hk, e.target.value)} style={{ width: "100%", marginTop: 6 }} />}
+                    </>
+                  )}
+                </div>
+              );
+            })()}
             <button className="btn small" onClick={() => setSel(null)}>ปิด</button>
           </>
         ) : (
           <>
             <div className="section-title">เลือกคนอยู่เวร</div>
-            <div className="section-sub">กดวันที่ในปฏิทินด้านขวา แล้วเลือกคนอยู่เวรแต่ละช่วงเวลาที่นี่</div>
+            <div className="section-sub">กดวันที่ในปฏิทินด้านขวา แล้วเลือกคนอยู่เวรแต่ละช่วงเวลาที่นี่ (ติ๊กกำหนดวันหยุดพิเศษได้ในช่องเดียวกัน)</div>
+            {monthHolidays.length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <div className="mono" style={{ fontSize: 13, marginBottom: 4 }}>วันหยุดพิเศษที่กำหนดเอง</div>
+                {monthHolidays.map(([k, v]) => (
+                  <div key={k} className="row" style={{ justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                    <span>{Number(k.slice(8))} {monthName}{v.n ? ` · ${v.n}` : ""}</span>
+                    <button className="btn small" onClick={() => setHolidayKey(k, false)}>ลบ</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -1212,9 +1280,9 @@ function TechScheduleTab({ team, year, month, setMonth, setYear, updateTeam, com
             <div className="month-label mono">{monthName} {year + 543}</div>
             <button className="btn small" onClick={() => setMonth((m) => (m === 12 ? (setYear((y) => y + 1), 1) : m + 1))}>›</button>
           </div>
-          <div className="row"><button className="btn primary small" onClick={printTech}>พิมพ์ตารางเวร</button><button className="btn small" onClick={clearMonth}>ล้างเดือนนี้</button></div>
+          <div className="row"><button className="btn primary small" onClick={printTech}>พิมพ์ตารางเวร</button><button className="btn small" onClick={exportTech}>ส่งออกเป็น Excel</button><button className="btn small" onClick={clearMonth}>ล้างเดือนนี้</button></div>
         </div>
-        <div className="section-sub" style={{ marginTop: 8 }}>ช่างจัดเวรเอง: กดวันที่ แล้วเลือกคนอยู่เวรแต่ละช่วงเวลา ({TECH_SHIFTS.join(" , ")} น.) · ⚠ = คนเดียวอยู่เวรซ้ำกันในวันเดียว</div>
+        <div className="section-sub" style={{ marginTop: 8 }}>ช่างจัดเวรเอง: กดวันที่ แล้วเลือกคนอยู่เวรแต่ละช่วงเวลา ({TECH_SHIFTS.join(" , ")} น.) · ⚠ = คนเดียวอยู่เวรซ้ำกันในวันเดียว · ★ = วันหยุดพิเศษ</div>
         <div className="row" style={{ marginTop: 8, flexWrap: "wrap", gap: 8 }}>
           <label style={{ fontSize: 13 }}>เลขที่บันทึกข้อความ (น.2 กฟส.ทอห.)</label>
           <input type="text" className="mono" value={sd.docNo || ""} placeholder="เช่น 410" onChange={(e) => setSd({ docNo: e.target.value })} style={{ width: 90 }} />
