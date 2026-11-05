@@ -117,7 +117,7 @@ body{background:#fff}#app{position:static;overflow:visible}.wrap{padding:0}
       <div><label class="lab">ระบบไฟฟ้า</label><div class="opts" id="o-sys"></div></div>
       <div><label class="lab">เฟส (เลือกได้หลายเฟส)</label><div class="opts" id="o-phase"></div></div>
     </div>
-    <div class="blk"><b>🧰 อุปกรณ์ที่ใช้</b><div id="eq"></div><div class="sub" id="eq-hint">ลูกถ้วยตั้ง/ลวดกลม นับอัตโนมัติจากหัวเสา × เฟส (SP, CCB = 1 ลูก/เฟส · DP, DDE = 2 ลูก/เฟส · ลวดกลม 1 เส้น/ลูก) แก้ตัวเลขเองได้</div></div>
+    <div class="blk"><b>🧰 อุปกรณ์ที่ใช้</b><div id="eq"></div><div class="sub" id="eq-hint">ลูกถ้วยตั้ง/ลวดกลม นับอัตโนมัติจากหัวเสา × เฟส (SP, CCB = 1 ลูก/เฟส · DP, DDE = 2 ลูก/เฟส · ลวดกลม 1 เส้น/ลูก) แก้ตัวเลขเองได้<br>เปลี่ยน DE SL เป็น DDE: ระบบ 1 Phase = ตั้ง 4 / แขวน 6 (2 ชุด) / สเตรน 2 ชุด · ระบบ 3 Phase = ตั้ง 6 / แขวน 9 (3 ชุด) / สเตรน 3 ชุด</div></div>
     <div class="blk"><b>📷 รูปถ่าย</b>
       <img id="prev" class="prev">
       <div class="row" style="flex-wrap:wrap">
@@ -147,7 +147,7 @@ onSnapshot(query(collection(db,"ins_points"),orderBy("pointNo","asc")),s=>{windo
 window.PLANS=[];window.POINTS=[];
 const PLAN_ICO='data:image/png;base64,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';
 const TITLE_HTML=document.getElementById('title').innerHTML;
-const HEADS=['SP','CCB','CSC','CTB','DP','DDE','DE','BA','DE SL'], PHASES=['A','B','C'];
+const HEADS=['SP','CCB','CSC','CTB','DP','DDE','DE','BA','DE SL','เปลี่ยน DE SL เป็น DDE'], PHASES=['A','B','C'];
 const EQ=[['standIns','ลูกถ้วยตั้ง','ลูก'],['hangIns','ลูกถ้วยแขวน','ลูก'],['eyeNut','อายนัท','ตัว'],['strain','สเตรนแคลมป์','ชุด'],['wire','ลวดกลม','เส้น']];
 let planId=null,tab='list',editKey=null,sel={head:[],phase:[],sys:0},photo={},map=null,uploading=false;
 const $=id=>document.getElementById(id);
@@ -258,9 +258,16 @@ function drawOpts(){
   $('o-sys').innerHTML=[1,3].map(n=>`<label class="chk ${sel.sys===n?'on':''}"><input type="checkbox" ${sel.sys===n?'checked':''} onchange="setSys(${n})">ระบบ ${n} Phase</label>`).join('');
 }
 const PER_PHASE={SP:1,CCB:1,DP:2,DDE:2};
+const CONV='เปลี่ยน DE SL เป็น DDE';
+const CONV_EQ={1:{standIns:4,hangIns:6,strain:2},3:{standIns:6,hangIns:9,strain:3}};
 function autoEq(){
-  const hs=sel.head.filter(h=>PER_PHASE[h]);if(!hs.length)return;
-  const n=hs.reduce((a,h)=>a+PER_PHASE[h],0)*sel.phase.length;
+  const hs=sel.head.filter(h=>PER_PHASE[h]),conv=sel.head.includes(CONV);
+  if(!hs.length&&!conv)return;
+  let n=hs.reduce((a,h)=>a+PER_PHASE[h],0)*sel.phase.length;
+  if(conv){
+    const c=CONV_EQ[sel.sys]||{standIns:0,hangIns:0,strain:0};
+    n+=c.standIns;$('eq-hangIns').value=c.hangIns;$('eq-strain').value=c.strain;
+  }
   $('eq-standIns').value=n;$('eq-wire').value=n;
 }
 function setSys(n){
@@ -271,7 +278,7 @@ function setSys(n){
 function tog(k,v){
   if(k==='phase'&&!sel.sys)return toast('กรุณาเลือกระบบ 1 Phase หรือ 3 Phase ก่อน');
   const i=sel[k].indexOf(v);
-  if(i>=0)sel[k].splice(i,1);
+  if(i>=0){sel[k].splice(i,1);if(v===CONV)['hangIns','strain','standIns','wire'].forEach(k=>$('eq-'+k).value=0)}
   else{sel[k].push(v);if(k==='phase'&&sel.sys===1&&sel.phase.length>2)sel.phase.shift()}
   if(k==='phase')sel.phase.sort();
   drawOpts();autoEq();
