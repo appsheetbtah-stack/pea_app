@@ -106,7 +106,7 @@ body{background:#fff}#app{position:static;overflow:visible}.wrap{padding:0}
   <div class="mh"><span id="pt-h">เพิ่มจุดสำรวจ</span><button class="btn back" onclick="closeM('m-pt')">✕</button></div>
   <div class="mb">
     <div class="blk">
-      <div class="row"><div class="grow"><label class="lab">พิกัด (Lat, Long)</label><input class="f" id="pt-ll" placeholder="ยังไม่ระบุ" readonly></div><button class="btn blue" onclick="gps()">📍 ตำแหน่งปัจจุบัน</button></div>
+      <div class="row"><div class="grow"><label class="lab">พิกัด (Lat, Long)</label><input class="f" id="pt-ll" placeholder="พิมพ์เอง เช่น 16.8211, 100.2659" autocomplete="off" oninput="parseLL()"></div><button class="btn blue" onclick="gps()">📍 ตำแหน่งปัจจุบัน</button></div>
       <div><label class="lab">ประเภทหัวเสา (เลือกได้หลายอย่าง)</label><div class="opts" id="o-head"></div></div>
       <div><label class="lab">เฟส (เลือกได้หลายเฟส)</label><div class="opts" id="o-phase"></div></div>
     </div>
@@ -262,19 +262,27 @@ function openPoint(key){
   editKey=key;const p=key?POINTS.find(x=>x.planId+'_'+x.pointNo===key):null;
   sel={head:[...(p?p.head:[])],phase:[...(p?p.phase:[])]};drawOpts();
   $('pt-h').textContent=p?`จุดที่ ${p.pointNo}`:'เพิ่มจุดสำรวจ';
-  const ll=$('pt-ll');ll.value=p&&p.lat!=null?`${p.lat}, ${p.lng}`:'';ll.dataset.lat=p&&p.lat!=null?p.lat:'';ll.dataset.lng=p&&p.lng!=null?p.lng:'';
+  const ll=$('pt-ll');ll.value=p&&p.lat!=null?`${p.lat}, ${p.lng}`:'';ll.dataset.lat=p&&p.lat!=null?p.lat:'';ll.dataset.lng=p&&p.lng!=null?p.lng:'';ll.style.borderColor='';
   $('eq').innerHTML=EQ.map(e=>`<div class="eq" style="margin-bottom:10px"><div class="grow">${e[1]} <span class="sub">(${e[2]})</span></div><div class="step"><button onclick="stepEq('${e[0]}',-1)">−</button><input class="f" type="number" min="0" inputmode="numeric" id="eq-${e[0]}" value="${p?(p.equip[e[0]]||0):0}"><button onclick="stepEq('${e[0]}',1)">+</button></div></div>`).join('');
   setPhoto(p?{link:p.photoLink,fileId:p.photoFileId,thumb:p.photoThumb}:{});
   $('ph-st').textContent='';$('pt-del').style.display=p?'':'none';openM('m-pt');
 }
+function parseLL(){
+  const e=$('pt-ll'),v=e.value.trim();e.dataset.lat='';e.dataset.lng='';e.style.borderColor='';
+  if(!v)return true;
+  const m=v.match(/^(-?\d{1,3}(?:\.\d+)?)\s*[,\s]\s*(-?\d{1,3}(?:\.\d+)?)$/);
+  if(m&&Math.abs(m[1])<=90&&Math.abs(m[2])<=180){e.dataset.lat=m[1];e.dataset.lng=m[2];return true}
+  e.style.borderColor='var(--red)';return false;
+}
 function gps(){
   if(!navigator.geolocation)return toast('อุปกรณ์นี้ไม่รองรับ GPS');toast('กำลังขอตำแหน่ง...');
   navigator.geolocation.getCurrentPosition(pos=>{const a=pos.coords.latitude.toFixed(6),b=pos.coords.longitude.toFixed(6),e=$('pt-ll');
-    e.value=a+', '+b;e.dataset.lat=a;e.dataset.lng=b;toast('ระบุตำแหน่งสำเร็จ ✓')},err=>toast('ขอตำแหน่งไม่ได้ ('+err.message+')'),{enableHighAccuracy:true,timeout:15000});
+    e.value=a+', '+b;parseLL();toast('ระบุตำแหน่งสำเร็จ ✓')},err=>toast('ขอตำแหน่งไม่ได้ ('+err.message+')'),{enableHighAccuracy:true,timeout:15000});
 }
 const nextNo=()=>myPts().reduce((m,p)=>Math.max(m,p.pointNo),0)+1;
 async function savePoint(){
   if(uploading)return toast('รอให้อัปโหลดรูปเสร็จก่อน');
+  if(!parseLL())return toast('รูปแบบพิกัดไม่ถูกต้อง เช่น 16.8211, 100.2659');
   const ll=$('pt-ll'),old=editKey?POINTS.find(x=>x.planId+'_'+x.pointNo===editKey):null,no=old?old.pointNo:nextNo();
   const equip={};EQ.forEach(e=>equip[e[0]]=parseInt($('eq-'+e[0]).value)||0);
   const data={planId,pointNo:no,head:sel.head,phase:sel.phase,equip,
