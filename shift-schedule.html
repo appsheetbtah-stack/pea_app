@@ -155,6 +155,32 @@ function writeAoaToWorksheet(ws, rows, merges) {
 }
 // พิมพ์ worksheet ของ ExcelJS ออกเครื่องพิมพ์ โดยแปลงเป็นตาราง HTML หน้าตาเดียวกับไฟล์ Excel
 function colLetterToNum(s) { let n = 0; for (const ch of s) n = n * 26 + ch.charCodeAt(0) - 64; return n; }
+// ขยายโลโก้ (แถวบนสุด) ให้บรรทัดสุดท้ายชิดขอบล่างของพื้นที่พิมพ์พอดี โดยไม่เปลี่ยนสเกลของตาราง และไม่ให้ล้นหน้า
+function growLogoToFill(idoc, zoom, padPx) {
+  const tbl = idoc.querySelector("table"), img = idoc.getElementById("plogo");
+  if (!tbl || !img) return;
+  const row = tbl.querySelectorAll("tbody tr")[5], td = img.parentElement;
+  const availPx = 1123 - 2 * padPx - 6;           // ความสูงพื้นที่พิมพ์ (หักเผื่อเล็กน้อยกันล้น)
+  tbl.style.zoom = 1;
+  const raw0 = tbl.offsetHeight;
+  if (raw0 * zoom > availPx) { tbl.style.zoom = availPx / raw0; return; } // ถ้าวัดจริงแล้วสูงเกิน ให้ย่อเพิ่มให้พอดี 1 หน้า ไม่ล้น
+  const spare = availPx / zoom - raw0; // พื้นที่ว่างท้ายหน้า (หน่วย px ก่อนย่อ)
+  if (spare > 4) {
+    const base = 92, r0 = row.offsetHeight;
+    const ratio = img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : 1.216;
+    const maxByWidth = (td.offsetWidth - 12) / ratio;
+    const imgH = Math.max(base, Math.min(base + spare, maxByWidth));
+    row.style.height = (r0 + (imgH - base)) + "px";
+    img.style.height = imgH + "px";
+    let guard = 0; // ตรวจซ้ำ: ถ้ายังล้น ให้ลดลง
+    while (tbl.offsetHeight * zoom > availPx && imgH > base && guard++ < 40) {
+      const cur = parseFloat(img.style.height) - 4;
+      img.style.height = Math.max(base, cur) + "px";
+      row.style.height = (r0 + Math.max(0, cur - base)) + "px";
+    }
+  }
+  tbl.style.zoom = zoom;
+}
 function printWorksheet(ws, opts) {
   const portrait = !!(opts && opts.portrait);
   const escapeHtml = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -170,8 +196,15 @@ function printWorksheet(ws, opts) {
   const widths = [];
   let totalPx = 0;
   for (let c = 1; c <= nCols; c++) { const px = Math.round((ws.getColumn(c).width || 8.43) * 7 + 5); widths.push(px); totalPx += px; }
-  const pagePx = portrait ? 718 : 1040; // A4 แนวนอนกว้าง ~1122px หักขอบซ้าย/ขวาข้างละ 10 มม. (~38px) เหลือ ~1046px
-  const zoom = Math.min(1, pagePx / totalPx);
+  const padMm = opts && opts.padMm ? opts.padMm : 10;      // ขอบกระดาษ (มม.) เดิม 10
+  const padPx = Math.round(padMm * 3.78);
+  const fontFamily = (opts && opts.fontFamily) || '"Angsana New", "TH Sarabun New", "Sarabun", serif';
+  const pagePx = portrait ? 794 - 2 * padPx : 1040; // A4 แนวนอนกว้าง ~1122px หักขอบซ้าย/ขวาข้างละ 10 มม. (~38px) เหลือ ~1046px
+  let zoom = Math.min(1, pagePx / totalPx);
+  if (opts && opts.fitHeight) { // ย่อให้พอดี 1 หน้าทั้งแนวกว้างและแนวสูง
+    let totalPt = 0; for (let r = 1; r <= nRows; r++) totalPt += ws.getRow(r).height || 15;
+    zoom = Math.min(zoom, (1123 - 2 * padPx - 30) / ((totalPt * 4) / 3));
+  }
   const bd = (b) => (b && b.style ? "1px solid #000" : "none");
   let html = "";
   for (let r = 1; r <= nRows; r++) {
@@ -199,8 +232,11 @@ function printWorksheet(ws, opts) {
       const f = cell.font || {};
       const color = f.color && f.color.argb ? `color:#${f.color.argb.slice(2)};` : "";
       const sp = spans[key];
-      const diag = b.diagonal && b.diagonal.up ? "background-image:linear-gradient(to top left,transparent calc(50% - 0.6px),#000 50%,transparent calc(50% + 0.6px));" : "";
-      html += `<td${sp ? ` rowspan="${sp.rs}" colspan="${sp.cs}"` : ""} style="border-top:${bd(b.top)};border-bottom:${bd(b.bottom)};border-left:${bd(b.left)};border-right:${bd(b.right)};text-align:${hAlign};vertical-align:${vAlign};font-size:${f.size || 16}pt;font-weight:${f.bold ? 700 : 400};white-space:${al.wrapText ? "pre-wrap" : "nowrap"};${fill}${diag}${color}">${ws._logo && ws._logo.key === key ? `<img src="${ws._logo.src}" style="display:block;margin:0 auto;height:92px;width:auto;">` : escapeHtml(text)}</td>`;
+      // เส้นทแยงเป็นเวกเตอร์ (SVG) จึงคมชัดไม่แตกเป็นพิกเซลเมื่อพิมพ์/ย่อ
+      const hasDiag = !!(b.diagonal && b.diagonal.up);
+      const diag = hasDiag ? "position:relative;" : "";
+      const diagSvg = hasDiag ? '<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;" shape-rendering="geometricPrecision"><line x1="0" y1="100%" x2="100%" y2="0" stroke="#000" stroke-width="1.2" stroke-linecap="butt"/></svg>' : "";
+      html += `<td${sp ? ` rowspan="${sp.rs}" colspan="${sp.cs}"` : ""} style="border-top:${bd(b.top)};border-bottom:${bd(b.bottom)};border-left:${bd(b.left)};border-right:${bd(b.right)};text-align:${hAlign};vertical-align:${vAlign};font-size:${f.size || 16}pt;font-weight:${f.bold ? 700 : 400};white-space:${al.wrapText ? "pre-wrap" : "nowrap"};${fill}${diag}${color}">${diagSvg}${ws._logo && ws._logo.key === key ? `<img id="plogo" src="${ws._logo.src}" style="display:block;margin:0;height:92px;width:auto;">` : escapeHtml(text)}</td>`;
     }
     html += "</tr>";
   }
@@ -209,8 +245,8 @@ function printWorksheet(ws, opts) {
     @page { size: A4 ${portrait ? "portrait" : "landscape"}; margin: 0; } /* margin 0 = Chrome ไม่พิมพ์วันที่/ชื่อหน้า/URL/เลขหน้า */
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     html, body { margin: 0; padding: 0; background: #fff; }
-    body { padding: 10mm; box-sizing: border-box; }
-    table { border-collapse: collapse; table-layout: fixed; width: ${totalPx}px; zoom: ${zoom}; font-family: "Angsana New", "TH Sarabun New", "Sarabun", serif; color: #000; }
+    body { padding: ${padMm}mm; box-sizing: border-box; }
+    table { border-collapse: collapse; table-layout: fixed; width: ${totalPx}px; zoom: ${zoom}; font-family: ${fontFamily}; color: #000; }
     td { padding: 0 2px; overflow: hidden; line-height: 1.1; }
   </style></head><body><div style="display:flex;justify-content:center;"><table><colgroup>${cols}</colgroup><tbody>${html}</tbody></table></div></body></html>`;
   const iframe = document.createElement("iframe");
@@ -219,6 +255,7 @@ function printWorksheet(ws, opts) {
   const idoc = iframe.contentWindow.document;
   idoc.open(); idoc.write(doc); idoc.close();
   setTimeout(() => {
+    if (opts && opts.growLogo) { try { growLogoToFill(idoc, zoom, padPx); } catch (e) { /* ข้าม ถ้าวัดขนาดไม่ได้ */ } }
     iframe.contentWindow.focus();
     iframe.contentWindow.print();
     setTimeout(() => iframe.remove(), 2000);
@@ -1049,7 +1086,7 @@ function TechScheduleTab({ team, year, month, setMonth, setYear, updateTeam, com
     const last = nCols - 1;
     const grid = []; const heights = []; const merges = [];
     const cell = (v, { sz = 12, bold = false, fill = null, border = false, diag = false, h = "center", wrap = false } = {}) => {
-      const st = { font: { name: FONT, sz, bold }, alignment: { horizontal: h, vertical: "center", wrapText: wrap } };
+      const st = { font: { name: FONT, sz: 18, bold }, alignment: { horizontal: h, vertical: "center", wrapText: wrap } };
       if (border) st.border = diag ? { ...box, diagonal: { style: "thin", color: { rgb: "000000" } } } : box;
       if (fill) st.fill = { patternType: "solid", fgColor: { rgb: fill } };
       return { v: v == null ? "" : v, t: typeof v === "number" ? "n" : "s", s: st };
@@ -1063,34 +1100,34 @@ function TechScheduleTab({ team, year, month, setMonth, setYear, updateTeam, com
     // ----- หัวบันทึกข้อความ -----
     // โลโก้ กฟภ. มุมซ้ายบน (แถว 1-6 คอลัมน์ B-D)
     [9.75, 15, 15, 15, 15, 25.5].forEach((h) => addRow(h));
-    merges.push({ s: { r: 0, c: 1 }, e: { r: 5, c: 3 } });
-    let r = addRow(20);
+    merges.push({ s: { r: 0, c: 1 }, e: { r: 5, c: 5 } });
+    let r = addRow(24);
     const cTo = cP0 + Math.floor((nP * 5) / 3) + 1; // "ถึง" / "วันที่" (เว้นที่ให้เลขที่หนังสือยาว ๆ)
     put(r, 1, "จาก", { ...H14, bold: true });
     put(r, 2, "กฟส.ทอห.", H14); merge(r, 2, cTo - 1);
     put(r, cTo, "ถึง", { sz: 14, bold: true, h: "left" }); put(r, cTo + 1, "กฟส.บรก.", H14); merge(r, cTo + 1, last);
-    r = addRow(20);
+    r = addRow(24);
     put(r, 1, "เลขที่", { ...H14, bold: true });
     put(r, 2, `น.2 กฟส.ทอห. ${docNo}/${byear}`, H14); merge(r, 2, cTo - 1);
     put(r, cTo, "วันที่", { sz: 14, bold: true, h: "left" });
-    r = addRow(38);
+    r = addRow(24);
     put(r, 1, "เรื่อง", { ...H14, bold: true });
     put(r, 2, `ขออนุมัติจัดตารางการปฏิบัติงานของชุดพนักงานช่างปฏิบัติการระบบไฟฟ้า (กฟส. ขนาด XS) ประจำเดือน ${monthName} ${byear}`, { ...H14, wrap: true }); merge(r, 2, last);
-    r = addRow(20);
-    put(r, 1, "เรียน", H14);
+    r = addRow(24);
+    put(r, 1, "เรียน", { ...H14, bold: true });
     put(r, 2, "ผจก.กฟส.บรก.", H14); merge(r, 2, last);
-    r = addRow(20);
+    r = addRow(24);
     put(r, 2, "\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0เพื่อให้งานปฏิบัติการระบบไฟฟ้าเป็นไปด้วยความเรียบร้อยจึงขออนุมัติจัดตารางการปฏิบัติงานของชุดพนักงานช่าง", H14); merge(r, 2, last);
-    r = addRow(22);
+    r = addRow(26);
     put(r, 1, `ปฏิบัติการระบบไฟฟ้า กฟส.ทอห. ประจำเดือน ${monthName} ${byear} ดังต่อไปนี้`, H14); merge(r, 1, last);
 
     // ----- หัวตาราง -----
     const B = { border: true };
-    r = addRow(34);
+    r = addRow(26);
     put(r, 1, "ชื่อ", B); merge(r, 1, 2);
     people.forEach((w, i) => { put(r, cP0 + 3 * i, w.name, { ...B, wrap: true }); merge(r, cP0 + 3 * i, cP0 + 3 * i + 2); });
     put(r, cNote, "หมายเหตุ", B);
-    r = addRow(18);
+    r = addRow(24);
     put(r, 1, "วันที่", B); put(r, 2, "วัน", B);
     people.forEach((w, i) => [1, 2, 3].forEach((n, s) => put(r, cP0 + 3 * i + s, `ช่วง ${n}`, B)));
     put(r, cNote, "", B);
@@ -1114,7 +1151,7 @@ function TechScheduleTab({ team, year, month, setMonth, setYear, updateTeam, com
       const isSpecial = isHolidayKey(dateKey(year, month, d));
       const fill = isSpecial ? "FF0000" : (wd === 0 || wd === 6 ? "FFFF00" : null);
       const slots = slotsOf(d);
-      r = addRow(13.5);
+      r = addRow(20);
       put(r, 1, d, B); put(r, 2, THAI_DAYS_SHORT[wd], { ...B, fill });
       const plainDay = !fill; // วันทำการปกติ (ไม่ใช่เสาร์-อาทิตย์/วันหยุดพิเศษ)
       people.forEach((w, i) => [0, 1, 2].forEach((s) => {
@@ -1129,15 +1166,15 @@ function TechScheduleTab({ team, year, month, setMonth, setYear, updateTeam, com
       const lg = legendAt[d];
       if (lg) {
         if (lg.box) put(r, cLeg, lg.boxV || "", lg.box);
-        put(r, cLeg + 1, lg.text, { h: lg.h }); merge(r, cLeg + 1, last);
+        put(r, cLeg + 1, lg.text, { h: lg.h }); merge(r, cLeg + 1, d >= 10 ? cLeg + 3 : last); // แถวเตรียมพร้อม (24-28) ผสาน P-R
       }
     }
 
     // ----- สรุปรวม -----
-    r = addRow(15);
+    r = addRow(21);
     put(r, 1, "รวม(ครั้ง)", { ...B, wrap: true }); merge(r, 1, 2);
     people.forEach((w, i) => [0, 1, 2].forEach((s) => put(r, cP0 + 3 * i + s, counts3[i][s], B)));
-    r = addRow(30);
+    r = addRow(24);
     put(r, 1, "รวมจำนวนชั่วโมง", { ...B, wrap: true }); merge(r, 1, 2);
     people.forEach((w, i) => { put(r, cP0 + 3 * i, (counts3[i][0] + counts3[i][1] + counts3[i][2]) * 8, B); merge(r, cP0 + 3 * i, cP0 + 3 * i + 2); });
     r = addRow(24);
@@ -1145,30 +1182,30 @@ function TechScheduleTab({ team, year, month, setMonth, setYear, updateTeam, com
     people.forEach((w, i) => { put(r, cP0 + 3 * i, "", B); merge(r, cP0 + 3 * i, cP0 + 3 * i + 2); });
 
     // ----- ท้ายบันทึก -----
-    r = addRow(20);
-    put(r, 1, "เรียน", H14);
+    r = addRow(24);
+    put(r, 1, "เรียน", { ...H14, bold: true });
     put(r, 2, "ผจก.กฟส.บรก.", H14); merge(r, 2, last);
     const cAp = cP0 + Math.floor((nP * 8) / 3);
-    r = addRow(22);
-    put(r, 2, "\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0จึงเรียนมาเพื่อโปรดพิจารณาอนุมัติ", H14); merge(r, 2, cAp - 1);
-    put(r, cAp, "อนุมัติ", { sz: 16, bold: true }); merge(r, cAp, cNote);
-    addRow(18); addRow(22);
     const leftEnd = Math.min(5, Math.floor((cNote + 2) / 2) - 1);
     const rightStart = Math.max(cNote - 3, leftEnd + 1);
-    r = addRow(20);
+    r = addRow(26);
+    put(r, 2, "\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0จึงเรียนมาเพื่อโปรดพิจารณาอนุมัติ", H14); merge(r, 2, Math.min(8, rightStart - 1));
+    put(r, rightStart, "อนุมัติ", { sz: 16, bold: true }); merge(r, rightStart, cNote); // กึ่งกลางเหนือชื่อผู้อนุมัติ (J-M)
+    addRow(22); addRow(26);
+    r = addRow(24);
     put(r, 2, "(นายวรุฒ  พ่วงท่าโก)", { sz: 14 }); merge(r, 2, leftEnd);
     put(r, rightStart, "(นายณัฐพงศ์  โพธิพรต)", { sz: 14 }); merge(r, rightStart, cNote);
-    r = addRow(20);
+    r = addRow(24);
     put(r, 2, "ผจก.กฟส.(8)กฟส.ทอห.", { sz: 14 }); merge(r, 2, leftEnd);
     put(r, rightStart, "ผจก.กฟส.(9)กฟส.บรก.", { sz: 14 }); merge(r, rightStart, cNote);
-    r = addRow(38);
+    r = addRow(46);
     put(r, 1, "หมายเหตุ ช่วง 1 เวลา (00:30-08:30 น.) , ช่วง 2 เวลา (08:30-16:30 น.) ,ช่วง 3 เวลา (16:30-00:30 น.วันรุ่งขึ้น)", { ...H14, bold: true, wrap: true }); merge(r, 1, last);
 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("tech");
     writeAoaToWorksheet(ws, grid, merges);
-    [4.1, 7, 6, ...new Array(3 * nP).fill(5), 9, 5, 5.2, 4.9, 7.2, 7.4, 9.0].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
-    heights.forEach((h, i) => { ws.getRow(i + 1).height = h; });
+    [4.1, 8, 7, ...new Array(3 * nP).fill(6.5), 10, 5, 6, 7, 8, 9, 10].forEach((w, i) => { ws.getColumn(i + 1).width = i === 0 ? w : Math.round(w * 1.12 * 10) / 10; });
+    heights.forEach((h, i) => { ws.getRow(i + 1).height = i < 6 ? h : Math.round(h * 1.12 * 2) / 2; }); // แถวโลโก้ (6 แถวแรก) คงเดิม
     ws._logo = { key: "1,2", src: TECH_LOGO };
     return ws;
   };
@@ -1177,8 +1214,26 @@ function TechScheduleTab({ team, year, month, setMonth, setYear, updateTeam, com
     try {
       const ws = buildTechSheet();
       const wb = ws._workbook;
+      // ประมาณพื้นที่ว่างท้ายหน้า A4 (ขอบ 0.4") แล้วขยายแถวโลโก้ให้เต็ม โดยเผื่อไว้เล็กน้อยไม่ให้ล้นเป็นหน้าที่ 2
+      let colsPt = 0, rowsPt = 0;
+      for (let c = 1; c <= ws.columnCount; c++) colsPt += ((ws.getColumn(c).width || 8.43) * 7 + 5) * 0.75;
+      for (let r = 1; r <= ws.rowCount; r++) rowsPt += ws.getRow(r).height || 15;
+      const pageW = (8.27 - 0.8) * 72, pageH = (11.69 - 0.8) * 72;
+      const scale = Math.min(1, pageW / colsPt, pageH / rowsPt);
+      const spare = Math.max(0, (pageH / scale - rowsPt) * 0.9);
+      let logoW = 118, logoH = 97, logoWidthPx = 0;
+      for (let c = 2; c <= 6; c++) logoWidthPx += (ws.getColumn(c).width || 8.43) * 7 + 5;
+      const logoRatio = 1.216;
+      const blockPt0 = [1, 2, 3, 4, 5, 6].reduce((a, r) => a + (ws.getRow(r).height || 15), 0);
+      if (spare > 3) {
+        const maxH = (logoWidthPx - 14) / logoRatio;
+        logoH = Math.max(97, Math.min(97 + spare * (4 / 3), maxH));
+        logoW = logoH * logoRatio;
+        const grow = Math.max(0, (logoH - 97) * 0.75);
+        ws.getRow(6).height = (ws.getRow(6).height || 25.5) + grow;
+      }
       const imgId = wb.addImage({ base64: TECH_LOGO.split(",")[1], extension: "png" });
-      ws.addImage(imgId, { tl: { col: 1.1, row: 0.1 }, ext: { width: 118, height: 97 } });
+      ws.addImage(imgId, { tl: { col: 1.1, row: 0.1 }, ext: { width: logoW, height: logoH } });
       ws.pageSetup = {
         paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 1,
         margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 },
@@ -1191,7 +1246,7 @@ function TechScheduleTab({ team, year, month, setMonth, setYear, updateTeam, com
   };
   const printTech = () => {
     if (!eligible.length) { window.alert("ยังไม่มีพนักงานที่ \"อยู่เวรได้\" — ไปติ๊กที่แท็บ พนักงานช่าง ก่อน"); return; }
-    printWorksheet(buildTechSheet(), { portrait: true });
+    printWorksheet(buildTechSheet(), { portrait: true, fitHeight: true, growLogo: true, padMm: 8, fontFamily: '"TH SarabunPSK", "TH Sarabun PSK", "TH Sarabun New", "THSarabunNew", "Sarabun", serif' });
   };
   const counts = {};
   for (let d = 1; d <= dim; d++) slotsOf(d).forEach((id) => { if (id) counts[id] = (counts[id] || 0) + 1; });
