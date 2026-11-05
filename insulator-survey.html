@@ -117,7 +117,7 @@ body{background:#fff}#app{position:static;overflow:visible}.wrap{padding:0}
       <div><label class="lab">ระบบไฟฟ้า</label><div class="opts" id="o-sys"></div></div>
       <div><label class="lab">เฟส (เลือกได้หลายเฟส)</label><div class="opts" id="o-phase"></div></div>
     </div>
-    <div class="blk"><b>🧰 อุปกรณ์ที่ใช้</b><div id="eq"></div><div class="sub" id="eq-hint">ลูกถ้วยตั้ง/ลวดกลม นับอัตโนมัติจากหัวเสา × เฟส (SP, CCB = 1 ลูก/เฟส · DP, DDE = 2 ลูก/เฟส · ลวดกลม 1 เส้น/ลูก) แก้ตัวเลขเองได้<br>เปลี่ยน DE SL เป็น DDE: ระบบ 1 Phase = ตั้ง 4 / แขวน 6 (2 ชุด) / สเตรน 2 ชุด · ระบบ 3 Phase = ตั้ง 6 / แขวน 9 (3 ชุด) / สเตรน 3 ชุด</div></div>
+    <div class="blk"><b>🧰 อุปกรณ์ที่ใช้</b><div id="eq"></div><div class="sub" id="eq-hint">ลูกถ้วยตั้ง/ลวดกลม นับอัตโนมัติจากหัวเสา × เฟส (SP, CCB = 1 ลูก/เฟส · DP, DDE = 2 ลูก/เฟส · ลวดกลม 1 เส้น/ลูก) แก้ตัวเลขเองได้<br>เปลี่ยน DE SL เป็น DDE: ระบบ 1 Phase = ตั้ง 4 / แขวน 6 (2 ชุด) / อายนัท 2 / สเตรน 2 ชุด · ระบบ 3 Phase = ตั้ง 6 / แขวน 9 (3 ชุด) / อายนัท 3 / สเตรน 3 ชุด</div></div>
     <div class="blk"><b>📷 รูปถ่าย</b>
       <img id="prev" class="prev">
       <div class="row" style="flex-wrap:wrap">
@@ -266,7 +266,7 @@ function autoEq(){
   let n=hs.reduce((a,h)=>a+PER_PHASE[h],0)*sel.phase.length;
   if(conv){
     const c=CONV_EQ[sel.sys]||{standIns:0,hangIns:0,strain:0};
-    n+=c.standIns;$('eq-hangIns').value=c.hangIns;$('eq-strain').value=c.strain;
+    n+=c.standIns;$('eq-hangIns').value=c.hangIns;$('eq-strain').value=c.strain;$('eq-eyeNut').value=c.hangIns/3;
   }
   $('eq-standIns').value=n;$('eq-wire').value=n;
 }
@@ -278,7 +278,7 @@ function setSys(n){
 function tog(k,v){
   if(k==='phase'&&!sel.sys)return toast('กรุณาเลือกระบบ 1 Phase หรือ 3 Phase ก่อน');
   const i=sel[k].indexOf(v);
-  if(i>=0){sel[k].splice(i,1);if(v===CONV)['hangIns','strain','standIns','wire'].forEach(k=>$('eq-'+k).value=0)}
+  if(i>=0){sel[k].splice(i,1);if(v===CONV)['hangIns','eyeNut','strain','standIns','wire'].forEach(k=>$('eq-'+k).value=0)}
   else{sel[k].push(v);if(k==='phase'&&sel.sys===1&&sel.phase.length>2)sel.phase.shift()}
   if(k==='phase')sel.phase.sort();
   drawOpts();autoEq();
