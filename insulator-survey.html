@@ -82,6 +82,9 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{border-bottom:1px
 .top,.bnav,.fab,.ov,.toast,.no-print{display:none!important}
 body{background:#fff}#app{position:static;overflow:visible}.wrap{padding:0}
 .rpage{border-radius:0;padding:0}.rtable{font-size:11px}.rtable tr{page-break-inside:avoid}}
+.pcard{display:grid!important;grid-template-columns:56px minmax(0,1fr) auto!important;align-items:center!important;column-gap:12px}
+.pcard .thumb{width:56px;height:56px;margin:0}
+.pcard .grow{display:block;min-width:0}
 .delb{padding:8px 11px;color:var(--red);flex-shrink:0}
 .empty{padding:50px 20px;text-align:center;color:var(--text2)}
 .pin{width:26px;height:26px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font:700 11px var(--mono);color:#000;box-shadow:0 1px 4px rgba(0,0,0,.5)}
@@ -174,7 +177,7 @@ function renderHome(){
 function openPlanDetail(id){planId=id;tab='list';render()}
 function renderList(){
   const a=myPts();
-  $('pane').innerHTML='<div class="wrap">'+(a.length?a.map(p=>`<div class="card" onclick="openPoint('${p.planId}_${p.pointNo}')">
+  $('pane').innerHTML='<div class="wrap">'+(a.length?a.map(p=>`<div class="card pcard" onclick="openPoint('${p.planId}_${p.pointNo}')">
     ${p.photoThumb?`<img class="thumb" src="${esc(p.photoThumb)}" loading="lazy">`:'<div class="thumb no">📷</div>'}
     <div class="grow"><b>จุดที่ ${p.pointNo}</b> <span class="sub">${esc(pTxt(p))}</span><div>${EQ.filter(e=>(p.equip||{})[e[0]]).map(e=>`<span class="chip">${e[1]} ${p.equip[e[0]]}</span>`).join('')||'<span class="sub">ยังไม่ระบุอุปกรณ์</span>'}</div></div><button class="btn ghost delb" onclick="event.stopPropagation();quickDelPoint('${p.planId}_${p.pointNo}')">🗑️</button></div>`).join(''):'<div class="empty">ยังไม่มีจุดสำรวจ<br>กดปุ่ม + เพื่อเพิ่มจุดแรก</div>')+'</div>';
 }
