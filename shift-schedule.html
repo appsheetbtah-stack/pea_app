@@ -276,6 +276,15 @@ async function downloadWorkbook(wb, filename) {
 }
 
 const ROTATION_EPOCH = new Date(2026, 0, 1);
+// ลำดับหมุนเวรของทีมแก้ไฟฯ (3 คน) ตามตารางเวรจริง: ชารี → ประเสริฐ → ดนุภพ  (ทีมอื่น/จำนวนคนอื่น ใช้ลำดับในทีมตามเดิม)
+const OUTAGE_PATTERN_NAMES = ["นายชารี ราชอ่อง", "นายประเสริฐ ทิมทอง", "นายดนุภพ คำมาเปียง"];
+const rotationOrderOf = (ws) => {
+  if (ws.length === 3) {
+    const ids = OUTAGE_PATTERN_NAMES.map((n) => (ws.find((w) => w.name === n) || {}).id);
+    if (ids.every(Boolean)) return ids;
+  }
+  return ws.map((w) => w.id);
+};
 const daysBetween = (a, b) => Math.round((b - a) / 86400000);
 
 // วันหยุดพิเศษบริษัท ปี 2569 ที่อ่านออกมาจากตารางเวรจริง (ตารางเวร_แก้กระแสไฟฟ้าขัดข้อง_2569.xlsx)
@@ -1775,8 +1784,9 @@ function App() {
   const rotationShiftsForDate = (date) => {
     const n = workers.length;
     if (n === 0) return [null, null, null];
+    const ord = rotationOrderOf(workers);
     const r = ((daysBetween(ROTATION_EPOCH, date) % n) + n) % n;
-    return [workers[r].id, workers[(r + 2) % n].id, workers[(r + 1) % n].id];
+    return [ord[r], ord[(r + 2) % n], ord[(r + 1) % n]];
   };
 
   const setShift = (key, shiftIdx, workerId) => {
@@ -1809,27 +1819,6 @@ function App() {
     return u;
   }
 
-  const autoFillMonth = () => {
-    if (workers.length === 0) return;
-    setSchedule((prev) => {
-      const next = { ...prev };
-      for (let d = 1; d <= dim; d++) {
-        const key = dateKey(year, month, d);
-        const thisDate = new Date(year, month - 1, d);
-        const weekday = thisDate.getDay();
-        const isWeekend = weekday === 0 || weekday === 6;
-        const existing = next[key] || emptyRotationEntry();
-        const fillShift2 = isWeekend || !!companyHolidays[key];
-        const [s1, s2, s3] = rotationShiftsForDate(thisDate);
-        const newShifts = [s1, fillShift2 ? s2 : null, s3];
-        const oldSubs = existing.subs || [null, null, null];
-        const subs = newShifts.map((s, i) => (s && s === existing.shifts[i] ? oldSubs[i] || null : null));
-        next[key] = { ...existing, shifts: newShifts, subs };
-      }
-      return next;
-    });
-  };
-
   // isHoliday + whether any shift is filled decides the multiplier:
   // holiday & nobody scheduled -> everyone gets 1 free; holiday & scheduled -> those get 2x.
   function dayMultiplierRotation(dateStr, entry) {
@@ -1856,7 +1845,7 @@ function App() {
     }
     if (y !== 2026) {
       if (!window.confirm(`รายการวันหยุดพิเศษที่มีอยู่ตรวจสอบไว้เฉพาะปี 2569 เท่านั้น การสร้างแพทเทิร์นปี ${y + 543} จะได้กะกลาง (08:00-16:00) ถูกต้องเฉพาะเสาร์-อาทิตย์ แต่วันหยุดพิเศษอาจไม่ครบ ต้องการดำเนินการต่อหรือไม่?`)) return;
-    } else if (!window.confirm(`จะลบเวรเก่าทั้งหมดของทีมแก้ไฟฯ ในปี ${y + 543} ทิ้ง แล้วสร้างใหม่ทั้งปีตามตารางเวรจริงที่อัปโหลดไว้ (365 วัน) การกระทำนี้ย้อนกลับไม่ได้ ยืนยันหรือไม่?`)) {
+    } else if (!window.confirm(`จะลบเวรเก่าทั้งหมดของทีมแก้ไฟฯ ในปี ${y + 543} ทิ้ง แล้วสร้างใหม่ทั้งปีตามตารางเวรจริงที่อัปโหลดไว้ (365 วัน) การกระทำนี้ย้อนกลับไม่ได้ (ปีอื่นไม่ถูกแตะ) ยืนยันหรือไม่?`)) {
       return;
     }
 
@@ -1886,7 +1875,7 @@ function App() {
         return next;
       });
     }
-    setTeams((prev) => prev.map((t) => (t.id === "outage" ? { ...t, schedule: nextSchedule } : t)));
+    setTeams((prev) => prev.map((t) => (t.id === "outage" ? { ...t, schedule: { ...Object.fromEntries(Object.entries(t.schedule || {}).filter(([k]) => !k.startsWith(`${y}-`))), ...nextSchedule } } : t))); // ปีอื่นคงไว้ ล้าง/สร้างใหม่เฉพาะปี y
     alert(`ล้างแพทเทิร์นเก่าและสร้างแพทเทิร์นทีมแก้ไฟฯ ปี ${y + 543} ใหม่เรียบร้อย (${Object.keys(nextSchedule).length} วัน) — กำลังซิงก์ขึ้น Firestore`);
   };
 
@@ -1937,7 +1926,8 @@ function App() {
           const existing = t.schedule[key] || { shifts: [null, null, null] };
           if (existing.shifts.some(Boolean)) return t; // already assigned, don't overwrite
           const r = ((daysBetween(ROTATION_EPOCH, new Date(y, m - 1, d)) % n) + n) % n;
-          const shifts = [t.workers[r].id, t.workers[(r + 2) % n].id, t.workers[(r + 1) % n].id];
+          const ord = rotationOrderOf(t.workers);
+          const shifts = [ord[r], ord[(r + 2) % n], ord[(r + 1) % n]];
           return { ...t, schedule: { ...t.schedule, [key]: { ...existing, shifts } } };
         })
       );
@@ -2643,7 +2633,19 @@ function App() {
                 <thead>
                   <tr>
                     <th>ลำดับ</th><th>ชื่อ - สกุล</th>
-                    {days.map((d) => <th key={d}>{d}</th>)}
+                    {days.map((d) => {
+                      // สีตัวเลขวันที่: แดง = เสาร์-อาทิตย์/วันหยุดที่ได้ค่าแรง 1 แรงปกติ · เหลือง(ทอง) = วันหยุดพิเศษที่ได้ค่าแรง 2 เท่า
+                      const dKey = dateKey(year, month, d);
+                      const dwd = weekdayOf(year, month, d);
+                      let dColor = null;
+                      if (companyHolidays[dKey]) {
+                        const mx = Math.max(0, ...Object.values(unitsForDay(year, month, d)));
+                        dColor = mx >= 2 ? "#e0a100" : "#e00000";
+                      } else if (dwd === 0 || dwd === 6 || (team.type === "rotation" && getEntry(dKey).govHoliday)) {
+                        dColor = "#e00000";
+                      }
+                      return <th key={d} style={dColor ? { color: dColor } : null}>{d}</th>;
+                    })}
                     <th>รวม</th><th>ค่าจ้างวันละ</th><th>รวมเป็นเงิน</th><th>ประกันสังคม 5%</th><th>กองทุนสงเคราะห์ 0.25%</th><th>จ่ายสุทธิ</th><th>อัตรา ผรจ.</th><th>รวมจ่าย ผรจ.</th>
                   </tr>
                 </thead>
@@ -3095,8 +3097,7 @@ function App() {
               <div className="row">
                 {team.type === "rotation" ? (
                   <>
-                    <button className="btn" onClick={autoFillMonth}>เติมเวรเดือนนี้ (ตามแพทเทิร์น)</button>
-                    <button className="btn danger" onClick={() => regenerateOutagePatternForYear(year)}>รีเซ็ตทั้งปี (ล้าง + สร้างใหม่ {year + 543})</button>
+                                        <button className="btn danger" onClick={() => regenerateOutagePatternForYear(year)}>รีเซ็ตทั้งปี (ล้าง + สร้างใหม่ {year + 543})</button>
                   </>
                 ) : team.type === "attendance" ? (
                   <>
@@ -3168,7 +3169,7 @@ function App() {
               <div className="section-sub" style={{ marginTop: 10 }}>
                 ⭐ วันหยุดพิเศษบริษัท (ทุกทีม): เข้าเวร = 2 แรง, ไม่มีใครเข้า = ทุกคนได้ 1 แรงฟรี · ⚑ วันหยุดราชการทั่วไป: เติมกะ 3 อัตโนมัติ จ่ายปกติ 1 แรง/กะ
                 <br />
-                "เติมเวรเดือนนี้" = เติมเฉพาะเดือนที่เปิดอยู่ ไม่ลบข้อมูลเดิม (ใช้ทุกเดือน) · "รีเซ็ตทั้งปี" = ลบทั้งปีทิ้งแล้วสร้างใหม่หมด (ใช้เมื่อข้อมูลทั้งปีผิดเท่านั้น — กดครั้งเดียวพอ)
+                "รีเซ็ตทั้งปี" = ลบแล้วสร้างใหม่ตามแพทเทิร์นเฉพาะปีที่เปิดอยู่ ปีอื่นไม่ถูกแตะ (ใช้เปิดปีใหม่ หรือเมื่อข้อมูลของปีนั้นผิด)
               </div>
             )}
 
