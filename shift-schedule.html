@@ -1744,6 +1744,14 @@ function App() {
     });
   };
   const setSchedule = (fn) => updateTeam((t) => ({ schedule: fn(t.schedule) }));
+  // วันหยุดที่กำหนดเองของทีมนี้ (ใช้กับทีมแม่บ้าน/ตารางมาทำงาน) เก็บเป็น { "2026-12-31": { n: "" } } — แยกจากดาว ★ วันหยุดพิเศษบริษัทที่มีผลกับค่าแรงทุกทีม
+  const teamHolidays = team.holidays || {};
+  const isOffHoliday = (key) => !!(teamHolidays[key] || companyHolidays[key]);
+  const toggleTeamHoliday = (key) => updateTeam((t) => {
+    const cur = { ...(t.holidays || {}) };
+    if (cur[key]) delete cur[key]; else cur[key] = { n: "" };
+    return { holidays: cur };
+  });
 
   const workerColorMap = useMemo(() => {
     const ids = workers.map((w) => w.id).slice().sort();
@@ -1900,7 +1908,7 @@ function App() {
       const next = { ...prev };
       for (let d = 1; d <= dim; d++) {
         const key = dateKey(year, month, d);
-        next[key] = { ...next[key], worked: weekdayPattern(year, month, d) };
+        next[key] = { ...next[key], worked: weekdayPattern(year, month, d) && !(team.type === "attendance" && isOffHoliday(key)) };
       }
       return next;
     });
@@ -2546,7 +2554,7 @@ function App() {
     for (let d = 1; d <= dim; d++) {
       const wd = weekdayOf(year, month, d);
       const isWeekend = wd === 0 || wd === 6;
-      const isCompanyHoliday = !!companyHolidays[dateKey(year, month, d)];
+      const isCompanyHoliday = isOffHoliday(dateKey(year, month, d)); // วันหยุดบริษัท (★) หรือวันหยุดที่กำหนดเองของทีมนี้
       const isOff = isWeekend || isCompanyHoliday;
       const dayLabel = isWeekend ? (wd === 0 ? "วันอาทิตย์" : "วันเสาร์") : isCompanyHoliday ? "วันหยุด" : "";
       const fill = isOff ? HOLIDAY_FILL : null;
@@ -3124,7 +3132,7 @@ function App() {
             )}
             {team.type === "attendance" && (
               <div className="section-sub" style={{ marginTop: 10 }}>
-                <div>คลิกวันจันทร์-ศุกร์เพื่อทำเครื่องหมายว่ามาทำงาน (เซ็นชื่อ) · จ้างเหมารายปี {money(team.monthlyRate || 0)} บาท/เดือน แบ่งจ่าย 12 งวด ไม่ผูกกับจำนวนวันมาทำงาน</div>
+                <div>คลิกวันจันทร์-ศุกร์เพื่อทำเครื่องหมายว่ามาทำงาน (เซ็นชื่อ) · กดธง ⚑ มุมขวาของช่องเพื่อกำหนดวันหยุด (ในใบเซ็นชื่อจะขึ้นคำว่า "วันหยุด" และลงสีเหมือนเสาร์-อาทิตย์) · จ้างเหมารายปี {money(team.monthlyRate || 0)} บาท/เดือน แบ่งจ่าย 12 งวด ไม่ผูกกับจำนวนวันมาทำงาน</div>
                 <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span>ชื่อผู้ปฏิบัติงาน:</span>
                   <select
@@ -3217,17 +3225,26 @@ function App() {
                 if (team.type === "attendance") {
                   const wd = weekdayOf(year, month, d);
                   const isWeekend = wd === 0 || wd === 6;
-                  const present = effectiveWorked(year, month, d);
+                  const hk = dateKey(year, month, d);
+                  const isTeamHol = !!teamHolidays[hk];
+                  const isCoHol = !!companyHolidays[hk];
+                  const isOff = isWeekend || isTeamHol || isCoHol;
+                  const present = !isOff && effectiveWorked(year, month, d);
                   return (
                     <div
                       key={i}
-                      className={`cal-cell ${isSelected ? "selected" : ""} ${isWeekend ? "off" : present ? "worked" : ""}`}
-                      style={isWeekend ? { cursor: "default", opacity: 0.55 } : { cursor: "pointer" }}
-                      onClick={isWeekend ? undefined : () => { setSelectedDay(d); toggleWorked(year, month, d); }}
+                      className={`cal-cell ${isSelected ? "selected" : ""} ${isOff ? "off" : present ? "worked" : ""}`}
+                      style={isWeekend ? { cursor: "default", opacity: 0.55 } : isOff ? { cursor: "default", opacity: 0.7 } : { cursor: "pointer" }}
+                      onClick={isOff ? undefined : () => { setSelectedDay(d); toggleWorked(year, month, d); }}
                     >
-                      <div className="cal-date"><span>{d}</span></div>
-                      {isWeekend ? (
-                        <span className="cal-badge badge-status-off">วันหยุด</span>
+                      <div className="cal-date">
+                        <span>{d}</span>
+                        {!isWeekend && !isCoHol && (
+                          <span className={`holiday-star ${isTeamHol ? "active" : ""}`} title={isTeamHol ? "ยกเลิกวันหยุด" : "กำหนดเป็นวันหยุด"} onClick={(e) => { e.stopPropagation(); toggleTeamHoliday(hk); }}>⚑</span>
+                        )}
+                      </div>
+                      {isOff ? (
+                        <span className="cal-badge badge-status-off" style={isTeamHol || isCoHol ? { background: "rgba(255,192,0,0.25)", color: "var(--text)" } : null}>วันหยุด{isCoHol && !isTeamHol ? " (บริษัท)" : ""}</span>
                       ) : (
                         <span className={`cal-badge ${present ? "badge-status-work" : "badge-status-off"}`}>{present ? "✓ มาทำงาน" : "ยังไม่มา"}</span>
                       )}
@@ -3263,7 +3280,7 @@ function App() {
                   let workDays = 0, presentDays = 0;
                   for (let d = 1; d <= dim; d++) {
                     const wd = weekdayOf(year, month, d);
-                    if (wd === 0 || wd === 6) continue;
+                    if (wd === 0 || wd === 6 || isOffHoliday(dateKey(year, month, d))) continue;
                     workDays++;
                     if (effectiveWorked(year, month, d)) presentDays++;
                   }
