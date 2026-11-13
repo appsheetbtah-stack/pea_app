@@ -88,6 +88,16 @@ body{background:#fff}#app{position:static;overflow:visible}.wrap{padding:0}
 .pcard{display:grid!important;grid-template-columns:56px minmax(0,1fr) auto!important;align-items:center!important;column-gap:12px}
 .pcard .thumb{width:56px;height:56px;margin:0}
 .pcard .grow{display:block;min-width:0}
+.nocoord{font-size:12px;font-weight:600;color:var(--red);white-space:nowrap}
+.mapwarn{position:absolute;top:10px;left:10px;right:60px;z-index:500;background:var(--surface);border:1px solid var(--red);border-radius:10px;padding:8px 12px;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.mapwarn a{display:inline-block;margin:2px 4px 0 0;padding:1px 9px;border-radius:12px;background:var(--red);color:#fff;font:600 12px var(--mono);cursor:pointer}
+.leaflet-bar a.locbtn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;line-height:0;color:#333}
+.leaflet-popup-content{color:#111;line-height:1.7;min-width:150px}
+.pbtns{display:flex;gap:6px;margin-top:8px}
+.pbtn{flex:1;padding:7px 8px;border-radius:8px;border:1px solid #ccc;background:#f2f4f7;color:#111;font:600 13px var(--sans);cursor:pointer;white-space:nowrap}
+.pbtn.nav{background:#3b9ede;border-color:#3b9ede;color:#fff}
+.card.flash{border-color:var(--accent);animation:flash 2.6s ease-out}
+@keyframes flash{0%,60%{box-shadow:0 0 0 4px rgba(245,166,35,.55)}100%{box-shadow:0 0 0 0 rgba(245,166,35,0)}}
 .delb{padding:8px 11px;color:var(--red);flex-shrink:0}
 .empty{padding:50px 20px;text-align:center;color:var(--text2)}
 .pin{width:26px;height:26px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font:700 11px var(--mono);color:#000;box-shadow:0 1px 4px rgba(0,0,0,.5)}
@@ -181,20 +191,37 @@ function renderHome(){
 function openPlanDetail(id){planId=id;tab='list';render()}
 function renderList(){
   const a=myPts();
-  $('pane').innerHTML='<div class="wrap">'+(a.length?a.map(p=>`<div class="card pcard" onclick="openPoint('${p.planId}_${p.pointNo}')">
+  $('pane').innerHTML='<div class="wrap">'+(a.length?a.map(p=>`<div class="card pcard" id="pc-${p.planId}_${p.pointNo}" onclick="openPoint('${p.planId}_${p.pointNo}')">
     ${p.photoThumb?`<img class="thumb" src="${esc(p.photoThumb)}" loading="lazy">`:'<div class="thumb no">📷</div>'}
-    <div class="grow"><b>จุดที่ ${p.pointNo}</b> <span class="sub">${esc(pTxt(p))}</span><div>${EQ.filter(e=>(p.equip||{})[e[0]]).map(e=>`<span class="chip">${e[1]} ${p.equip[e[0]]}</span>`).join('')||'<span class="sub">ยังไม่ระบุอุปกรณ์</span>'}</div></div><button class="btn ghost delb" onclick="event.stopPropagation();quickDelPoint('${p.planId}_${p.pointNo}')">🗑️</button></div>`).join(''):'<div class="empty">ยังไม่มีจุดสำรวจ<br>กดปุ่ม + เพื่อเพิ่มจุดแรก</div>')+'</div>';
+    <div class="grow"><b>จุดที่ ${p.pointNo}</b> <span class="sub">${esc(pTxt(p))}</span>${p.lat==null?' <span class="nocoord">📍 ไม่มีพิกัด</span>':''}<div>${EQ.filter(e=>(p.equip||{})[e[0]]).map(e=>`<span class="chip">${e[1]} ${p.equip[e[0]]}</span>`).join('')||'<span class="sub">ยังไม่ระบุอุปกรณ์</span>'}</div></div><button class="btn ghost delb" onclick="event.stopPropagation();quickDelPoint('${p.planId}_${p.pointNo}')">🗑️</button></div>`).join(''):'<div class="empty">ยังไม่มีจุดสำรวจ<br>กดปุ่ม + เพื่อเพิ่มจุดแรก</div>')+'</div>';
 }
+function viewPoint(key){if(map)map.closePopup();openPoint(key)}
+function navTo(lat,lng){window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`,'_blank')}
 function renderMap(){
-  $('pane').innerHTML='<div id="map"></div>';
+  const miss=myPts().filter(p=>p.lat==null);
+  $('pane').innerHTML='<div style="position:relative"><div id="map"></div>'+(miss.length?`<div class="mapwarn">⚠️ ${miss.length} จุดยังไม่มีพิกัด จึงไม่แสดงบนแผนที่ (แตะเพื่อเปิดแก้ไข): ${miss.map(p=>`<a onclick="openPoint('${p.planId}_${p.pointNo}')">${p.pointNo}</a>`).join('')}</div>`:'')+'</div>';
   map=L.map('map',{zoomControl:false}).setView([16.8211,100.2659],12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
   L.control.zoom({position:'bottomright'}).addTo(map);
+  let me=null;
+  const loc=L.control({position:'bottomright'});
+  loc.onAdd=()=>{
+    const d=L.DomUtil.create('div','leaflet-bar leaflet-control'),a=L.DomUtil.create('a','locbtn',d);
+    a.href='#';a.title='ตำแหน่งของฉัน';a.setAttribute('role','button');a.setAttribute('aria-label','ตำแหน่งของฉัน');
+    a.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>';
+    L.DomEvent.disableClickPropagation(d);
+    L.DomEvent.on(a,'click',e=>{L.DomEvent.preventDefault(e);toast('กำลังหาตำแหน่ง...');map.locate({setView:true,maxZoom:18,enableHighAccuracy:true,timeout:15000})});
+    return d;
+  };
+  loc.addTo(map);
+  map.on('locationfound',e=>{if(me)map.removeLayer(me);
+    me=L.layerGroup([L.circle(e.latlng,{radius:e.accuracy,color:'#3b9ede',weight:1,fillOpacity:.12}),L.circleMarker(e.latlng,{radius:8,color:'#fff',weight:3,fillColor:'#3b9ede',fillOpacity:1})]).addTo(map)});
+  map.on('locationerror',e=>toast('ขอตำแหน่งไม่ได้ ('+e.message+')'));
   const b=[];
   myPts().filter(p=>p.lat!=null).forEach(p=>{
     const c=p.photoFileId?'#2ecc71':'#a9bdd1';
     L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html:`<div class="pin" style="background:${c}">${p.pointNo}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).addTo(map)
-     .bindPopup(`<b>จุดที่ ${p.pointNo}</b><br>${esc(pTxt(p))}<br>ลูกถ้วยตั้ง ${p.equip.standIns||0} · แขวน ${p.equip.hangIns||0}`);
+     .bindPopup(`<b>จุดที่ ${p.pointNo}</b><br>${esc(pTxt(p))}<br>ลูกถ้วยตั้ง ${p.equip.standIns||0} · แขวน ${p.equip.hangIns||0}<div class="pbtns"><button class="pbtn" onclick="viewPoint('${p.planId}_${p.pointNo}')">📋 ดูข้อมูล</button><button class="pbtn nav" onclick="navTo(${p.lat},${p.lng})">🧭 นำทาง</button></div>`);
     b.push([p.lat,p.lng]);
   });
   if(b.length)map.fitBounds(b,{padding:[30,30],maxZoom:17});
