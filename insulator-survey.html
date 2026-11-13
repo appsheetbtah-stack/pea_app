@@ -140,7 +140,7 @@ body{background:#fff}body.printing #app{display:none!important}
       <div><label class="lab">ระบบไฟฟ้า</label><div class="opts" id="o-sys"></div></div>
       <div><label class="lab">เฟส (เลือกได้หลายเฟส)</label><div class="opts" id="o-phase"></div></div>
     </div>
-    <div class="blk"><b>🧰 อุปกรณ์ที่ใช้</b><div id="eq"></div><div class="sub" id="eq-hint">ลูกถ้วยตั้ง/ลวดกลม นับอัตโนมัติจากหัวเสา × เฟส (SP, CCB = 1 ลูก/เฟส · DP, DDE = 2 ลูก/เฟส · BA = 4 ลูก (คงที่) · ลวดกลม 1 เส้น/ลูก) แก้ตัวเลขเองได้<br>เปลี่ยน DE SL เป็น DDE: ระบบ 1 Phase = ตั้ง 4 / แขวน 6 (2 ชุด) / อายนัท 2 / สเตรน 2 ชุด · ระบบ 3 Phase = ตั้ง 6 / แขวน 9 (3 ชุด) / อายนัท 3 / สเตรน 3 ชุด</div></div>
+    <div class="blk"><b>🧰 อุปกรณ์ที่ใช้</b><div id="eq"></div><div class="sub" id="eq-hint">ลูกถ้วยตั้ง/ลวดกลม นับอัตโนมัติจากหัวเสา × เฟส (SP, CCB = 1 ลูก/เฟส · DP, DDE = 2 ลูก/เฟส · BA = 4 ลูก (คงที่) · ลวดกลม = จำนวนลูกถ้วยตั้ง) แก้ตัวเลขเองได้<br>เปลี่ยน DE SL เป็น DDE (ต่อสายไฟ 1 เส้น: ตั้ง 2 · แขวน 3 · อายนัท 1 · สเตรน 1 · ACSR 3 ม. · หลอดต่อ 1 · P.G. 2) × สายไฟ (ระบบ 1 Phase = 2 เส้น · 3 Phase = 3 เส้น)</div></div>
     <div class="blk"><b>📷 รูปถ่าย</b>
       <img id="prev" class="prev">
       <div class="row" style="flex-wrap:wrap">
@@ -174,7 +174,7 @@ const IC_POLE='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXH
 const icImg=(src,sz)=>`<img src="${src}" alt="" style="width:${sz}px;height:${sz}px;object-fit:contain">`;
 const escH=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const HEADS=['SP','CCB','CSC','CTB','DP','DDE','DE','BA','DE SL','เปลี่ยน DE SL เป็น DDE'], PHASES=['A','B','C'];
-const EQ=[['standIns','ลูกถ้วยตั้ง','ลูก'],['hangIns','ลูกถ้วยแขวน','ลูก'],['eyeNut','อายนัท','ตัว'],['strain','สเตรนแคลมป์','ชุด'],['wire','ลวดกลม','เส้น']];
+const EQ=[['standIns','ลูกถ้วยตั้ง','ลูก'],['hangIns','ลูกถ้วยแขวน','ลูก'],['eyeNut','อายนัท','ตัว'],['strain','สเตรนแคลมป์','ชุด'],['wire','ลวดกลม','เส้น'],['acsr','สาย ACSR 50 ต.มม.','เมตร'],['splice','หลอดต่อรับแรงดึง 50 ต.มม.','หลอด'],['pg','P.G. 2 สลัก 50 ต.มม.','หลอด']];
 let planId=null,tab='list',editKey=null,sel={head:[],phase:[],sys:0},photo={},map=null,uploading=false;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -264,7 +264,7 @@ function renderSum(pl){
     <div class="rsec">แผนที่ตำแหน่งจุดสำรวจ</div>
     <div class="rmapwrap"><div id="rmap"></div><div class="rcap" id="rcap"></div></div>
     <div class="rsec">รายละเอียดแต่ละจุดสำรวจ</div>
-    <div style="overflow-x:auto"><table class="rtable"><thead><tr><th>จุดที่</th><th>รูปถ่าย</th><th>หัวเสา</th><th>ระบบ</th><th>เฟส</th>${EQ.map(e=>`<th>${e[1]}</th>`).join('')}<th>พิกัด</th></tr></thead><tbody>${rows||'<tr><td colspan="11" class="c">ยังไม่มีจุดสำรวจ</td></tr>'}</tbody></table></div>
+    <div style="overflow-x:auto"><table class="rtable"><thead><tr><th>จุดที่</th><th>รูปถ่าย</th><th>หัวเสา</th><th>ระบบ</th><th>เฟส</th>${EQ.map(e=>`<th>${e[1]}</th>`).join('')}<th>พิกัด</th></tr></thead><tbody>${rows||'<tr><td colspan="14" class="c">ยังไม่มีจุดสำรวจ</td></tr>'}</tbody></table></div>
     <div class="rblock">
       <div class="rsec">สรุปอุปกรณ์รวมทั้งแผนงาน</div>
       <table class="rtable"><thead><tr><th>รายการอุปกรณ์</th><th class="num">จำนวนรวม</th><th>หน่วย</th></tr></thead><tbody>${EQ.map(e=>e[0]==='wire'?`<tr><td>${e[1]} <span style="color:#666;font-size:.9em">(${sumEq(a,'wire')} เส้น × ${WIRE_M} ม. × ${WIRE_KG_PER_M} กก./ม.)</span></td><td class="num">${wireKg(sumEq(a,'wire')).toFixed(2)}</td><td>กก.</td></tr>`:`<tr><td>${e[1]}</td><td class="num">${sumEq(a,e[0])}</td><td>${e[2]}</td></tr>`).join('')}</tbody></table>
@@ -375,16 +375,18 @@ function drawOpts(){
 const PER_PHASE={SP:1,CCB:1,DP:2,DDE:2};
 const FIXED_EQ={BA:4}; /* หัวเสาที่นับเป็นจำนวนคงที่ ไม่คูณเฟส */
 const CONV='เปลี่ยน DE SL เป็น DDE';
-const CONV_EQ={1:{standIns:4,hangIns:6,strain:2},3:{standIns:6,hangIns:9,strain:3}};
+const CONV_WIRES={1:2,3:3}; /* จำนวนสายไฟ: 1 Phase = 2 เส้น, 3 Phase = 3 เส้น */
+const CONV_PER_WIRE={standIns:2,hangIns:3,eyeNut:1,strain:1,acsr:3,splice:1,pg:2}; /* ต่อสายไฟ 1 เส้น */
+const CONV_KEYS=Object.keys(CONV_PER_WIRE);
 function autoEq(){
   const hs=sel.head.filter(h=>PER_PHASE[h]),fx=sel.head.filter(h=>FIXED_EQ[h]),conv=sel.head.includes(CONV);
   if(!hs.length&&!fx.length&&!conv)return;
   let n=hs.reduce((a,h)=>a+PER_PHASE[h],0)*sel.phase.length+fx.reduce((a,h)=>a+FIXED_EQ[h],0);
   if(conv){
-    const c=CONV_EQ[sel.sys]||{standIns:0,hangIns:0,strain:0};
-    n+=c.standIns;$('eq-hangIns').value=c.hangIns;$('eq-strain').value=c.strain;$('eq-eyeNut').value=c.hangIns/3;
+    const w=CONV_WIRES[sel.sys]||0,c={};CONV_KEYS.forEach(k=>c[k]=CONV_PER_WIRE[k]*w);
+    n+=c.standIns;['hangIns','eyeNut','strain','acsr','splice','pg'].forEach(k=>$('eq-'+k).value=c[k]);
   }
-  $('eq-standIns').value=n;$('eq-wire').value=n;
+  $('eq-standIns').value=n;$('eq-wire').value=n; /* ลวดกลม = จำนวนลูกถ้วยตั้ง */
 }
 function setSys(n){
   sel.sys=sel.sys===n?0:n;
@@ -394,7 +396,7 @@ function setSys(n){
 function tog(k,v){
   if(k==='phase'&&!sel.sys)return toast('กรุณาเลือกระบบ 1 Phase หรือ 3 Phase ก่อน');
   const i=sel[k].indexOf(v);
-  if(i>=0){sel[k].splice(i,1);if(v===CONV)['hangIns','eyeNut','strain','standIns','wire'].forEach(k=>$('eq-'+k).value=0)}
+  if(i>=0){sel[k].splice(i,1);if(v===CONV)['hangIns','eyeNut','strain','standIns','wire','acsr','splice','pg'].forEach(k=>$('eq-'+k).value=0)}
   else{sel[k].push(v);if(k==='phase'&&sel.sys===1&&sel.phase.length>2)sel.phase.shift()}
   if(k==='phase')sel.phase.sort();
   drawOpts();autoEq();
