@@ -79,10 +79,14 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{border-bottom:1px
 .rtable th,.rtable td{border:1px solid #ccc;padding:6px 8px;text-align:left;white-space:nowrap}
 .rtable th{background:#f0f0f0;text-align:center}.rtable td.num,.rtable th.num{text-align:right;font-family:var(--mono)}.rtable td.c{text-align:center}
 .rthumb{width:38px;height:38px;object-fit:cover;border-radius:4px;border:1px solid #ccc;display:block;margin:auto}
+#rmap{height:380px;border:1px solid #ccc;border-radius:6px;background:#e5e5e5}
+.rcap{font-size:12px;color:#555;margin-top:6px}
+.rmapwrap{break-inside:avoid;page-break-inside:avoid}
 .rblock{break-inside:avoid;page-break-inside:avoid}
 .rsign{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:34px;font-size:12.5px;text-align:center}
 .rline{border-top:1px solid #333;margin-top:38px;padding-top:6px}
 @media print{@page{size:A4 landscape;margin:12mm}
+*{-webkit-print-color-adjust:exact;print-color-adjust:exact}#rmap{height:330px}
 .top,.bnav,.fab,.ov,.toast,.no-print{display:none!important}
 body{background:#fff}#app{position:static;overflow:visible}.wrap{padding:0}
 .rpage{border-radius:0;padding:0}.rtable{font-size:11px}.rtable tr{page-break-inside:avoid}}
@@ -243,6 +247,8 @@ function renderSum(pl){
       <div>จำนวนจุดสำรวจทั้งหมด: <b>${n} จุด</b></div><div>มีรูปถ่าย: <b>${withPh} / ${n} จุด</b></div>
       <div>ประเภทหัวเสา: <b>${cnt('head',HEADS)}</b></div><div>เฟส: <b>${cnt('phase',PHASES)}</b></div>
     </div>
+    <div class="rsec">แผนที่ตำแหน่งจุดสำรวจ</div>
+    <div class="rmapwrap"><div id="rmap"></div><div class="rcap" id="rcap"></div></div>
     <div class="rsec">รายละเอียดแต่ละจุดสำรวจ</div>
     <div style="overflow-x:auto"><table class="rtable"><thead><tr><th>จุดที่</th><th>รูปถ่าย</th><th>หัวเสา</th><th>ระบบ</th><th>เฟส</th>${EQ.map(e=>`<th>${e[1]}</th>`).join('')}<th>พิกัด</th></tr></thead><tbody>${rows||'<tr><td colspan="11" class="c">ยังไม่มีจุดสำรวจ</td></tr>'}</tbody></table></div>
     <div class="rblock">
@@ -251,7 +257,22 @@ function renderSum(pl){
       <div class="rsign"><div><div class="rline">ผู้สำรวจ</div></div><div><div class="rline">ผู้ตรวจสอบ</div></div><div><div class="rline">ผู้อนุมัติ</div></div></div>
     </div>
   </div></div>`;
+  buildReportMap(a);
 }
+let rfit=null;
+function buildReportMap(a){
+  const pts=a.filter(p=>p.lat!=null),miss=a.filter(p=>p.lat==null).map(p=>p.pointNo),cap=$('rcap');
+  if(!pts.length){$('rmap').remove();cap.textContent='ยังไม่มีจุดที่ระบุพิกัด จึงไม่สามารถแสดงแผนที่ได้';return}
+  map=L.map('rmap',{zoomControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false,touchZoom:false,zoomSnap:0.25});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+  pts.forEach(p=>L.marker([p.lat,p.lng],{interactive:false,keyboard:false,icon:L.divIcon({className:'',html:`<div class="pin" style="background:#f5a623">${p.pointNo}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).addTo(map));
+  const ll=pts.map(p=>[p.lat,p.lng]);
+  rfit=()=>{map.invalidateSize(false);map.fitBounds(ll,{padding:[30,30],maxZoom:18})};
+  rfit();
+  cap.textContent=`แสดง ${pts.length} จุดบนแผนที่ · หมายเลขหมุดตรงกับ "จุดที่" ในตารางด้านล่าง`+(miss.length?` · ไม่มีพิกัด (ไม่แสดงบนแผนที่): จุดที่ ${miss.join(', ')}`:'');
+}
+['beforeprint','afterprint'].forEach(ev=>window.addEventListener(ev,()=>{if(tab==='sum'&&rfit&&$('rmap'))setTimeout(rfit,50)}));
+matchMedia('print').addEventListener('change',()=>{if(tab==='sum'&&rfit&&$('rmap'))setTimeout(rfit,50)});
 function exportXlsx(){
   const pl=PLANS.find(p=>p.planId===planId),a=myPts();
   const rows=a.map(p=>{const r={'จุดที่':p.pointNo,'Lat':p.lat,'Long':p.lng,'ประเภทหัวเสา':p.head.join(','),'ระบบ':p.sysPhase?p.sysPhase+' Phase':'','เฟส':p.phase.join(',')};
