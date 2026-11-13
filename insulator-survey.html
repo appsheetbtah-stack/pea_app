@@ -43,6 +43,7 @@ body.inplan .bnav{display:flex}
 .bnav .nl{line-height:1.6;font-size:11px;font-weight:600}.bnav button.on .nl{font-weight:700}
 body{--bot:0px}body.inplan{--bot:56px}
 #map{height:calc(100vh - var(--top) - var(--bot))}
+.leaflet-bottom.leaflet-right{bottom:76px}
 .fab{display:flex;align-items:center;justify-content:center;padding:0;line-height:0;position:fixed;right:18px;bottom:calc(var(--bot) + 18px);width:56px;height:56px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0f1923;font-size:28px;font-weight:700;box-shadow:0 4px 16px rgba(245,166,35,.4);z-index:590;cursor:pointer}
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:900;display:none;align-items:flex-end;justify-content:center}.ov.on{display:flex}
 .modal{background:var(--bg);width:100%;max-width:600px;max-height:94vh;overflow-y:auto;border-radius:16px 16px 0 0;border:1px solid var(--border)}
@@ -173,7 +174,7 @@ function onFab(){ planId?openPoint(null):openPlan(); }
 function setTab(t){tab=t;render()}
 
 function render(){
-  $('fab').style.display=(planId&&tab!=='list')?'none':'block';
+  $('fab').style.display=(planId&&tab==='sum')?'none':'flex';
   if(map){map.remove();map=null}
   document.body.classList.toggle('inplan',!!planId);
   if(!planId){ $('title').innerHTML=TITLE_HTML; return renderHome(); }
@@ -202,6 +203,7 @@ function renderMap(){
   $('pane').innerHTML='<div style="position:relative"><div id="map"></div>'+(miss.length?`<div class="mapwarn">⚠️ ${miss.length} จุดยังไม่มีพิกัด จึงไม่แสดงบนแผนที่ (แตะเพื่อเปิดแก้ไข): ${miss.map(p=>`<a onclick="openPoint('${p.planId}_${p.pointNo}')">${p.pointNo}</a>`).join('')}</div>`:'')+'</div>';
   map=L.map('map',{zoomControl:false}).setView([16.8211,100.2659],12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+  map.attributionControl.setPosition('bottomleft');
   L.control.zoom({position:'bottomright'}).addTo(map);
   let me=null;
   const loc=L.control({position:'bottomright'});
