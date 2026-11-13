@@ -181,6 +181,8 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 const toast=m=>{const t=$('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2200)};
 const openM=id=>$(id).classList.add('on'), closeM=id=>$(id).classList.remove('on');
 const myPts=()=>POINTS.filter(p=>p.planId===planId);
+const WIRE_M=2.8,WIRE_KG_PER_M=0.039; /* ลวดกลม 1 เส้น = 2.8 ม. · 1 ม. = 0.039 กก. (คลังพัสดุเบิกเป็น กก.) */
+const wireKg=n=>Math.round(n*WIRE_M*WIRE_KG_PER_M*100)/100;
 const sumEq=(arr,k)=>arr.reduce((a,p)=>a+((p.equip||{})[k]||0),0);
 const pTxt=p=>[p.head.join(',')||'-',p.sysPhase?p.sysPhase+' Phase':'','เฟส '+(p.phase.join(',')||'-')].filter(Boolean).join(' · ');
 
@@ -265,7 +267,7 @@ function renderSum(pl){
     <div style="overflow-x:auto"><table class="rtable"><thead><tr><th>จุดที่</th><th>รูปถ่าย</th><th>หัวเสา</th><th>ระบบ</th><th>เฟส</th>${EQ.map(e=>`<th>${e[1]}</th>`).join('')}<th>พิกัด</th></tr></thead><tbody>${rows||'<tr><td colspan="11" class="c">ยังไม่มีจุดสำรวจ</td></tr>'}</tbody></table></div>
     <div class="rblock">
       <div class="rsec">สรุปอุปกรณ์รวมทั้งแผนงาน</div>
-      <table class="rtable"><thead><tr><th>รายการอุปกรณ์</th><th class="num">จำนวนรวม</th><th>หน่วย</th></tr></thead><tbody>${EQ.map(e=>`<tr><td>${e[1]}</td><td class="num">${sumEq(a,e[0])}</td><td>${e[2]}</td></tr>`).join('')}</tbody></table>
+      <table class="rtable"><thead><tr><th>รายการอุปกรณ์</th><th class="num">จำนวนรวม</th><th>หน่วย</th></tr></thead><tbody>${EQ.map(e=>e[0]==='wire'?`<tr><td>${e[1]} <span style="color:#666;font-size:.9em">(${sumEq(a,'wire')} เส้น × ${WIRE_M} ม. × ${WIRE_KG_PER_M} กก./ม.)</span></td><td class="num">${wireKg(sumEq(a,'wire')).toFixed(2)}</td><td>กก.</td></tr>`:`<tr><td>${e[1]}</td><td class="num">${sumEq(a,e[0])}</td><td>${e[2]}</td></tr>`).join('')}</tbody></table>
       <div class="rsign"><div><div class="rline">ผู้สำรวจ</div></div><div><div class="rline">ผู้ตรวจสอบ</div></div><div><div class="rline">ผู้อนุมัติ</div></div></div>
     </div>
   </div></div>`;
@@ -340,7 +342,7 @@ function exportXlsx(){
   const pl=PLANS.find(p=>p.planId===planId),a=myPts();
   const rows=a.map(p=>{const r={'จุดที่':p.pointNo,'Lat':p.lat,'Long':p.lng,'ประเภทหัวเสา':p.head.join(','),'ระบบ':p.sysPhase?p.sysPhase+' Phase':'','เฟส':p.phase.join(',')};
     EQ.forEach(e=>r[e[1]]=(p.equip||{})[e[0]]||0);r['รูปถ่าย']=p.photoLink||'';return r});
-  const tot={'จุดที่':'รวม'};EQ.forEach(e=>tot[e[1]]=sumEq(a,e[0]));rows.push(tot);
+  const tot={'จุดที่':'รวม'};EQ.forEach(e=>tot[e[1]]=sumEq(a,e[0]));tot['ลวดกลม (กก.)']=wireKg(sumEq(a,'wire'));rows.push(tot);
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'สำรวจลูกถ้วย');
   XLSX.writeFile(wb,`ลูกถ้วย_${(pl.planName||'plan').replace(/[\\/:*?"<>|]/g,'_')}.xlsx`);
 }
