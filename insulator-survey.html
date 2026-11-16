@@ -253,10 +253,17 @@ function teamLoad(){
   const names=Array.isArray(c.names)?c.names.slice(0,12).map(x=>typeof x==='string'?x:''):[];
   for(let i=0;i<12;i++)if(!names[i])names[i]='ทีม '+(i+1);
   const mode=c.v===3&&['geo','even','weight','manual'].includes(c.mode)?c.mode:'geo';
-  return{v:3,sel:Array.isArray(c.sel)?c.sel.filter(id=>PLANS.some(p=>p.planId===id)):[],count:Math.min(12,Math.max(1,parseInt(c.count)||2)),names,mode,geo:mode==='geo'||(mode==='manual'&&c.geo!==false),cuts:Array.isArray(c.cuts)?c.cuts.filter(x=>typeof x==='string'):[],ord:Array.isArray(c.ord)?c.ord.filter(x=>typeof x==='string'):[],over:(c.over&&typeof c.over==='object'&&!Array.isArray(c.over))?Object.fromEntries(Object.entries(c.over).filter(e=>Number.isInteger(e[1]))):{}};
+  const tm=Array.isArray(c.tm)&&c.tm.length>=2&&c.tm.slice(0,2).every(x=>typeof x==='number'&&x>0&&isFinite(x))?[c.tm[0],c.tm[1],(typeof c.tm[2]==='number'&&c.tm[2]>=0&&c.tm[2]<=100)?c.tm[2]:100]:[15,40,100];TM=tm;
+  return{v:3,tm,sel:Array.isArray(c.sel)?c.sel.filter(id=>PLANS.some(p=>p.planId===id)):[],count:Math.min(12,Math.max(1,parseInt(c.count)||2)),names,mode,geo:mode==='geo'||(mode==='manual'&&c.geo!==false),cuts:Array.isArray(c.cuts)?c.cuts.filter(x=>typeof x==='string'):[],ord:Array.isArray(c.ord)?c.ord.filter(x=>typeof x==='string'):[],over:(c.over&&typeof c.over==='object'&&!Array.isArray(c.over))?Object.fromEntries(Object.entries(c.over).filter(e=>Number.isInteger(e[1]))):{}};
 }
 function teamSave(c){try{localStorage.setItem(TEAM_KEY,JSON.stringify(c))}catch(e){}}
-const ptW=p=>Math.max(1,((p.equip||{}).standIns||0)+((p.equip||{}).hangIns||0)); /* น้ำหนักงาน = ลูกถ้วยตั้ง+แขวน (อย่างน้อย 1) */
+let TM=[15,40,100];   /* เวลาต่อจุด (นาที): [เปลี่ยนลูกถ้วยตั้งอย่างเดียว, เปลี่ยน DE SL เป็น DDE] · ผู้จัดการปรับได้ในแท็บแบ่งทีม */
+/* จุดงาน DDE = หัวเสาเป็น "เปลี่ยน DE SL เป็น DDE" (หรือมีลูกถ้วยแขวน/อายนัท/สเตรนแคลมป์ ซึ่งมีเฉพาะงานนี้) */
+const isDDE=p=>((p.head||[]).some(h=>/DE\s*SL.*DDE/i.test(h)))||(((p.equip||{}).hangIns||0)+((p.equip||{}).eyeNut||0)+((p.equip||{}).strain||0))>0;
+/* เวลาของจุดปกติ = TM[0] × (ส่วนคงที่% + ส่วนที่ปรับตามจำนวนลูกถ้วยตั้ง เทียบจุดมาตรฐาน 4 ลูก) · ค่าเริ่มต้นส่วนคงที่ 100% = ทุกจุดปกติเท่ากัน */
+const STD_STAND=4;
+const ptW=p=>{if(isDDE(p))return TM[1];const st=(p.equip||{}).standIns||0,f=TM[2]/100;return st>0?TM[0]*(f+(1-f)*st/STD_STAND):TM[0]};   /* ภาระงานของจุด หน่วย = นาที */
+const fmtHr=(m,long)=>{m=Math.round(m);const h=Math.floor(m/60),r=m%60,hu=long?' ชั่วโมง':' ชม.';return h?h+hu+(r?' '+r+' นาที':''):r+' นาที'};   /* นาที -> "6 ชั่วโมง 45 นาที" (long) หรือ "6 ชม. 45 นาที" */
 const hasLL=p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng);
 /* เรียงจุดทั้งหมดเป็นเส้นทางเดียวตามระยะทางจริง (nearest-neighbor หลายจุดเริ่ม + 2-opt) เพื่อให้จุดที่อยู่ใกล้กันอยู่ติดกันในลำดับ */
 function geoOrder(pts){
@@ -293,7 +300,7 @@ function geoOrder(pts){
   best.forEach(i=>{const p=G[i],k=ptKey(p);(before.get(k)||[]).forEach(x=>out.push(x));out.push(p);(after.get(k)||[]).forEach(x=>out.push(x))});
   return out.concat(tail);
 }
-let _geoC={k:null,v:[]};
+let _geoC={k:null,v:[]},_asgC={k:null,m:null};
 function geoOrderCached(pts){const k=pts.map(p=>ptKey(p)+':'+p.lat+':'+p.lng).join('|');if(_geoC.k!==k)_geoC={k,v:geoOrder(pts)};return _geoC.v.slice()}
 /* แบ่งเส้นทางเป็น k ช่วงด้วย DP: ลดรอยกระโดดไกลภายในทีมให้น้อยที่สุด โดยบังคับให้ปริมาณงานของแต่ละทีมใกล้เท่ากัน */
 function geoAssign(seq,w,k,of){
@@ -314,7 +321,7 @@ function geoAssign(seq,w,k,of){
   seq.forEach((p,i)=>of.set(ptKey(p),cuts.filter(c=>c<=i).length));
 }
 /* ปรับแต่งหลังแบ่ง: มองแต่ละแผนเป็นสายต่อเนื่อง (ตามเลขจุด) + จุดต่อระหว่างสาย แล้วลองย้ายจุด/ช่วงจุดไปทีมข้างเคียง
-   ถ้าลดจำนวนรอยตัดตามสายได้ โดยงานของทีมยังไม่เสียสมดุลเกินกำหนด */
+   ถ้าลดจำนวนรอยตัดตามสายได้ โดยงานของทีมยังไม่เสียสมดุลเกินกำหนด · ถ้าย้ายขั้นเดียวไม่ดีขึ้น จะลองมองล่วงหน้า 2 ขั้น (เช่น ย้ายสายไปทีมหนึ่ง แล้วย้ายจุดอื่นกลับมาชดเชยงาน) */
 function geoRefine(seq,of,k){
   const n=seq.length;if(n<4||k<2)return;
   const w=seq.map(ptW),tot=w.reduce((a,b)=>a+b,0),share=tot/k,t=seq.map(p=>of.get(ptKey(p)));
@@ -327,28 +334,76 @@ function geoRefine(seq,of,k){
   if(thr>0)for(let i=0;i<n;i++)chains.forEach((arr,pid)=>{if(pid===seq[i].planId)return;let bj=-1,bd=Infinity;arr.forEach(j=>{const d=dist(i,j);if(d<bd){bd=d;bj=j}});if(bj>=0&&bd<=thr)addE(i,bj,1)});
   const W=new Array(k).fill(0),cnt=new Array(k).fill(0);t.forEach((x,i)=>{W[x]+=w[i];cnt[x]++});
   const LAMBDA=1000,CAP=0.08,dev=x=>(x-share)/share;
-  const tryMove=S=>{ /* S: ดัชนีจุดที่อยู่ทีมเดียวกัน; คืนรายการ {to,delta} ที่ดีที่สุด */
-    const a=t[S[0]],inS=new Set(S),ws=S.reduce((x,i)=>x+w[i],0),tg=new Set();
+  /* ประเมินการย้ายกลุ่มจุด S (อยู่ทีมเดียวกัน) ไปทีมข้างเคียง: คืนรายการ {S,b,d} โดย d = ต้นทุนที่เปลี่ยน (ลบ = ดีขึ้น) */
+  const evalMove=S=>{
+    const a=t[S[0]];if(S.some(i=>t[i]!==a)||cnt[a]-S.length<1)return[];
+    const inS=new Set(S),ws=S.reduce((x,i)=>x+w[i],0),tg=new Set(),res=[];
     S.forEach(i=>adj[i].forEach((_,j)=>{if(!inS.has(j)&&t[j]!==a)tg.add(t[j])}));
-    if(cnt[a]-S.length<1)return null;
-    let best=null;
     tg.forEach(b=>{
       const na=W[a]-ws,nb=W[b]+ws;
       if(Math.abs(dev(na))>Math.max(CAP,Math.abs(dev(W[a])))+1e-9||Math.abs(dev(nb))>Math.max(CAP,Math.abs(dev(W[b])))+1e-9)return;
       let dc=0;S.forEach(i=>adj[i].forEach((x,j)=>{if(inS.has(j))return;dc+=x*((b!==t[j]?1:0)-(a!==t[j]?1:0))}));
-      const db=LAMBDA*(dev(na)**2+dev(nb)**2-dev(W[a])**2-dev(W[b])**2),d=dc+db;
-      if(d<-1e-9&&(!best||d<best.d))best={b,d,S};
+      res.push({S,b,d:dc+LAMBDA*(dev(na)**2+dev(nb)**2-dev(W[a])**2-dev(W[b])**2)});
     });
-    return best;
+    return res;
   };
-  for(let it=0;it<400;it++){
-    let best=null;const consider=S=>{const r=tryMove(S);if(r&&(!best||r.d<best.d))best=r};
-    for(let i=0;i<n;i++)consider([i]);
-    chains.forEach(arr=>{let x=0;while(x<arr.length){let y=x;while(y+1<arr.length&&t[arr[y+1]]===t[arr[x]])y++;if(y>x&&y-x+1<=15)consider(arr.slice(x,y+1));x=y+1}});
-    if(!best)break;
-    const a=t[best.S[0]],ws=best.S.reduce((x,i)=>x+w[i],0);
-    best.S.forEach(i=>{t[i]=best.b});W[a]-=ws;W[best.b]+=ws;cnt[a]-=best.S.length;cnt[best.b]+=best.S.length;
+  const apply=(S,b)=>{const a=t[S[0]],ws=S.reduce((x,i)=>x+w[i],0);S.forEach(i=>{t[i]=b});W[a]-=ws;W[b]+=ws;cnt[a]-=S.length;cnt[b]+=S.length};
+  const cands=()=>{const out=[];for(let i=0;i<n;i++)out.push([i]);
+    chains.forEach(arr=>{let x=0;while(x<arr.length){let y=x;while(y+1<arr.length&&t[arr[y+1]]===t[arr[x]])y++;if(y>x&&y-x+1<=15)out.push(arr.slice(x,y+1));x=y+1}});return out};
+  /* ปรับแบบละโมบ: ต้นทุนรวม = รอยตัดตามสาย + ความไม่สมดุลของงาน + (ทีมที่ขาดเป็นหลายก้อน) · ลองย้าย 1 ขั้น ถ้าไม่ดีขึ้นจะมองล่วงหน้า 2 ขั้น */
+  const descend=()=>{
+    const t0=Date.now();
+    for(let it=0;it<300;it++){
+      const C=cands(),e0=extras();let best=null;
+      C.forEach(S=>evalMove(S).forEach(r=>{if(r.d>=PEN)return;const a=t[S[0]];apply(S,r.b);const dx=extras()-e0;apply(S,a);const dd=r.d+PEN*dx;if(dd<-1e-9&&(!best||dd<best.d))best={S,b:r.b,d:dd}}));
+      if(best){apply(best.S,best.b);continue}
+      let pair=null;
+      outer:for(const S1 of C){for(const r1 of evalMove(S1)){
+        if(r1.d>=PEN+4)continue;
+        if(Date.now()-t0>1500)break outer;
+        const a1=t[S1[0]];apply(S1,r1.b);
+        const rs=[];C.forEach(S2=>{const tt=t[S2[0]];if(tt!==a1&&tt!==r1.b)return;evalMove(S2).forEach(r2=>{if(r1.d+r2.d<PEN)rs.push(r2)})});
+        for(const r2 of rs){const a2=t[r2.S[0]];apply(r2.S,r2.b);const dx=extras()-e0;apply(r2.S,a2);const dd=r1.d+r2.d+PEN*dx;if(dd<-1e-9&&(!pair||dd<pair.tot))pair={S1,b1:r1.b,S2:r2.S,b2:r2.b,tot:dd}}
+        apply(S1,a1);
+      }}
+      if(!pair)break;
+      apply(pair.S1,pair.b1);apply(pair.S2,pair.b2);
+    }
+  };
+  /* simulated annealing (ค่าสุ่มคงที่ ผลซ้ำได้เสมอ): ย้ายทีละจุดไปทีมของจุดข้างเคียง ยอมแย่ลงชั่วคราวเพื่อหลุดจากคำตอบที่ติดอยู่ */
+  const cost=()=>{let c=0;for(let i=0;i<n;i++)adj[i].forEach((x,j)=>{if(j>i&&t[i]!==t[j])c+=x});W.forEach(x=>{c+=LAMBDA*dev(x)**2});return c};
+  const extras=()=>{const seen=new Uint8Array(n);let c=0;for(let i=0;i<n;i++){if(seen[i])continue;c++;const st=[i];seen[i]=1;while(st.length){const u=st.pop();adj[u].forEach((_,v)=>{if(!seen[v]&&t[v]===t[u]){seen[v]=1;st.push(v)}})}}return c-new Set(t).size};
+  const PEN=10;   /* ต้นทุนต่อ "ก้อนที่หลุดจากทีมตัวเอง" */
+  /* จำนวนก้อนที่เชื่อมถึงกัน (ภายในทีม team โดยไม่นับจุด skip) ในกลุ่มจุด list */
+  const groups=(list,team,skip)=>{if(list.length<2)return list.length;const seen=new Set([skip]);let g=0;
+    for(const s0 of list){if(seen.has(s0))continue;g++;seen.add(s0);const st=[s0];while(st.length){const u=st.pop();adj[u].forEach((_,v)=>{if(t[v]===team&&!seen.has(v)){seen.add(v);st.push(v)}})}}return g};
+  /* การเปลี่ยนจำนวนก้อนที่หลุด ถ้าย้ายจุด i จากทีม a ไปทีม b */
+  const dExtra=(i,a,b)=>{const na=[],nb=[];adj[i].forEach((_,j)=>{if(t[j]===a)na.push(j);else if(t[j]===b)nb.push(j)});
+    return(na.length?groups(na,a,i)-1:-1)+(1-groups(nb,b,-1))};
+  const anneal=(seed,T0)=>{
+    const nb=adj.map(m=>[...m.keys()]);let r=seed;const rnd=()=>(r=r*16807%2147483647)/2147483647;
+    let cur=cost()+PEN*extras(),best=cur,bt=t.slice();const iters=Math.min(400000,Math.max(100000,600*n));
+    for(let it=0;it<iters;it++){
+      const T=T0*(1-it/iters)+0.02,i=Math.floor(rnd()*n),L=nb[i];if(!L.length)continue;
+      const j=L[Math.floor(rnd()*L.length)],a=t[i],b=t[j];if(a===b||cnt[a]<2)continue;
+      const na=W[a]-w[i],nb2=W[b]+w[i];
+      if(Math.abs(dev(na))>Math.max(0.10,Math.abs(dev(W[a])))||Math.abs(dev(nb2))>Math.max(0.10,Math.abs(dev(W[b]))))continue;
+      let dc=0;adj[i].forEach((x,q)=>{dc+=x*((b!==t[q]?1:0)-(a!==t[q]?1:0))});
+      const d=dc+LAMBDA*(dev(na)**2+dev(nb2)**2-dev(W[a])**2-dev(W[b])**2);
+      const dx=dExtra(i,a,b),dd=d+PEN*dx;
+      if(dd<0||rnd()<Math.exp(-dd/T)){t[i]=b;W[a]=na;W[b]=nb2;cnt[a]--;cnt[b]++;cur+=dd;if(cur<best-1e-9){best=cur;bt=t.slice()}}
+    }
+    t.splice(0,n,...bt);W.fill(0);cnt.fill(0);t.forEach((x,i)=>{W[x]+=w[i];cnt[x]++});
+  };
+  /* ลองค้นหาหลายรอบ (อุณหภูมิ/ค่าสุ่มต่างกัน) แล้วเลือกคำตอบที่ "ทีมแตกเป็นก้อนน้อยที่สุด" ก่อน แล้วค่อยดูต้นทุนต่ำสุด */
+  const load=a=>{t.splice(0,n,...a);W.fill(0);cnt.fill(0);t.forEach((x,i)=>{W[x]+=w[i];cnt[x]++})};
+  const score=()=>extras()*1000+cost();
+  descend();let bestS=t.slice(),bestV=score();
+  for(const [seed,T0] of [[12345,3],[777,5],[4242,2],[99,4],[2718,1.5],[31337,8]]){
+    load(bestS);anneal(seed,T0);descend();
+    const v=score();if(v<bestV-1e-9&&cnt.every(x=>x>=1)){bestV=v;bestS=t.slice()}
   }
+  load(bestS);
   seq.forEach((p,i)=>of.set(ptKey(p),t[i]));
 }
 function teamCalc(){
@@ -363,7 +418,9 @@ function teamCalc(){
     for(let i=0;i<k-1;i++){let v=i<idx.length?idx[i]:Infinity;if(i&&v<cuts[i-1])v=cuts[i-1];cuts.push(v)}
     seq.forEach((p,i)=>of.set(ptKey(p),cuts.filter(c=>c<=i).length));
   }else if(cfg.mode==='geo'){
-    geoAssign(seq,seq.map(ptW),k,of);geoRefine(seq,of,k);
+    const ck=k+'#'+seq.map(p=>ptKey(p)+':'+ptW(p)+':'+p.lat+':'+p.lng).join('|');
+    if(_asgC.k!==ck){const o=new Map();geoAssign(seq,seq.map(ptW),k,o);geoRefine(seq,o,k);_asgC={k:ck,m:o}}
+    _asgC.m.forEach((v,key)=>of.set(key,v));
     seq=seq.map((p,i)=>[of.get(ptKey(p)),i,p]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]).map(x=>x[2]);   /* จัดให้แต่ละทีมอยู่เป็นช่วงต่อเนื่อง */
   }else{
     const w=seq.map(p=>cfg.mode==='weight'?ptW(p):1),tot=w.reduce((a,b)=>a+b,0)||1;let cum=0;
@@ -382,6 +439,14 @@ function teamSelAll(on){const c=teamLoad();c.sel=on?PLANS.map(p=>p.planId):[];c.
 function teamSetCount(d){const c=teamLoad();c.count=Math.min(12,Math.max(1,c.count+d));if(c.mode==='manual'){c.mode='geo';c.cuts=[]}c.over={};teamSave(c);render()}
 function teamSetName(i,v){const c=teamLoad();c.names[i]=v.trim()||('ทีม '+(i+1));teamSave(c);render()}
 function teamSetMode(m){const c=teamLoad();c.mode=m;c.over={};teamSave(c);render()}
+/* ปรับเวลาต่อจุด (นาที): a = เปลี่ยนลูกถ้วยตั้งอย่างเดียว, b = เปลี่ยน DE SL เป็น DDE */
+function teamSetTM(reset){const c=teamLoad(),y=window.scrollY||0,val=id=>parseFloat((document.getElementById(id)||{}).value);
+  let a=15,b=40,fx=100;
+  if(!reset){a=val('tmA');b=val('tmB');fx=val('tmF');if(isNaN(fx))fx=c.tm[2];
+    if(!(a>0&&b>0&&a<=1000&&b<=1000&&fx>=0&&fx<=100)){render();window.scrollTo(0,y);return}}
+  if(a===c.tm[0]&&b===c.tm[1]&&fx===c.tm[2]){render();window.scrollTo(0,y);return}
+  window._tview=map?{c:map.getCenter(),z:map.getZoom()}:null;
+  c.tm=[a,b,fx];c.over={};teamSave(c);render();window.scrollTo(0,y)}
 /* ย้ายหมุดไปทีมอื่นด้วยมือ (แตะหมุดบนแผนที่) */
 function teamKeepView(){const v=map?{c:map.getCenter(),z:map.getZoom()}:null;window._tview=v;return window.scrollY||0}
 function teamAfter(y){render();window.scrollTo(0,y)}
@@ -402,15 +467,16 @@ function renderTeam(){
   const names=Array.from({length:k},(_,i)=>`<div style="display:flex;align-items:center;gap:8px"><span class="tdot" style="background:${TEAM_COLORS[i]}"></span><input class="f tname" value="${escH(cfg.names[i])}" onchange="teamSetName(${i},this.value)"></div>`).join('');
   const bar=`<div class="tbar">${seq.map(p=>`<i style="background:${TEAM_COLORS[T.of.get(ptKey(p))]}" title="${escH(ptLabel(p))} · ${escH(cfg.names[T.of.get(ptKey(p))])}"></i>`).join('')}</div>`;
   const cards=T.teams.map((list,t)=>{
-    const ins=list.reduce((a,p)=>a+((p.equip||{}).standIns||0)+((p.equip||{}).hangIns||0),0),segs=[];
+    const ins=list.reduce((a,p)=>a+((p.equip||{}).standIns||0)+((p.equip||{}).hangIns||0),0),eq=list.reduce((a,p)=>a+ptW(p),0),nd=list.filter(isDDE).length,segs=[];
     const by=new Map();list.forEach(p=>{(by.get(p.planId)||by.set(p.planId,[]).get(p.planId)).push(p.pointNo)});
     by.forEach((arr,pid)=>{arr.sort((a,b)=>a-b);let a=arr[0],b=a;const out=[];
       for(let i=1;i<=arr.length;i++){if(i<arr.length&&arr[i]===b+1){b=arr[i];continue}out.push(a===b?a:a+'–'+b);a=arr[i];b=a}
       segs.push({pid,t:out.join(', ')})});
-    const rng=list.length?(multi?segs.map(s=>escH(planShort(planOf[s.pid]))+' จุด '+s.t).join(' · '):'จุดที่ '+segs[0].t)+` · ${list.length} จุด · ลูกถ้วย ${ins} ลูก`:'ยังไม่มีจุด';
+    const rng=list.length?(multi?segs.map(s=>escH(planShort(planOf[s.pid]))+' จุด '+s.t).join(' · '):'จุดที่ '+segs[0].t)+` · ${list.length} จุด · ลูกถ้วย ${ins} ลูก · ${nd?'DDE '+nd+' จุด · ':''}ภาระงาน ≈ ${fmtHr(eq)}`:'ยังไม่มีจุด';
     const st='';
     return `<div class="tcard"><span class="tdot" style="background:${TEAM_COLORS[t]}"></span><div class="grow" style="min-width:0"><b>${escH(cfg.names[t])}</b><div class="sub">${rng}</div></div>${st}</div>`;
   }).join('');
+  const fn2=x=>String(+x.toFixed(2)),hwT='จุดปกติ '+fn2(cfg.tm[0])+' น. · DDE '+fn2(cfg.tm[1])+' น.';
   const modeBtn=(m,t)=>`<button class="segb ${cfg.mode===m?'on':''}" onclick="teamSetMode('${m}')">${t}</button>`;
   const noLL=seq.filter(p=>p.lat==null).length;
   const legend=`<div class="tleg">${cfg.names.slice(0,k).map((nm,i)=>`<span><i class="tdot" style="background:${TEAM_COLORS[i]};width:12px;height:12px"></i>${escH(nm)}</span>`).join('')}</div>`;
@@ -421,12 +487,20 @@ function renderTeam(){
     ${n?`<div class="blk"><b>2. จำนวนทีมและชื่อทีม</b>
       <div class="step" style="align-self:flex-start"><button onclick="teamSetCount(-1)">−</button><input class="f" value="${k} ทีม" readonly style="text-align:center"><button onclick="teamSetCount(1)">+</button></div>${names}</div>
     <div class="blk"><b>3. วิธีแบ่งจุด</b>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">${modeBtn('geo','แบ่งตามพื้นที่ (แนะนำ)<br><span style="font-weight:400">งานเท่ากัน + จุดอยู่ใกล้กัน</span>')}${modeBtn('even','แบ่งเท่ากัน<br><span style="font-weight:400">ตามจำนวนจุด (ลำดับแผน)</span>')}${modeBtn('weight','ถ่วงตามปริมาณงาน<br><span style="font-weight:400">ตามลูกถ้วย (ลำดับแผน)</span>')}</div>
-      <div class="sub">${cfg.mode==='manual'?'ตอนนี้ปรับช่วงเอง — กดปุ่มด้านบนเพื่อกลับไปแบ่งอัตโนมัติ':(cfg.mode==='geo'?'นับงานเป็นจำนวนลูกถ้วย · เรียงจุดตามเส้นทางจริงจากพิกัด ตัดช่วงตรงรอยที่ห่างกัน แล้วปรับให้สายแต่ละแผนไม่ถูกหั่นโดยไม่จำเป็น · ถ้าอยากย้ายบางจุด แตะหมุดบนแผนที่':'แบ่งเป็นช่วงต่อเนื่อง · ถ้าอยากย้ายบางจุด แตะหมุดบนแผนที่')}</div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${modeBtn('geo','แบ่งตามพื้นที่ (แนะนำ)<br><span style="font-weight:400">งานเท่ากัน + จุดอยู่ใกล้กัน</span>')}${modeBtn('even','แบ่งเท่ากัน<br><span style="font-weight:400">ตามจำนวนจุด (ลำดับแผน)</span>')}${modeBtn('weight','ถ่วงตามปริมาณงาน<br><span style="font-weight:400">'+hwT+' (ลำดับแผน)</span>')}</div>
+      <div class="sub">${cfg.mode==='manual'?'ตอนนี้ปรับช่วงเอง — กดปุ่มด้านบนเพื่อกลับไปแบ่งอัตโนมัติ':(cfg.mode==='geo'?'นับงานเป็นเวลา ('+hwT+') · เรียงจุดตามเส้นทางจริงจากพิกัด ตัดช่วงตรงรอยที่ห่างกัน แล้วปรับให้สายแต่ละแผนไม่ถูกหั่นโดยไม่จำเป็น · ถ้าอยากย้ายบางจุด แตะหมุดบนแผนที่':'แบ่งเป็นช่วงต่อเนื่อง · ถ้าอยากย้ายบางจุด แตะหมุดบนแผนที่')}</div>
+      <div style="margin-top:12px"><b style="font-size:14px">เวลาทำงานต่อจุด (ให้ผู้จัดการกำหนด)</b>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px">เปลี่ยนลูกถ้วยตั้งอย่างเดียว <input id="tmA" class="f" type="number" inputmode="decimal" min="1" step="any" value="${fn2(cfg.tm[0])}" onchange="teamSetTM()" style="width:68px;flex:none;text-align:center"> นาที/จุด</div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px">เปลี่ยน DE SL เป็น DDE <input id="tmB" class="f" type="number" inputmode="decimal" min="1" step="any" value="${fn2(cfg.tm[1])}" onchange="teamSetTM()" style="width:68px;flex:none;text-align:center"> นาที/จุด</div>
+        <div class="sub" style="margin-top:4px">ใช้คำนวณภาระงานของแต่ละทีมและการแบ่งทีม · ตอนนี้จุด DDE = ${fn2(cfg.tm[1]/cfg.tm[0])} เท่าของจุดปกติ · จุดที่หัวเสาเป็น "เปลี่ยน DE SL เป็น DDE" ในแผนนี้มี ${seq.filter(isDDE).length} จุด${cfg.tm[0]===15&&cfg.tm[1]===40&&cfg.tm[2]===100?'':' · <a href="#" onclick="teamSetTM(true);return false">คืนค่าเริ่มต้น (15 / 40 / 100%)</a>'}</div>
+        <details style="margin-top:6px"${cfg.tm[2]===100?'':' open'}><summary class="sub" style="cursor:pointer">ตั้งค่าเพิ่มเติม</summary>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px">ส่วนที่คงที่ต่อจุดปกติ <input id="tmF" class="f" type="number" inputmode="decimal" min="0" max="100" step="any" value="${fn2(cfg.tm[2])}" onchange="teamSetTM()" style="width:68px;flex:none;text-align:center"> %</div>
+          <div class="sub" style="margin-top:4px">100% = ทุกจุดปกติใช้เวลาเท่ากัน (ไม่สนจำนวนลูกถ้วย) · ต่ำกว่านั้น = เวลาบางส่วนปรับตามจำนวนลูกถ้วยตั้งของจุด (เทียบจุดมาตรฐาน ${STD_STAND} ลูก) เช่น 50% = ครึ่งหนึ่งคงที่ (เดินทาง/ขึ้นเสา) อีกครึ่งตามจำนวนลูกถ้วย</div></details></div></div>
     <div class="blk"><b>4. ผลการแบ่ง</b>${bar}${cards}</div>
     <div class="blk"><b>5. ตัวอย่างแผนที่ผลการแบ่ง</b>${legend}<div id="tmap"></div><div class="sub">แตะหมุดบนแผนที่เพื่อย้ายจุดนั้นไปทีมอื่น (หมุดที่ย้ายแล้วจะมีขอบดำ)${T.pinned.size?` · ย้ายเองแล้ว ${T.pinned.size} จุด <a href="#" onclick="teamClearPins();return false">ล้างทั้งหมด</a>`:''}</div>${noLL?`<div class="sub" style="color:var(--red)">⚠️ ${noLL} จุดไม่มีพิกัด จึงไม่แสดงบนแผนที่</div>`:''}</div>
     <div class="blk"><b>6. ส่งออกไป My Maps</b>
       <button class="btn" style="background:var(--accent);color:#000" onclick="teamExportCsv()">⬇️ ดาวน์โหลดไฟล์ CSV</button>
+      <button class="btn" style="background:var(--blue);color:#fff;margin-top:8px" onclick="teamReport()">📄 ออกรายงานการแบ่งทีม</button>
       <div class="sub">My Maps → สร้างแผนที่ใหม่ → นำเข้า → เลือกไฟล์ → เลือกคอลัมน์ Latitude / Longitude เป็นตำแหน่ง และ "ชื่อ" เป็นชื่อหมุด → จัดรูปแบบ แล้วเลือก "จัดกลุ่มตาม ทีม" หมุดจะแยกสีตามทีม</div></div>`
     :'<div class="empty">เลือกแผนงานอย่างน้อย 1 แผน<br>เพื่อเริ่มแบ่งทีมปฏิบัติงาน</div>'}
   </div>`;
@@ -446,7 +520,7 @@ function teamDrawMap(T,ptLabel){
     if(p.lat==null)return;
     const t=T.of.get(ptKey(p)),pin=T.pinned.has(ptKey(p));
     const btns=Array.from({length:k},(_,x)=>`<button ${x===t?'disabled':''} onclick="teamPin(${i},${x})" title="${escH(T.cfg.names[x])}" style="width:28px;height:28px;margin:2px;border:0;border-radius:50%;background:${TEAM_COLORS[x]};color:#fff;font-weight:700;opacity:${x===t?.3:1};cursor:pointer">${x+1}</button>`).join('');
-    const pop=`<div style="min-width:170px"><b>${escH(ptLabel(p))}</b><br>${escH(T.cfg.names[t])} · ลูกถ้วย ${ptW(p)}<div style="margin-top:6px">ย้ายไปทีม:</div><div>${btns}</div>${pin?`<div style="margin-top:4px"><a href="#" onclick="teamUnpin(${i});return false">↩ ยกเลิกการย้ายจุดนี้</a></div>`:''}</div>`;
+    const pop=`<div style="min-width:170px"><b>${escH(ptLabel(p))}</b><br>${escH(T.cfg.names[t])} · ${isDDE(p)?'DDE':'ลูกถ้วยตั้ง'} · ${ptW(p)} นาที<div style="margin-top:6px">ย้ายไปทีม:</div><div>${btns}</div>${pin?`<div style="margin-top:4px"><a href="#" onclick="teamUnpin(${i});return false">↩ ยกเลิกการย้ายจุดนี้</a></div>`:''}</div>`;
     L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html:`<div class="pin" style="background:${TEAM_COLORS[t]};color:#fff;${pin?'outline:3px solid #111;outline-offset:1px':''}">${p.pointNo}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).addTo(m).bindPopup(pop).bindTooltip(escH(T.cfg.names[t])+' · '+escH(ptLabel(p)));
     b.push([p.lat,p.lng]);
   });
@@ -454,6 +528,80 @@ function teamDrawMap(T,ptLabel){
   else if(b.length)m.fitBounds(b,{padding:[30,30],maxZoom:17});
   setTimeout(()=>{if(map===m)m.invalidateSize()},80);
 }
+/* ── ออกรายงานการแบ่งทีม: แยกรายทีม พร้อมรายละเอียดรายจุด (เปิดในแท็บใหม่ พิมพ์/บันทึก PDF ได้) ── */
+function teamReport(){
+  const T=teamCalc(),cfg=T.cfg,k=cfg.count,planOf=Object.fromEntries(PLANS.map(p=>[p.planId,p])),E=escH;
+  if(!T.seq.length)return toast('ยังไม่มีจุดให้ออกรายงาน');
+  const q=(p,key)=>((p.equip||{})[key]||0),sum=(l,key)=>l.reduce((a,p)=>a+q(p,key),0),mins=l=>l.reduce((a,p)=>a+ptW(p),0);
+  const fN=x=>String(Math.round(x*10)/10),tName=t=>cfg.names[t]||('ทีม '+(t+1));
+  const totalMin=mins(T.seq),avg=totalMin/k,now=new Date();
+  const dateTxt=now.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})+' '+now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})+' น.';
+  const ranges=list=>{const by=new Map();list.forEach(p=>{(by.get(p.planId)||by.set(p.planId,[]).get(p.planId)).push(p.pointNo)});
+    return [...by].map(([pid,arr])=>{arr.sort((a,b)=>a-b);let a=arr[0],b=a;const out=[];
+      for(let i=1;i<=arr.length;i++){if(i<arr.length&&arr[i]===b+1){b=arr[i];continue}out.push(a===b?a:a+'–'+b);a=arr[i];b=a}
+      return planShort(planOf[pid])+' จุด '+out.join(', ')}).join(' · ')};
+  /* แผนที่ย่อ (SVG ไม่พึ่งแผนที่ออนไลน์) */
+  const G=T.seq.filter(hasLL);
+  const svgMap=(hi)=>{ /* hi = ทีมที่เน้น หรือ -1 = แสดงทุกทีม */
+    if(!G.length)return '<div class="nomap">ไม่มีพิกัดสำหรับแสดงแผนที่</div>';
+    const lat0=G.reduce((a,p)=>a+p.lat,0)/G.length,kx=Math.cos(lat0*Math.PI/180),xs=G.map(p=>p.lng*kx),ys=G.map(p=>-p.lat);
+    const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys),W=720,H=hi<0?330:260,m=16;
+    const sc=Math.min((W-2*m)/Math.max(x1-x0,1e-9),(H-2*m)/Math.max(y1-y0,1e-9)),ox=(W-(x1-x0)*sc)/2,oy=(H-(y1-y0)*sc)/2;
+    const X=p=>(ox+(p.lng*kx-x0)*sc).toFixed(1),Y=p=>(oy+(-p.lat-y0)*sc).toFixed(1);
+    let out=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" class="svgmap"><rect width="${W}" height="${H}" fill="#f6f8fb" stroke="#d6dde6"/>`;
+    const teamOf=p=>T.of.get(ptKey(p));
+    const lines=(t)=>{const l=T.teams[t].filter(hasLL);let d='',prev=null;l.forEach(p=>{if(prev&&prev.planId===p.planId&&Math.abs(prev.pointNo-p.pointNo)===1)d+=` L${X(p)} ${Y(p)}`;else d+=` M${X(p)} ${Y(p)}`;prev=p});return d?`<path d="${d}" fill="none" stroke="${TEAM_COLORS[t]}" stroke-width="2" opacity=".55"/>`:''};
+    if(hi<0){for(let t=0;t<k;t++)out+=lines(t);G.forEach(p=>{out+=`<circle cx="${X(p)}" cy="${Y(p)}" r="3.6" fill="${TEAM_COLORS[teamOf(p)]}" stroke="#fff" stroke-width=".8"/>`})}
+    else{G.filter(p=>teamOf(p)!==hi).forEach(p=>{out+=`<circle cx="${X(p)}" cy="${Y(p)}" r="2.4" fill="#c4ccd6"/>`});out+=lines(hi);
+      T.teams[hi].filter(hasLL).forEach((p,i)=>{const dd=isDDE(p);out+=`<circle cx="${X(p)}" cy="${Y(p)}" r="${dd?6.5:5}" fill="${TEAM_COLORS[hi]}" stroke="${dd?'#111':'#fff'}" stroke-width="${dd?1.6:1}"/><text x="${X(p)}" y="${(+Y(p)+2.6).toFixed(1)}" text-anchor="middle" font-size="6.5" font-weight="700" fill="#fff">${i+1}</text>`})}
+    return out+'</svg>';
+  };
+  const legend=Array.from({length:k},(_,t)=>`<span class="lg"><i style="background:${TEAM_COLORS[t]}"></i>${E(tName(t))}</span>`).join('');
+  const SH=['ตั้ง','แขวน','อายนัท','สเตรน','ลวดกลม','ACSR (ม.)','หลอดต่อ','P.G.'];
+  const modeTxt={geo:'แบ่งตามพื้นที่ (งานเท่ากัน + จุดอยู่ใกล้กัน)',even:'แบ่งเท่ากันตามจำนวนจุด',weight:'ถ่วงตามปริมาณงาน',manual:'ปรับช่วงเอง'}[cfg.mode]||cfg.mode;
+  /* หน้าสรุป */
+  const planRows=T.plans.map(pl=>{const n=POINTS.filter(p=>p.planId===pl.planId).length;return `<tr><td>${E(pl.planName||'')}</td><td>${E(planShort(pl))}</td><td class="n">${n}</td></tr>`}).join('');
+  const sumRows=T.teams.map((l,t)=>{const m=mins(l),dev=(m-avg)/avg*100;
+    return `<tr><td><i class="dot" style="background:${TEAM_COLORS[t]}"></i><b>${E(tName(t))}</b></td><td>${E(ranges(l))||'-'}</td><td class="n">${l.length}</td><td class="n">${sum(l,'standIns')}</td><td class="n">${sum(l,'hangIns')}</td><td class="n">${l.filter(isDDE).length}</td><td class="n"><b>${fmtHr(m,1)}</b></td><td class="n">${(m/totalMin*100).toFixed(1)}%<br><span class="mut">${dev>=0?'+':''}${dev.toFixed(1)}% จากเฉลี่ย</span></td></tr>`}).join('');
+  let html=`<section class="sum"><h1>รายงานการแบ่งทีมปฏิบัติงาน</h1><div class="sub">งานเปลี่ยนลูกถ้วยยกไลน์ · ออกรายงานเมื่อ ${E(dateTxt)}</div>
+    <div class="grid2"><div><h2>แผนงานที่รวมในรายงาน</h2><table><thead><tr><th>แผนงาน</th><th>รหัส</th><th>จำนวนจุด</th></tr></thead><tbody>${planRows}<tr class="tot"><td colspan="2">รวม</td><td class="n">${T.seq.length}</td></tr></tbody></table>
+      <h2>เกณฑ์การแบ่ง</h2><ul class="kv"><li>จำนวนทีม: <b>${k} ทีม</b></li><li>วิธีแบ่ง: <b>${E(modeTxt)}</b></li><li>เวลาต่อจุด: เปลี่ยนลูกถ้วยตั้งอย่างเดียว <b>${fN(cfg.tm[0])} นาที</b> · เปลี่ยน DE SL เป็น DDE <b>${fN(cfg.tm[1])} นาที</b>${cfg.tm[2]<100?` · ส่วนคงที่ต่อจุดปกติ ${fN(cfg.tm[2])}%`:''}</li><li>งานรวมประมาณ <b>${fmtHr(totalMin,1)}</b> · เฉลี่ยทีมละ <b>${fmtHr(avg,1)}</b></li>${T.pinned.size?`<li>มีการย้ายจุดด้วยมือ <b>${T.pinned.size} จุด</b></li>`:''}</ul></div>
+      <div><h2>ภาพรวมตำแหน่งจุดตามทีม</h2>${svgMap(-1)}<div class="lgs">${legend}</div></div></div>
+    <h2>สรุปรายทีม</h2><table><thead><tr><th>ทีม</th><th>พื้นที่รับผิดชอบ</th><th>จุด</th><th>ลูกถ้วยตั้ง</th><th>ลูกถ้วยแขวน</th><th>จุด DDE</th><th>เวลางาน (ประมาณ)</th><th>สัดส่วน</th></tr></thead><tbody>${sumRows}</tbody></table>
+    <div class="note">จุด DDE = จุดงาน "เปลี่ยน DE SL เป็น DDE" · เวลางานประมาณจากเวลาต่อจุดที่กำหนด ไม่รวมเวลาเดินทางระหว่างจุด</div></section>`;
+  /* หน้ารายทีม */
+  T.teams.forEach((l,t)=>{
+    const m=mins(l),by=l.length,rows=l.map((p,i)=>{const dd=isDDE(p),e=p.equip||{};
+      return `<tr class="${dd?'dde':''}"><td class="c">${i+1}</td><td>${E(planShort(planOf[p.planId]))} จุดที่ <b>${p.pointNo}</b></td><td>${E((p.head||[]).join(', ')||'-')}${dd?' <span class="tag">DDE</span>':''}</td><td class="c">${p.sysPhase?p.sysPhase+' Ph':'-'}</td><td class="c">${E((p.phase||[]).join(',')||'-')}</td>${EQ.map(x=>`<td class="n">${e[x[0]]?e[x[0]]:'<span class="mut">–</span>'}</td>`).join('')}<td class="n">${fN(ptW(p))}</td><td class="co">${hasLL(p)?`<a href="https://www.google.com/maps?q=${p.lat},${p.lng}">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</a>`:'<span class="mut">ไม่มีพิกัด</span>'}</td></tr>`}).join('');
+    const wireN=sum(l,'wire');
+    html+=`<section class="team"><div class="th" style="border-color:${TEAM_COLORS[t]}"><i class="dot big" style="background:${TEAM_COLORS[t]}"></i><div><h1>${E(tName(t))} <span class="mut">(ทีมที่ ${t+1} จาก ${k})</span></h1><div class="sub">${E(ranges(l))||'-'}</div></div></div>
+      <div class="stats"><div><b>${l.length}</b>จุด</div><div><b>${sum(l,'standIns')}</b>ลูกถ้วยตั้ง</div><div><b>${sum(l,'hangIns')}</b>ลูกถ้วยแขวน</div><div><b>${l.filter(isDDE).length}</b>จุด DDE</div><div><b>${fmtHr(m,1)}</b>เวลางานประมาณ</div></div>
+      <div class="grid2 map"><div>${svgMap(t)}<div class="note">วงกลมสี = จุดของทีมนี้ (เลขตามลำดับในตาราง) · วงกลมขอบดำ = จุด DDE · จุดเทา = จุดของทีมอื่น</div></div></div>
+      <h2>รายละเอียดงานรายจุด <span class="mut">(เรียงตามลำดับเส้นทางปฏิบัติงาน)</span></h2>
+      <table class="pt"><thead><tr><th>ลำดับ</th><th>จุด</th><th>หัวเสา / งาน</th><th>ระบบ</th><th>เฟส</th>${SH.map(x=>`<th>${x}</th>`).join('')}<th>เวลา (นาที)</th><th>พิกัด (แตะเพื่อเปิดแผนที่)</th></tr></thead><tbody>${rows}
+        <tr class="tot"><td colspan="5">รวมวัสดุ/อุปกรณ์ของทีม</td>${EQ.map(x=>{const v=sum(l,x[0]);return `<td class="n">${v}${x[0]==='wire'&&v?`<br><span class="mut">≈ ${wireKg(v)} กก.</span>`:''}</td>`}).join('')}<td class="n">${fN(m)}<br><span class="mut">${fmtHr(m,1)}</span></td><td></td></tr></tbody></table>
+      <div class="note">หน่วย: ลูกถ้วยตั้ง/แขวน = ลูก · อายนัท = ตัว · สเตรนแคลมป์ = ชุด · ลวดกลม = เส้น · สาย ACSR 50 ต.มม. = เมตร · หลอดต่อรับแรงดึง/P.G. 2 สลัก = หลอด · แถวสีส้ม = งานเปลี่ยน DE SL เป็น DDE</div>
+      <div class="sign"><div>หัวหน้าทีม ____________________________</div><div>วันที่ปฏิบัติงาน ____ / ____ / ________</div><div>ผู้อนุมัติ ____________________________</div></div></section>`;
+  });
+  const css=`@page{size:A4 landscape;margin:9mm}*{box-sizing:border-box}body{margin:0;font:12px/1.5 'Sarabun','Noto Sans Thai','Leelawadee UI',Tahoma,sans-serif;color:#111;background:#e9edf2}
+  .bar{position:sticky;top:0;z-index:10;display:flex;gap:8px;align-items:center;padding:8px 12px;background:#162030;color:#fff}.bar b{flex:1;font-size:14px}.bar button{padding:7px 12px;border:0;border-radius:8px;background:#f5a623;color:#000;font:600 13px inherit;cursor:pointer}.bar button.g{background:#334}.bar button.g{color:#fff}
+  section{background:#fff;margin:12px auto;max-width:1100px;padding:16px 18px;border-radius:8px}h1{font-size:20px;margin:0}h2{font-size:14px;margin:14px 0 6px;color:#243b55}.sub{color:#555;font-size:12px}.mut{color:#777;font-weight:400;font-size:11px}
+  table{width:100%;border-collapse:collapse;font-size:11.5px}th,td{border:1px solid #cfd6df;padding:3px 6px;vertical-align:top}th{background:#e9eef5;text-align:center;font-weight:700}td.n{text-align:right;white-space:nowrap}td.c{text-align:center}td.co{white-space:nowrap}tr.tot td{background:#f1f4f8;font-weight:700}tr.dde td{background:#fff1dc}thead{display:table-header-group}tr{page-break-inside:avoid}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.grid2.map{grid-template-columns:1fr}.kv{margin:0;padding-left:18px}.kv li{margin:2px 0}.svgmap{width:100%;height:auto;display:block}.lgs{margin-top:4px}.lg{display:inline-flex;align-items:center;gap:4px;margin:0 10px 2px 0;font-size:11px}.lg i,.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}.dot.big{width:22px;height:22px;margin:0 10px 0 0;flex:none}
+  .th{display:flex;align-items:center;border-left:6px solid;padding-left:10px;margin-bottom:8px}.stats{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}.stats div{flex:1;min-width:120px;background:#f1f4f8;border-radius:8px;padding:6px 10px;font-size:11px;color:#444}.stats b{display:block;font-size:17px;color:#111}
+  .tag{background:#e8731a;color:#fff;border-radius:4px;padding:0 5px;font-size:10px;font-weight:700}.note{font-size:10.5px;color:#666;margin-top:4px}.nomap{padding:20px;color:#888}.sign{display:flex;justify-content:space-between;gap:12px;margin-top:22px;font-size:12px}a{color:#0b5cad;text-decoration:none}
+  @media print{body{background:#fff}.bar{display:none}section{margin:0;max-width:none;border-radius:0;padding:0}section.team{page-break-before:always}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr}section{margin:8px;padding:12px}table.pt{display:block;overflow-x:auto}}`;
+  const doc=`<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>รายงานการแบ่งทีม ${E(now.toLocaleDateString('th-TH'))}</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet"><style>${css}</style></head><body>
+    <div class="bar"><b>รายงานการแบ่งทีมปฏิบัติงาน</b><button onclick="window.print()">🖨 พิมพ์ / บันทึกเป็น PDF</button><button class="g" onclick="if(parent!==window){parent.postMessage('closeTeamReport','*')}else{window.close()}">ปิด</button></div>${html}</body></html>`;
+  const url=URL.createObjectURL(new Blob([doc],{type:'text/html;charset=utf-8'})),w=window.open(url,'_blank');
+  if(!w){ /* เบราว์เซอร์บล็อกแท็บใหม่: แสดงรายงานซ้อนในหน้านี้แทน */
+    const ov=document.createElement('div');ov.id='trep';ov.style.cssText='position:fixed;inset:0;z-index:2000;background:#fff';
+    const fr=document.createElement('iframe');fr.style.cssText='width:100%;height:100%;border:0';fr.srcdoc=doc;ov.appendChild(fr);document.body.appendChild(ov);
+  }
+  setTimeout(()=>URL.revokeObjectURL(url),120000);
+}
+addEventListener('message',e=>{if(e.data==='closeTeamReport'){const o=document.getElementById('trep');if(o)o.remove()}});
 function teamExportCsv(){
   const T=teamCalc(),multi=T.plans.length>1,planOf=Object.fromEntries(PLANS.map(p=>[p.planId,p]));
   const q=v=>{v=String(v==null?'':v);return /[",\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
