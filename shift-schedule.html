@@ -91,6 +91,8 @@ const fbApp = firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 try { db.enablePersistence({ synchronizeTabs: true }).catch(() => {}); } catch (e) {}
 const TEAMS_COLLECTION = "shiftScheduleTeams";
+// ประเภทงานของแต่ละทีม (ใช้เป็นค่าเริ่มต้นในคอลัมน์ "ประเภทงาน" แท็บคนงาน — แก้ไขรายคนได้)
+const TEAM_JOB_TYPES = { outage: "B", maintenance: "C1", meter: "D" };
 
 // ---------- constants ----------
 const THAI_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
@@ -1674,7 +1676,7 @@ function App() {
               const data = snap.data();
               const merged = { ...def, ...data, docSettings: { ...def.docSettings, ...(data.docSettings || {}) } };
               // แก้การสะกดชื่อในข้อมูลที่บันทึกไว้เดิม: พุฒิพงษ์ → พุฒิพงศ์, ธนภัทร์ → ธนภัทร
-              merged.workers = (merged.workers || []).map((w) => ({ ...w, workerType: w.workerType ?? (merged.type === "attendance" ? 0 : 1), name: String(w.name || "").replace("พุฒิพงษ์", "พุฒิพงศ์").replace("ธนภัทร์", "ธนภัทร") }));
+              merged.workers = (merged.workers || []).map((w) => ({ ...w, jobType: w.jobType ?? TEAM_JOB_TYPES[merged.id] ?? "", workerType: w.workerType ?? (merged.type === "attendance" ? 0 : 1), name: String(w.name || "").replace("พุฒิพงษ์", "พุฒิพงศ์").replace("ธนภัทร์", "ธนภัทร") }));
               return merged;
             }
             await ref.set(def);
@@ -2880,7 +2882,7 @@ function App() {
         .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--text2); }
         .legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 5px; }
 
-        .worker-row { display: grid; grid-template-columns: auto minmax(0,1fr) minmax(72px,100px) minmax(80px,120px) minmax(50px,60px) 32px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+        .worker-row { display: grid; grid-template-columns: auto minmax(0,1fr) minmax(56px,76px) minmax(72px,100px) minmax(80px,120px) minmax(50px,60px) 32px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
         .worker-row:last-child { border-bottom: none; }
         .swatch { width: 12px; height: 12px; border-radius: 50%; }
         .swatch-cell { display: flex; align-items: center; gap: 6px; }
@@ -2903,16 +2905,17 @@ function App() {
           .cal-cell { min-height: 74px; padding: 4px; font-size: 10px; }
           .worker-row {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            grid-template-areas: "swatch name name" "daily contractor type" "del del del";
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            grid-template-areas: "swatch name name name" "jobtype daily contractor type" "del del del del";
             row-gap: 6px; column-gap: 8px; padding: 12px 0;
           }
           .worker-row > *:nth-child(1) { grid-area: swatch; align-self: center; }
           .worker-row > *:nth-child(2) { grid-area: name; }
-          .worker-row > *:nth-child(3) { grid-area: daily; }
-          .worker-row > *:nth-child(4) { grid-area: contractor; }
-          .worker-row > *:nth-child(5) { grid-area: type; }
-          .worker-row > *:nth-child(6) { grid-area: del; width: 100%; }
+          .worker-row > *:nth-child(3) { grid-area: jobtype; }
+          .worker-row > *:nth-child(4) { grid-area: daily; }
+          .worker-row > *:nth-child(5) { grid-area: contractor; }
+          .worker-row > *:nth-child(6) { grid-area: type; }
+          .worker-row > *:nth-child(7) { grid-area: del; width: 100%; }
           .worker-row > * { min-width: 0; }
           th, td { padding: 7px 6px; font-size: 12px; }
         }
@@ -3305,7 +3308,7 @@ function App() {
           <div className="section-sub">ค่าจ้างวันละ = อัตราที่ลูกจ้างได้รับจริง · อัตราผู้รับจ้าง = อัตราที่เรียกเก็บ/จ่ายให้บริษัทผู้รับเหมาต่อแรงงาน 1 หน่วย</div>
 
           <div className="worker-row" style={{ color: "var(--text2)", fontSize: 12 }}>
-            <div></div><div>ชื่อ</div><div>ค่าจ้างวันละ</div><div>อัตราผู้รับจ้าง</div><div>ประเภท</div><div></div>
+            <div></div><div>ชื่อ</div><div>ประเภทงาน</div><div>ค่าจ้างวันละ</div><div>อัตราผู้รับจ้าง</div><div>ประเภท</div><div></div>
           </div>
           {workers.map((w, i) => (
             <div className="worker-row" key={w.id}>
@@ -3317,6 +3320,7 @@ function App() {
                 </div>
               </div>
               <input type="text" value={w.name} onChange={(e) => setWorkers((prev) => prev.map((x) => x.id === w.id ? { ...x, name: e.target.value } : x))} />
+              <input type="text" className="mono" value={w.jobType ?? TEAM_JOB_TYPES[team.id] ?? ""} placeholder="-" onChange={(e) => setWorkers((prev) => prev.map((x) => x.id === w.id ? { ...x, jobType: e.target.value } : x))} />
               <input type="number" className="mono" value={w.dailyRate} onChange={(e) => setWorkers((prev) => prev.map((x) => x.id === w.id ? { ...x, dailyRate: Number(e.target.value) } : x))} />
               <input type="number" className="mono" value={w.contractorRate} onChange={(e) => setWorkers((prev) => prev.map((x) => x.id === w.id ? { ...x, contractorRate: Number(e.target.value) } : x))} />
               <input type="number" className="mono" value={w.workerType ?? 1} onChange={(e) => setWorkers((prev) => prev.map((x) => x.id === w.id ? { ...x, workerType: Number(e.target.value) } : x))} />
@@ -3325,7 +3329,7 @@ function App() {
           ))}
 
           <div style={{ marginTop: 14 }}>
-            <button className="btn primary" onClick={() => setWorkers((prev) => [...prev, { id: uid(), name: "คนงานใหม่", dailyRate: 400, contractorRate: 500, workerType: 1 }])}>+ เพิ่มคนงาน</button>
+            <button className="btn primary" onClick={() => setWorkers((prev) => [...prev, { id: uid(), name: "คนงานใหม่", jobType: TEAM_JOB_TYPES[team.id] ?? "", dailyRate: 400, contractorRate: 500, workerType: 1 }])}>+ เพิ่มคนงาน</button>
           </div>
         </div>
       )}
