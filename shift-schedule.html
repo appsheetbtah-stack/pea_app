@@ -405,12 +405,13 @@ function printOrderPage() {
   if (oldStyle) oldStyle.remove();
   const pageStyle = document.createElement("style");
   pageStyle.id = "op-print-style";
-  pageStyle.textContent = `@page opdoc { size: A4; margin: ${cs.paddingTop} ${cs.paddingRight} ${cs.paddingBottom} ${cs.paddingLeft}; }`;
+  pageStyle.textContent = `@page opdoc { size: A4; margin: 0; }`; /* margin 0 = Chrome ไม่พิมพ์วันที่/ชื่อหน้า/URL/เลขหน้า */
   document.body.appendChild(pageStyle);
   const copy = src.cloneNode(true);
   copy.removeAttribute("id");
   copy.style.transform = "none";
-  copy.style.padding = "0";
+  copy.style.boxSizing = "border-box";
+  copy.style.padding = `${cs.paddingTop} ${cs.paddingRight} ${cs.paddingBottom} ${cs.paddingLeft}`; /* ใช้ padding แทนขอบกระดาษ */
   host.appendChild(copy);
   document.body.appendChild(host);
   document.body.classList.add("op-printing");
