@@ -2578,6 +2578,7 @@ function App() {
     }
 
     rows.push(blankRow(colCount, { border: false }));
+    rows.push(blankRow(colCount, { border: false })); // เว้นเพิ่ม 1 บรรทัดเหนือเส้นปะลงชื่อ
     const half = Math.floor(colCount / 2);
     [
       ["……………………………………", "……………………………………"],
@@ -2604,7 +2605,7 @@ function App() {
     // ความสูงแถวกระชับ เพื่อให้ทั้งเดือน (31 วัน) + ช่องลงชื่อ พอดี 1 หน้าโดยไม่ต้องย่อตารางจนแคบ
     rows.forEach((_, i) => {
       let h = 20.25; // สูงขึ้นเล็กน้อยให้เซ็นง่าย แต่ยังพอดี 1 หน้า (ตั้งค่า fitToPage 1x1 กันล้นไว้แล้ว)
-      if (i === 0) h = 24; else if (i < 3) h = 22; else if (i === 3) h = 24;
+      if (i === 0) h = 20; else if (i < 3) h = 18; else if (i === 3) h = 22; // หัวกระดาษกระชับ ให้เดือน 31 วันพอดี 1 หน้า
       else if (i === 4 + dim) h = 14;          // แถวว่างก่อนช่องลงชื่อ
       else if (i > 4 + dim) h = 18;            // แถวช่องลงชื่อ
       ws.getRow(i + 1).height = h;
@@ -2623,7 +2624,7 @@ function App() {
     return { wb, filename: `ใบเซ็นชื่อ_${team.name}_${THAI_MONTHS[month - 1]}${year + 543}.xlsx` };
   }
   async function exportAttendanceSignSheet() { const r = buildAttendanceWorkbook(); await downloadWorkbook(r.wb, r.filename); }
-  function printAttendanceSheet() { printWorksheet(buildAttendanceWorkbook().wb.worksheets[0], { portrait: true }); }
+  function printAttendanceSheet() { printWorksheet(buildAttendanceWorkbook().wb.worksheets[0], { portrait: true, fitHeight: true }); }
 
   // Detailed day-by-day payroll report (period blocks with one column per day).
   // Reused both for the on-screen "รายงาน" table and the hidden print layout.
