@@ -583,8 +583,9 @@ body.pick-mode #btn-tab-dashboard { display:none; }
   <div><b style="font-size:inherit">ON</b> = ปิดวงจร (จ่ายไฟผ่าน) · <b style="font-size:inherit">OFF</b> = เปิดวงจร (ตัดไฟ)</div></div>
   <div id="simbody"><div id="simmap"><div id="simstage"><svg id="simsvg" viewBox="-175 -55 1515 795" role="img" aria-label="ผังระบบจำหน่าย 22 kV"></svg></div></div>
   <aside id="simtools"><b>เครื่องมือ</b>
-   <button class="stool" data-t="F">⚡ จุดเกิดเหตุ</button>
+   <button class="stool" data-t="F">⚡ Fault, สายขาด, ต้นไม้ทับ</button>
    <button class="stool" data-t="D">✂ เปิด DDE</button>
+   <button class="stool" data-t="H">🔧 Hotline Clamp / Bail Clamp ชำรุด</button>
    <small id="simhint"></small>
    <button id="simlink">🔗 คัดลอกลิงก์สถานะ</button><small id="simsaved"></small>
    <input id="simname" placeholder="ชื่อผู้แก้ไข" maxlength="20" style="padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--panel);color:inherit;width:100%;box-sizing:border-box">
@@ -1219,8 +1220,9 @@ function render(){
  st.pts.forEach(m=>{const[x,y]=at(m.w,m.t),g=el('g',{transform:`translate(${x} ${y})`,style:'cursor:pointer'},MG);
   el('circle',{r:18,fill:'transparent'},g);
   if(m.k=='F'){el('circle',{r:13,fill:'var(--warn)',stroke:'#fff','stroke-width':2},g);el('text',{y:7,'text-anchor':'middle','font-size':18,style:'fill:#fff'},g).textContent='⚡'}
+  else if(m.k=='H'){el('rect',{x:-40,y:-10,width:80,height:20,rx:4,fill:'#d97706',stroke:'#fff','stroke-width':2},g);el('text',{y:4,'text-anchor':'middle','font-size':12,'font-weight':700,style:'fill:#fff'},g).textContent='แคลมป์ชำรุด'}
   else{el('rect',{x:-19,y:-10,width:38,height:20,rx:4,fill:'#fff',stroke:'var(--ink)','stroke-width':2.5},g);el('text',{y:4,'text-anchor':'middle','font-size':12,'font-weight':700,style:'fill:#111'},g).textContent='DDE'}
-  g.onclick=ev=>{ev.stopPropagation();st.pts=st.pts.filter(q=>q!==m);log('ลบจุด'+(m.k=='F'?'เกิดเหตุ':' DDE'));render()}});
+  g.onclick=ev=>{ev.stopPropagation();st.pts=st.pts.filter(q=>q!==m);log('ลบจุด'+(m.k=='F'?' Fault':m.k=='H'?' แคลมป์ชำรุด':' DDE'));render()}});
  const lg=$('simlog');if(lg)lg.innerHTML=st.log.map(x=>'<div>• '+x+'</div>').join('');
  save();
  for(const id in SWM){const e=SE[id],cl=st.sw[id],c=cl?(E[id+'a']||E[id+'b']?col(E[id+'a']?id+'a':id+'b'):'var(--dead)'):'var(--panel)';
@@ -1244,20 +1246,20 @@ function fit(){
   svg.style.left=VH*k+'px';svg.style.transform='rotate(90deg)'}}
 window.addEventListener('resize',fit);window.simFit=fit;addEventListener('orientationchange',()=>setTimeout(fit,150));
 if(window.ResizeObserver)new ResizeObserver(fit).observe(mapEl);
-let tool=null;const HT={F:'แตะบนเส้นสายเพื่อวางจุดเกิดเหตุ',D:'แตะบนเส้นสายเพื่อเปิด DDE (วางหัวและท้ายจุดเกิดเหตุ)'},H0='เลือกเครื่องมือ แล้วแตะบนเส้นสาย · แตะจุดที่วางไว้เพื่อลบ';
+let tool=null;const HT={F:'แตะบนเส้นสายตรงจุด Fault / สายขาด / ต้นไม้ทับ (อุปกรณ์ป้องกันจะตัด)',D:'แตะบนเส้นสายเพื่อเปิด DDE (วางหัวและท้ายจุด Fault)',H:'แตะบนเส้นสายตรงจุดที่ Clamp ชำรุด (อุปกรณ์ไม่ตัด แต่ไม่มีไฟหลังจุดนี้)'},H0='เลือกเครื่องมือ แล้วแตะบนเส้นสาย · แตะจุดที่วางไว้เพื่อลบ';
 function setTool(t){tool=t;document.querySelectorAll('.stool').forEach(x=>x.classList.toggle('on',x.dataset.t==tool));svg.style.cursor=tool?'crosshair':'';$('simhint').textContent=tool?HT[tool]:H0}
 document.querySelectorAll('.stool').forEach(b=>b.onclick=()=>setTool(tool==b.dataset.t?null:b.dataset.t));
 $('simclr').onclick=()=>{if(cloud&&!confirm('การล้างจุดมีผลกับทุกคนในทีม ต้องการต่อหรือไม่?'))return;st.pts=[];log('ล้างจุดที่วางไว้');render()};
 $('simrst').onclick=()=>{if(cloud&&!confirm('การรีเซ็ตมีผลกับทุกคนในทีม ต้องการต่อหรือไม่?'))return;reset();st.log=[];render()};
 svg.addEventListener('click',ev=>{if(!tool||ev.target.closest('.sw'))return;const q=svg.createSVGPoint();q.x=ev.clientX;q.y=ev.clientY;
  const m=q.matrixTransform(svg.getScreenCTM().inverse()),h=hitWire(m.x,m.y);if(!h)return;
- st.pts.push({id:++nid,k:tool,w:h.i,t:Math.min(.97,Math.max(.03,h.t))});log(tool=='F'?'กำหนดจุดเกิดเหตุ':'เปิด DDE');render()});
+ st.pts.push({id:++nid,k:tool,w:h.i,t:Math.min(.97,Math.max(.03,h.t))});log(tool=='F'?'กำหนดจุด Fault / สายขาด / ต้นไม้ทับ':tool=='H'?'แคลมป์ชำรุด (ไม่มีไฟหลังจุดนี้)':'เปิด DDE');render()});
 const SK='pea-sim-v1';let lastSig='';
 const pack=()=>({s:SWL.map(x=>st.sw[x[0]]?1:0).join(''),p:st.pts.map(m=>[m.k,m.w,Math.round(m.t*1e4)/1e4]),ts:st.ts||0});
 const sigOf=o=>o.s+JSON.stringify(o.p);
 function unpack(o){if(!o||typeof o.s!='string'||o.s.length!=SWL.length||!Array.isArray(o.p))return false;
  SWL.forEach((x,i)=>st.sw[x[0]]=o.s[i]=='1');
- st.pts=o.p.filter(a=>W[a[1]]&&(a[0]=='F'||a[0]=='D')).map(a=>({id:++nid,k:a[0],w:a[1],t:+a[2]}));st.ts=+o.ts||0;return true}
+ st.pts=o.p.filter(a=>W[a[1]]&&(a[0]=='F'||a[0]=='D'||a[0]=='H')).map(a=>({id:++nid,k:a[0],w:a[1],t:+a[2]}));st.ts=+o.ts||0;return true}
 const CID=Math.random().toString(36).slice(2);let NAME=localStorage.getItem('pea-sim-name')||'',cloud=null,first=true,fromHash=false;
 const CLD='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4 4 0 0 1-.6-7.95A5.5 5.5 0 0 1 17 8.6 4.7 4.7 0 0 1 17 18z"/>';
 const ST={ok:['#16a34a','บันทึกแล้ว','<path d="M9 13l2.2 2.2L15.5 11"/>'],busy:['#d97706','กำลังบันทึก','<path d="M12 16v-5M9.5 13.5L12 11l2.5 2.5"/>'],off:['#6b7280','ออฟไลน์','<path d="M4 4l16 16"/>'],err:['#dc2626','บันทึกไม่ได้','<path d="M9.5 10.5l5 5M14.5 10.5l-5 5"/>'],conn:['#d97706','เชื่อมต่อ…','']};
