@@ -106,10 +106,18 @@ html[data-theme="dark"] #pane-sim{--dead:#4a5866;--pld:#2fd27a;--plz:#ff5a5f;--l
 #pane-sim .sim-head div{color:var(--mute);font-size:clamp(11px,1.5vw,13px);line-height:1.35}
 #simbody{flex:1;min-height:0;display:flex;gap:8px}
 #simtools{flex:none;width:170px;display:flex;flex-direction:column;gap:6px;overflow:auto;font-size:13px}
-#simtools button{padding:9px 10px;border:1px solid var(--line);background:var(--panel);border-radius:8px;font:inherit;text-align:left;cursor:pointer;color:inherit}
-#simtools button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+#simtools>b{text-align:center;font-size:14px;padding:2px 0 4px;flex:none}
+#simtools button{padding:9px 8px;border:1px solid var(--line);background:var(--panel);border-radius:12px;font:inherit;font-size:13px;line-height:1.3;text-align:center;cursor:pointer;color:inherit;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 1px 2px rgba(0,0,0,.06);transition:transform .12s,box-shadow .15s,border-color .15s,background .15s}
+#simtools button:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.1)}
+#simtools button:active{transform:none}
+#simtools .stool{flex-direction:column;gap:5px;padding:9px 8px;min-width:96px}
+#simtools .stool svg{box-sizing:border-box;width:32px;height:32px;padding:4px;border-radius:50%;background:color-mix(in srgb,var(--c) 14%,transparent)}
+#simtools .stool:hover{border-color:var(--c);box-shadow:0 4px 12px color-mix(in srgb,var(--c) 25%,transparent)}
+#simtools .stool.on{background:color-mix(in srgb,var(--c) 14%,var(--panel));border-color:var(--c);box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 30%,transparent);color:inherit}
+.stool[data-t=F]{--c:#E24B4A}.stool[data-t=W]{--c:#378ADD}.stool[data-t=D]{--c:#7F77DD}.stool[data-t=H]{--c:#BA7517}
+#simrst{color:#dc2626}
 #simtools small,#simlog{color:var(--mute);font-size:12px;line-height:1.4}
-@media (max-aspect-ratio:1/1){#simbody{flex-direction:column}#simtools{width:auto;flex-direction:row;flex-wrap:wrap;align-items:center;max-height:34%}#simlog{display:none}}
+@media (max-aspect-ratio:1/1){#simbody{flex-direction:column}#simtools>b{flex:1 0 100%}#simtools{width:auto;flex-direction:row;flex-wrap:wrap;align-items:center;max-height:34%}#simlog{display:none}}
 #simmap{flex:1;min-width:0;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center}
 #simstage{position:relative;flex:none}
 #simsvg{display:block;position:absolute;left:0;top:0;transform-origin:0 0;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
@@ -583,12 +591,13 @@ body.pick-mode #btn-tab-dashboard { display:none; }
   <div><b style="font-size:inherit">ON</b> = ปิดวงจร (จ่ายไฟผ่าน) · <b style="font-size:inherit">OFF</b> = เปิดวงจร (ตัดไฟ)</div></div>
   <div id="simbody"><div id="simmap"><div id="simstage"><svg id="simsvg" viewBox="-175 -55 1515 795" role="img" aria-label="ผังระบบจำหน่าย 22 kV"></svg></div></div>
   <aside id="simtools"><b>เครื่องมือ</b>
-   <button class="stool" data-t="F">⚡ Fault, สายขาด, ต้นไม้ทับ</button>
-   <button class="stool" data-t="D">✂ เปิด DDE</button>
-   <button class="stool" data-t="H">🔧 Hotline Clamp / Bail Clamp ชำรุด</button>
+   <button class="stool" data-t="F"><svg viewBox="-24 -24 48 48"><polygon points="22,0 11.1,4.6 15.6,15.6 4.6,11.1 0,22 -4.6,11.1 -15.6,15.6 -11.1,4.6 -22,0 -11.1,-4.6 -15.6,-15.6 -4.6,-11.1 0,-22 4.6,-11.1 15.6,-15.6 11.1,-4.6" fill="#FAC775" stroke="#A32D2D" stroke-width="2" stroke-linejoin="round"/><polygon points="2,-9 -6,2 -1,2 -3,9 6,-3 1,-3" fill="#A32D2D"/></svg><span>Fault, ต้นไม้ทับ</span></button>
+   <button class="stool" data-t="W"><svg viewBox="-24 -24 48 48"><path d="M-22 0H-7Q-1 0 -2 14" fill="none" stroke="#E24B4A" stroke-width="3" stroke-linecap="round"/><path d="M22 0H7Q1 0 2 16" fill="none" stroke="#888780" stroke-width="3" stroke-linecap="round" stroke-dasharray="5 4"/><path d="M0-6V-16M-6-4L-12-12M6-4L12-12" fill="none" stroke="#EF9F27" stroke-width="2.5" stroke-linecap="round"/></svg><span>สายขาด</span></button>
+   <button class="stool" data-t="D"><svg viewBox="-24 -24 48 48"><circle cx="-9" cy="12" r="5" fill="none" stroke="#7F77DD" stroke-width="3"/><circle cx="9" cy="12" r="5" fill="none" stroke="#7F77DD" stroke-width="3"/><path d="M-6 8L14-16M6 8L-14-16" stroke="#7F77DD" stroke-width="3" stroke-linecap="round"/></svg><span>เปิด DDE</span></button>
+   <button class="stool" data-t="H"><svg viewBox="-24 -24 48 48"><rect x="-13" y="-16" width="26" height="32" rx="4" fill="#FAEEDA" stroke="#854F0B" stroke-width="2"/><circle cy="-8" r="2.5" fill="#854F0B"/><circle cy="8" r="2.5" fill="#854F0B"/><path d="M-5-16L2-5L-3 3L4 16" fill="none" stroke="#E24B4A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="-14" r="9" fill="#EF9F27" stroke="#fff" stroke-width="1.5"/><path d="M14-19V-13M14-10V-9" stroke="#412402" stroke-width="2.2" stroke-linecap="round"/></svg><span>Hotline, Bail Clamp ชำรุด</span></button>
    <small id="simhint"></small>
-   <button id="simlink">🔗 คัดลอกลิงก์สถานะ</button><small id="simsaved"></small>
-   <input id="simname" placeholder="ชื่อผู้แก้ไข" maxlength="20" style="padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--panel);color:inherit;width:100%;box-sizing:border-box">
+   <button id="simlink">🔗 คัดลอกลิงก์สถานะ</button>
+   <button id="simgif">🎞 บันทึกเป็น GIF</button>
    <button id="simclr">ล้างจุดที่วางไว้</button><button id="simrst">รีเซ็ตทั้งหมด</button>
    <div id="simlog"></div></aside></div>
 </div>
@@ -1194,6 +1203,8 @@ for(const id in SWM){const s=SWM[id],g=el('g',{class:'sw',transform:`translate($
  const t=el('text',h?{x:0,y:-32,'text-anchor':'middle','font-size':16,'font-weight':600}:{x:32,y:-2,'font-size':16,'font-weight':600},g);t.textContent=s.name;
  const t2=el('text',h?{x:0,y:-32,'text-anchor':'middle','font-size':13}:{x:32,y:16,'font-size':13},g);
  if(h){t.setAttribute('y',-46);t2.setAttribute('y',-31)}
+ const t3=el('text',h?{x:0,y:-61,'text-anchor':'middle','font-size':12,style:'fill:var(--mute)'}:{x:32,y:32,'font-size':12,style:'fill:var(--mute)'},g);t3.textContent=s.t=='VR'?'Recloser':'SF6';
+ if(!h){const cx=32+s.name.length*4.2;[t,t2,t3].forEach(e=>{e.setAttribute('x',cx);e.setAttribute('text-anchor','middle')})}
  const tg=()=>{st.sw[id]=!st.sw[id];log((st.sw[id]?'ON (ปิดวงจร) ':'OFF (เปิดวงจร) ')+s.name);render()};
  g.onclick=tg;g.onkeydown=e=>{if(e.key=='Enter'||e.key==' '){e.preventDefault();tg()}};
  SE[id]={g,r,bl,t2}}
@@ -1219,10 +1230,11 @@ function render(){
  MG.innerHTML='';
  st.pts.forEach(m=>{const[x,y]=at(m.w,m.t),g=el('g',{transform:`translate(${x} ${y})`,style:'cursor:pointer'},MG);
   el('circle',{r:18,fill:'transparent'},g);
-  if(m.k=='F'){el('circle',{r:13,fill:'var(--warn)',stroke:'#fff','stroke-width':2},g);el('text',{y:7,'text-anchor':'middle','font-size':18,style:'fill:#fff'},g).textContent='⚡'}
-  else if(m.k=='H'){el('rect',{x:-40,y:-10,width:80,height:20,rx:4,fill:'#d97706',stroke:'#fff','stroke-width':2},g);el('text',{y:4,'text-anchor':'middle','font-size':12,'font-weight':700,style:'fill:#fff'},g).textContent='แคลมป์ชำรุด'}
+  if(m.k=='F'){el('polygon',{points:'22,0 11.1,4.6 15.6,15.6 4.6,11.1 0,22 -4.6,11.1 -15.6,15.6 -11.1,4.6 -22,0 -11.1,-4.6 -15.6,-15.6 -4.6,-11.1 0,-22 4.6,-11.1 15.6,-15.6 11.1,-4.6',fill:'#FAC775',stroke:'#A32D2D','stroke-width':2,'stroke-linejoin':'round',transform:'scale(.85)'},g);el('polygon',{points:'2,-9 -6,2 -1,2 -3,9 6,-3 1,-3',fill:'#A32D2D',transform:'scale(.95)'},g)}
+  else if(m.k=='W'){el('circle',{r:17,fill:'#fff',stroke:'#E24B4A','stroke-width':2},g);const w=el('g',{transform:'scale(.62)'},g);el('path',{d:'M-22 0H-7Q-1 0 -2 14',fill:'none',stroke:'#E24B4A','stroke-width':3,'stroke-linecap':'round'},w);el('path',{d:'M22 0H7Q1 0 2 16',fill:'none',stroke:'#888780','stroke-width':3,'stroke-linecap':'round','stroke-dasharray':'5 4'},w);el('path',{d:'M0-6V-16M-6-4L-12-12M6-4L12-12',fill:'none',stroke:'#EF9F27','stroke-width':2.5,'stroke-linecap':'round'},w)}
+  else if(m.k=='H'){const c=el('g',{transform:'scale(.8)'},g);el('rect',{x:-13,y:-16,width:26,height:32,rx:4,fill:'#FAEEDA',stroke:'#854F0B','stroke-width':2},c);el('circle',{cy:-8,r:2.5,fill:'#854F0B'},c);el('circle',{cy:8,r:2.5,fill:'#854F0B'},c);el('path',{d:'M-5-16L2-5L-3 3L4 16',fill:'none',stroke:'#E24B4A','stroke-width':2.5,'stroke-linecap':'round','stroke-linejoin':'round'},c);el('circle',{cx:16,cy:-15,r:9,fill:'#EF9F27',stroke:'#fff','stroke-width':1.5},c);el('path',{d:'M16-20V-14M16-11V-10',stroke:'#412402','stroke-width':2.2,'stroke-linecap':'round'},c)}
   else{el('rect',{x:-19,y:-10,width:38,height:20,rx:4,fill:'#fff',stroke:'var(--ink)','stroke-width':2.5},g);el('text',{y:4,'text-anchor':'middle','font-size':12,'font-weight':700,style:'fill:#111'},g).textContent='DDE'}
-  g.onclick=ev=>{ev.stopPropagation();st.pts=st.pts.filter(q=>q!==m);log('ลบจุด'+(m.k=='F'?' Fault':m.k=='H'?' แคลมป์ชำรุด':' DDE'));render()}});
+  g.onclick=ev=>{ev.stopPropagation();st.pts=st.pts.filter(q=>q!==m);log('ลบจุด'+(m.k=='F'?' Fault':m.k=='W'?' สายขาด':m.k=='H'?' แคลมป์ชำรุด':' DDE'));render()}});
  const lg=$('simlog');if(lg)lg.innerHTML=st.log.map(x=>'<div>• '+x+'</div>').join('');
  save();
  for(const id in SWM){const e=SE[id],cl=st.sw[id],c=cl?(E[id+'a']||E[id+'b']?col(E[id+'a']?id+'a':id+'b'):'var(--dead)'):'var(--panel)';
@@ -1246,20 +1258,20 @@ function fit(){
   svg.style.left=VH*k+'px';svg.style.transform='rotate(90deg)'}}
 window.addEventListener('resize',fit);window.simFit=fit;addEventListener('orientationchange',()=>setTimeout(fit,150));
 if(window.ResizeObserver)new ResizeObserver(fit).observe(mapEl);
-let tool=null;const HT={F:'แตะบนเส้นสายตรงจุด Fault / สายขาด / ต้นไม้ทับ (อุปกรณ์ป้องกันจะตัด)',D:'แตะบนเส้นสายเพื่อเปิด DDE (วางหัวและท้ายจุด Fault)',H:'แตะบนเส้นสายตรงจุดที่ Clamp ชำรุด (อุปกรณ์ไม่ตัด แต่ไม่มีไฟหลังจุดนี้)'},H0='เลือกเครื่องมือ แล้วแตะบนเส้นสาย · แตะจุดที่วางไว้เพื่อลบ';
+let tool=null;const HT={F:'แตะบนเส้นสายตรงจุด Fault / ต้นไม้ทับ (อุปกรณ์ป้องกันจะตัด)',W:'แตะบนเส้นสายตรงจุดสายขาด (อุปกรณ์ไม่ตัด แต่ไม่มีไฟหลังจุดนี้)',D:'แตะบนเส้นสายเพื่อเปิด DDE (วางหัวและท้ายจุด Fault)',H:'แตะบนเส้นสายตรงจุดที่ Clamp ชำรุด (อุปกรณ์ไม่ตัด แต่ไม่มีไฟหลังจุดนี้)'},H0='เลือกเครื่องมือ แล้วแตะบนเส้นสาย · แตะจุดที่วางไว้เพื่อลบ';
 function setTool(t){tool=t;document.querySelectorAll('.stool').forEach(x=>x.classList.toggle('on',x.dataset.t==tool));svg.style.cursor=tool?'crosshair':'';$('simhint').textContent=tool?HT[tool]:H0}
 document.querySelectorAll('.stool').forEach(b=>b.onclick=()=>setTool(tool==b.dataset.t?null:b.dataset.t));
 $('simclr').onclick=()=>{if(cloud&&!confirm('การล้างจุดมีผลกับทุกคนในทีม ต้องการต่อหรือไม่?'))return;st.pts=[];log('ล้างจุดที่วางไว้');render()};
 $('simrst').onclick=()=>{if(cloud&&!confirm('การรีเซ็ตมีผลกับทุกคนในทีม ต้องการต่อหรือไม่?'))return;reset();st.log=[];render()};
 svg.addEventListener('click',ev=>{if(!tool||ev.target.closest('.sw'))return;const q=svg.createSVGPoint();q.x=ev.clientX;q.y=ev.clientY;
  const m=q.matrixTransform(svg.getScreenCTM().inverse()),h=hitWire(m.x,m.y);if(!h)return;
- st.pts.push({id:++nid,k:tool,w:h.i,t:Math.min(.97,Math.max(.03,h.t))});log(tool=='F'?'กำหนดจุด Fault / สายขาด / ต้นไม้ทับ':tool=='H'?'แคลมป์ชำรุด (ไม่มีไฟหลังจุดนี้)':'เปิด DDE');render()});
+ st.pts.push({id:++nid,k:tool,w:h.i,t:Math.min(.97,Math.max(.03,h.t))});log(tool=='F'?'กำหนดจุด Fault / ต้นไม้ทับ':tool=='W'?'สายขาด (ไม่มีไฟหลังจุดนี้)':tool=='H'?'แคลมป์ชำรุด (ไม่มีไฟหลังจุดนี้)':'เปิด DDE');render()});
 const SK='pea-sim-v1';let lastSig='';
 const pack=()=>({s:SWL.map(x=>st.sw[x[0]]?1:0).join(''),p:st.pts.map(m=>[m.k,m.w,Math.round(m.t*1e4)/1e4]),ts:st.ts||0});
 const sigOf=o=>o.s+JSON.stringify(o.p);
 function unpack(o){if(!o||typeof o.s!='string'||o.s.length!=SWL.length||!Array.isArray(o.p))return false;
  SWL.forEach((x,i)=>st.sw[x[0]]=o.s[i]=='1');
- st.pts=o.p.filter(a=>W[a[1]]&&(a[0]=='F'||a[0]=='D'||a[0]=='H')).map(a=>({id:++nid,k:a[0],w:a[1],t:+a[2]}));st.ts=+o.ts||0;return true}
+ st.pts=o.p.filter(a=>W[a[1]]&&(a[0]=='F'||a[0]=='D'||a[0]=='H'||a[0]=='W')).map(a=>({id:++nid,k:a[0],w:a[1],t:+a[2]}));st.ts=+o.ts||0;return true}
 const CID=Math.random().toString(36).slice(2);let NAME=localStorage.getItem('pea-sim-name')||'',cloud=null,first=true,fromHash=false;
 const CLD='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4 4 0 0 1-.6-7.95A5.5 5.5 0 0 1 17 8.6 4.7 4.7 0 0 1 17 18z"/>';
 const ST={ok:['#16a34a','บันทึกแล้ว','<path d="M9 13l2.2 2.2L15.5 11"/>'],busy:['#d97706','กำลังบันทึก','<path d="M12 16v-5M9.5 13.5L12 11l2.5 2.5"/>'],off:['#6b7280','ออฟไลน์','<path d="M4 4l16 16"/>'],err:['#dc2626','บันทึกไม่ได้','<path d="M9.5 10.5l5 5M14.5 10.5l-5 5"/>'],conn:['#d97706','เชื่อมต่อ…','']};
@@ -1280,9 +1292,85 @@ window.simAttach=api=>{cloud=api;
    if(sigOf(o)==lastSig){st.ts=r.ts;st.by=r.by||'';save();return}
    if(unpack(o)){lastSig=sigOf(pack());st.by=r.by||'';try{localStorage.setItem(SK,JSON.stringify(o))}catch(e){}render()}}catch(e){}},
   ()=>setStatus(navigator.onLine?'err':'off'))};
-const nm=$('simname');nm.value=NAME;nm.oninput=()=>{NAME=nm.value.trim();try{localStorage.setItem('pea-sim-name',NAME)}catch(e){}};
+
 $('simlink').onclick=async()=>{const o=pack();o.ts=st.ts||Date.now();const u=location.href.split('#')[0]+'#sim='+encodeURIComponent(btoa(JSON.stringify(o)));
  try{await navigator.clipboard.writeText(u);$('simhint').textContent='คัดลอกลิงก์แล้ว ส่งให้ทีมเปิดดูสถานะเดียวกันได้'}catch(e){prompt('คัดลอกลิงก์นี้',u)}};
+
+/* ===== ส่งออกผังเป็น GIF เคลื่อนไหว (เส้นไฟวิ่ง) ===== */
+function lzw(idx){const clr=256,eoi=257;let size=9,next=258,cur=0,nb=0;const dict=new Int32Array(4096*256).fill(-1),bytes=[];
+ const put=c=>{cur|=c<<nb;nb+=size;while(nb>=8){bytes.push(cur&255);cur>>>=8;nb-=8}};
+ put(clr);let pre=idx[0];
+ for(let i=1;i<idx.length;i++){const c=idx[i],key=pre*256+c,v=dict[key];
+  if(v>=0)pre=v;else{put(pre);
+   if(next===4096){put(clr);dict.fill(-1);size=9;next=258}
+   else{if(next>=(1<<size))size++;dict[key]=next++}
+   pre=c}}
+ put(pre);put(eoi);if(nb>0)bytes.push(cur&255);
+ const res=new Uint8Array(bytes.length+Math.ceil(bytes.length/255)+2);let q=0;
+ for(let i=0;i<bytes.length;i+=255){const n=Math.min(255,bytes.length-i);res[q++]=n;res.set(bytes.slice(i,i+n),q);q+=n}
+ res[q++]=0;return res.subarray(0,q)}
+function gifEncode(frames,w,h,dl){
+ const cnt=new Uint32Array(32768),sr=new Uint32Array(32768),sg=new Uint32Array(32768),sb=new Uint32Array(32768);
+ for(const f of frames)for(let i=0;i<f.length;i+=12){const r=f[i],g=f[i+1],b=f[i+2],k=(r>>3<<10)|(g>>3<<5)|(b>>3);cnt[k]++;sr[k]+=r;sg[k]+=g;sb[k]+=b}
+ const ks=[];for(let k=0;k<32768;k++)if(cnt[k])ks.push(k);ks.sort((a,b)=>cnt[b]-cnt[a]);
+ const pal=ks.slice(0,256),pr=[],pg=[],pb=[],map=new Int16Array(32768).fill(-1);
+ pal.forEach((k,i)=>{pr[i]=Math.round(sr[k]/cnt[k]);pg[i]=Math.round(sg[k]/cnt[k]);pb[i]=Math.round(sb[k]/cnt[k]);map[k]=i});
+ while(pr.length<256){pr.push(0);pg.push(0);pb.push(0)}
+ const near=k=>{const r=(k>>10<<3)|4,g=(((k>>5)&31)<<3)|4,b=((k&31)<<3)|4;let best=0,bd=1e9;
+  for(let i=0;i<pal.length;i++){const d=(r-pr[i])**2+(g-pg[i])**2+(b-pb[i])**2;if(d<bd){bd=d;best=i}}return best};
+ const head=[71,73,70,56,57,97,w&255,w>>8,h&255,h>>8,0xF7,0,0];
+ for(let i=0;i<256;i++)head.push(pr[i],pg[i],pb[i]);
+ head.push(0x21,0xFF,0x0B,...'NETSCAPE2.0'.split('').map(c=>c.charCodeAt(0)),3,1,0,0,0);
+ const parts=[new Uint8Array(head)];
+ for(const f of frames){const idx=new Uint8Array(w*h);
+  for(let i=0,j=0;i<f.length;i+=4,j++){const k=(f[i]>>3<<10)|(f[i+1]>>3<<5)|(f[i+2]>>3);let m=map[k];if(m<0)m=map[k]=near(k);idx[j]=m}
+  parts.push(new Uint8Array([0x21,0xF9,4,0,dl&255,dl>>8,0,0,0x2C,0,0,0,0,w&255,w>>8,h&255,h>>8,0,8]),lzw(idx))}
+ parts.push(new Uint8Array([0x3B]));return parts}
+function svgMat(el){let m=new DOMMatrix();const ch=[];for(let n=el;n&&n!==svg;n=n.parentNode)ch.unshift(n);
+ for(const n of ch){const t=n.transform&&n.transform.baseVal;if(t&&t.numberOfItems){const c=t.consolidate();if(c){const q=c.matrix;m=m.multiply(new DOMMatrix([q.a,q.b,q.c,q.d,q.e,q.f]))}}}return m}
+function gifChoose(blob,name){return new Promise(done=>{
+ const file=new File([blob],name,{type:'image/gif'}),url=URL.createObjectURL(blob);
+ let can=false;try{can=!!(navigator.canShare&&navigator.canShare({files:[file]}))}catch(e){}
+ const ov=document.createElement('div');ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
+ const bs='padding:12px;border:1px solid var(--line,#ccc);border-radius:10px;background:var(--panel,#fff);color:inherit;font:inherit;cursor:pointer;width:100%';
+ ov.innerHTML=`<div style="background:var(--panel,#fff);color:var(--ink,#111);border-radius:14px;padding:16px;max-width:340px;width:100%;display:flex;flex-direction:column;gap:10px;text-align:center"><b>ไฟล์ GIF พร้อมแล้ว</b><img src="${url}" alt="" style="max-width:100%;border-radius:8px;border:1px solid var(--line,#ddd)"><button id="gsave" style="${bs}">💾 บันทึก</button>${can?`<button id="gshare" style="${bs}">📤 แชร์</button>`:'<small style="opacity:.7">เครื่องนี้ไม่รองรับการแชร์ไฟล์ ใช้ปุ่มบันทึกแล้วส่งต่อได้</small>'}<button id="gcancel" style="${bs};border:none;opacity:.7">ปิด</button></div>`;
+ document.body.appendChild(ov);
+ const close=()=>{ov.remove();URL.revokeObjectURL(url);done()};
+ ov.querySelector('#gsave').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),8000);close()};
+ const sh=ov.querySelector('#gshare');if(sh)sh.onclick=async()=>{try{await navigator.share({files:[file],title:'ผังระบบจำหน่าย 22 kV'});close()}catch(e){if(e&&e.name!='AbortError')alert('แชร์ไม่สำเร็จ ลองใช้ปุ่มบันทึกแทน')}};
+ ov.querySelector('#gcancel').onclick=close;ov.onclick=e=>{if(e.target===ov)close()}})}
+async function exportGif(){
+ const btn=$('simgif'),lab=btn.textContent,N=10,S=.9,T=50,vx=-175,vy=-55,vw=1515,vh=795,cs=getComputedStyle;
+ const IW=Math.round(vw*S),W=IW,H=Math.round(vh*S)+T;btn.disabled=true;
+ try{
+  await document.fonts.ready;
+  const body=cs(document.body),bg=cs($('simmap')).backgroundColor,bgc=(!bg||bg=='rgba(0, 0, 0, 0)')?'#fff':bg;
+  const clone=svg.cloneNode(true),os=[...svg.querySelectorAll('*')],cl=[...clone.querySelectorAll('*')];
+  const P=['fill','stroke','stroke-width','stroke-dasharray','stroke-linecap','stroke-linejoin','opacity','fill-opacity','stroke-opacity','display','visibility'];
+  os.forEach((o,i)=>{if(o.tagName=='text')return;const q=cs(o);P.forEach(k=>cl[i].style.setProperty(k,q.getPropertyValue(k)))});
+  const tx=os.filter(o=>o.tagName=='text'&&o.textContent).map(o=>{const q=cs(o);return{t:o.textContent,x:+o.getAttribute('x')||0,y:+o.getAttribute('y')||0,m:svgMat(o),f:q.fill,fs:parseFloat(q.fontSize)||12,fw:q.fontWeight,ff:q.fontFamily,a:q.textAnchor,hide:q.display=='none'||q.visibility=='hidden'||q.opacity=='0'||q.fill=='none'}}).filter(t=>!t.hide);
+  clone.querySelectorAll('text').forEach(t=>t.remove());
+  clone.removeAttribute('style');clone.setAttribute('xmlns','http://www.w3.org/2000/svg');clone.setAttribute('width',IW);clone.setAttribute('height',H-T);
+  const fl=[...clone.querySelectorAll('.flow')].map(e=>({e,r:e.classList.contains('rev')}));
+  const cv=document.createElement('canvas');cv.width=W;cv.height=H;const g=cv.getContext('2d',{willReadFrequently:true}),frames=[];
+  for(let k=0;k<N;k++){
+   btn.textContent='กำลังสร้าง GIF '+(k+1)+'/'+N;await new Promise(r=>setTimeout(r));
+   fl.forEach(({e,r})=>e.style.setProperty('stroke-dashoffset',((r?20:-20)*k/N)+'px'));
+   const url=URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)],{type:'image/svg+xml;charset=utf-8'})),img=new Image();
+   await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=url});URL.revokeObjectURL(url);
+   g.setTransform(1,0,0,1,0,0);g.globalAlpha=1;g.fillStyle=bgc;g.fillRect(0,0,W,H);
+   g.fillStyle=body.color;g.textAlign='left';g.textBaseline='alphabetic';g.font='700 18px '+body.fontFamily;g.fillText('Switching Simulator ระบบจำหน่าย 22 kV',14,24);
+   g.globalAlpha=.7;g.font='400 13px '+body.fontFamily;g.fillText('กฟส.บ้านทุ่งอ้ายโห้ · สถานะ ณ '+new Date().toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}),14,43);g.globalAlpha=1;
+   g.drawImage(img,0,T,IW,H-T);
+   for(const t of tx){g.setTransform(S,0,0,S,-vx*S,T-vy*S);g.transform(t.m.a,t.m.b,t.m.c,t.m.d,t.m.e,t.m.f);
+    g.font=t.fw+' '+t.fs+'px '+t.ff;g.fillStyle=t.f;g.textAlign=t.a=='middle'?'center':t.a=='end'?'right':'left';g.fillText(t.t,t.x,t.y)}
+   frames.push(g.getImageData(0,0,W,H).data)}
+  btn.textContent='กำลังรวมไฟล์…';await new Promise(r=>setTimeout(r));
+  const blob=new Blob(gifEncode(frames,W,H,9),{type:'image/gif'}),name='switching-'+new Date().toISOString().slice(0,16).replace(/[-:T]/g,'')+'.gif';
+  btn.disabled=false;btn.textContent=lab;await gifChoose(blob,name);
+ }catch(e){console.error(e);alert('สร้างไฟล์ GIF ไม่สำเร็จ ลองใหม่อีกครั้ง')}
+ btn.disabled=false;btn.textContent=lab}
+$('simgif').onclick=exportGif;
 setTool(null);reset();
 try{const m=/#sim=([^&]+)/.exec(location.hash);
  if(m){const o=JSON.parse(atob(decodeURIComponent(m[1])));if(unpack(o)){fromHash=true;localStorage.setItem(SK,JSON.stringify(o));lastSig=sigOf(pack());try{switchTab('sim')}catch(e){}}}
