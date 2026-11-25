@@ -269,6 +269,18 @@ let homeTab='plans';
 const TEAM_COLORS=['#e6194b','#3cb44b','#4363d8','#f58231','#911eb4','#0aa5b5','#c9a400','#f032e6','#7a8b00','#7a4b2a','#808080','#ff6f91'];
 const TEAM_KEY='ins_team_v2';
 const ptKey=p=>p.planId+'_'+p.pointNo;
+/* เลขที่แสดง = ลำดับของจุดในแผนนั้น (1,2,3...) คำนวณใหม่ทุกครั้ง; pointNo ยังเป็นรหัสภายใน ไม่เปลี่ยน */
+let _dnC={a:null,m:null};
+function dispNo(p){
+  const A=window.POINTS||[];
+  if(_dnC.a!==A||!_dnC.m||_dnC.n!==A.length){
+    const m=new Map(),by=new Map();
+    A.forEach(q=>{(by.get(q.planId)||by.set(q.planId,[]).get(q.planId)).push(q)});
+    by.forEach(arr=>{arr.sort((x,y)=>x.pointNo-y.pointNo).forEach((q,i)=>m.set(ptKey(q),i+1))});
+    _dnC={a:A,m,n:A.length};
+  }
+  return _dnC.m.get(ptKey(p))||p.pointNo;
+}
 const planShort=pl=>((pl&&pl.area||'').trim().split(/\s+/)[0])||(pl&&pl.planName)||'';
 function teamLoad(){
   let c=null;try{c=JSON.parse(localStorage.getItem(TEAM_KEY)||'null')}catch(e){}
@@ -478,7 +490,7 @@ function openFsMap(){
   let T=teamCalc();const k=T.cfg.count,E=escH,planOf=Object.fromEntries(PLANS.map(p=>[p.planId,p]));
   const items=T.seq.map(p=>({p,key:ptKey(p)})).filter(x=>hasLL(x.p)),noLL=T.seq.length-items.length;
   if(!items.length)return toast('ไม่มีจุดที่มีพิกัดให้แสดงบนแผนที่');
-  const tName=t=>T.cfg.names[t]||('ทีม '+(t+1)),label=p=>planShort(planOf[p.planId])+' จุดที่ '+p.pointNo+((p.head&&p.head.length)?' · '+p.head.join(', '):'');
+  const tName=t=>T.cfg.names[t]||('ทีม '+(t+1)),label=p=>planShort(planOf[p.planId])+' จุดที่ '+dispNo(p)+((p.head&&p.head.length)?' · '+p.head.join(', '):'');
   let hist=[JSON.stringify(teamLoad().over||{})],hi=0,mode='one',box=false,moved=false;
   const sel=new Set(),hid=new Set(),mk=new Map(),prevOv=document.documentElement.style.overflow;
   const ov=document.createElement('div');ov.id='fsmap';
@@ -503,7 +515,7 @@ function openFsMap(){
     d.querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>moveKeys([it.key],+b.dataset.t));
     const up=d.querySelector('.up');if(up)up.onclick=e=>{e.preventDefault();unpinKeys([it.key])};return d};
   items.forEach(it=>{
-    const m=L.marker([it.p.lat,it.p.lng],{icon:L.divIcon({className:'fsicon',html:'<div class="fsp">'+it.p.pointNo+'</div>',iconSize:[0,0]}),keyboard:false}).addTo(map);
+    const m=L.marker([it.p.lat,it.p.lng],{icon:L.divIcon({className:'fsicon',html:'<div class="fsp">'+dispNo(it.p)+'</div>',iconSize:[0,0]}),keyboard:false}).addTo(map);
     m.on('click',()=>{if(box)return;
       if(mode==='multi'){sel.has(it.key)?sel.delete(it.key):sel.add(it.key);paint()}
       else L.popup({autoPanPadding:[20,80]}).setLatLng(m.getLatLng()).setContent(popup(it)).openOn(map)});
@@ -520,7 +532,7 @@ function openFsMap(){
     items.forEach(it=>{const t=T.of.get(it.key),el=mk.get(it.key).getElement();if(!el)return;const d=el.firstChild;
       d.style.background=TEAM_COLORS[t];d.classList.toggle('pin',T.pinned.has(it.key));d.classList.toggle('sel',sel.has(it.key));d.classList.toggle('dim',hid.has(t));d.classList.toggle('dde',isDDE(it.p))});
     lg.clearLayers();
-    T.teams.forEach((list,t)=>{if(hid.has(t))return;let d=[],prev=null;list.forEach(p=>{if(!hasLL(p))return;if(prev&&prev.planId===p.planId&&Math.abs(prev.pointNo-p.pointNo)===1)d.push(L.latLng(p.lat,p.lng));else{if(d.length>1)L.polyline(d,{color:TEAM_COLORS[t],weight:3,opacity:.5,interactive:false}).addTo(lg);d=[L.latLng(p.lat,p.lng)]}prev=p});if(d.length>1)L.polyline(d,{color:TEAM_COLORS[t],weight:3,opacity:.5,interactive:false}).addTo(lg)});
+    T.teams.forEach((list,t)=>{if(hid.has(t))return;let d=[],prev=null;list.forEach(p=>{if(!hasLL(p))return;if(prev&&prev.planId===p.planId&&Math.abs(dispNo(prev)-dispNo(p))===1)d.push(L.latLng(p.lat,p.lng));else{if(d.length>1)L.polyline(d,{color:TEAM_COLORS[t],weight:3,opacity:.5,interactive:false}).addTo(lg);d=[L.latLng(p.lat,p.lng)]}prev=p});if(d.length>1)L.polyline(d,{color:TEAM_COLORS[t],weight:3,opacity:.5,interactive:false}).addTo(lg)});
     const mins=T.teams.map(l=>l.reduce((a,p)=>a+ptW(p),0)),avg=mins.reduce((a,b)=>a+b,0)/k,mx=Math.max(...mins,1),col=$f('fs_sum').classList.contains('collapsed');
     $f('fs_sum').innerHTML='<div class="fs_sh" id="fs_sh">สรุปเวลางานรายทีม <span>'+(col?'▴ เปิด':'▾ ซ่อน')+'</span></div><div id="fs_rows">'+
       T.teams.map((l,t)=>'<div class="fs_row'+(hid.has(t)?' off':'')+'" data-t="'+t+'"><i style="background:'+TEAM_COLORS[t]+'"></i><span class="nm">'+E(tName(t))+'</span><span class="bar"><u style="width:'+(mins[t]/mx*100)+'%;background:'+TEAM_COLORS[t]+'"></u></span><span class="tm">'+fmtHr(mins[t])+' · '+l.length+' จุด <small>'+fmtDev(mins[t],avg)+'</small></span></div>').join('')+
@@ -626,12 +638,12 @@ function renderTeam(){
   const allOn=PLANS.length>0&&cfg.sel.length===PLANS.length;
   const planRows=PLANS.map(p=>{const on=cfg.sel.includes(p.planId),c=POINTS.filter(x=>x.planId===p.planId).length;
     return `<label class="chk ${on?'on':''}"><input type="checkbox" ${on?'checked':''} onchange="teamTogPlan('${escH(p.planId)}')"><div style="min-width:0"><div>${escH(p.planName)}</div><div class="sub" style="font-weight:400">${escH(p.area||'-')} · ${c} จุด</div></div></label>`}).join('');
-  const ptLabel=p=>(multi?planShort(planOf[p.planId])+' · ':'')+'จุดที่ '+p.pointNo;
+  const ptLabel=p=>(multi?planShort(planOf[p.planId])+' · ':'')+'จุดที่ '+dispNo(p);
   const names=Array.from({length:k},(_,i)=>`<div style="display:flex;align-items:center;gap:8px"><span class="tdot" style="background:${TEAM_COLORS[i]}"></span><input class="f tname" value="${escH(cfg.names[i])}" onchange="teamSetName(${i},this.value)"></div>`).join('');
   const bar=`<div class="tbar">${seq.map(p=>`<i style="background:${TEAM_COLORS[T.of.get(ptKey(p))]}" title="${escH(ptLabel(p))} · ${escH(cfg.names[T.of.get(ptKey(p))])}"></i>`).join('')}</div>`;
   const cards=T.teams.map((list,t)=>{
     const ins=list.reduce((a,p)=>a+((p.equip||{}).standIns||0)+((p.equip||{}).hangIns||0),0),eq=list.reduce((a,p)=>a+ptW(p),0),nd=list.filter(isDDE).length,segs=[];
-    const by=new Map();list.forEach(p=>{(by.get(p.planId)||by.set(p.planId,[]).get(p.planId)).push(p.pointNo)});
+    const by=new Map();list.forEach(p=>{(by.get(p.planId)||by.set(p.planId,[]).get(p.planId)).push(dispNo(p))});
     by.forEach((arr,pid)=>{arr.sort((a,b)=>a-b);let a=arr[0],b=a;const out=[];
       for(let i=1;i<=arr.length;i++){if(i<arr.length&&arr[i]===b+1){b=arr[i];continue}out.push(a===b?a:a+'–'+b);a=arr[i];b=a}
       segs.push({pid,t:out.join(', ')})});
@@ -686,7 +698,7 @@ function teamDrawMap(T,ptLabel){
     const t=T.of.get(ptKey(p)),pin=T.pinned.has(ptKey(p));
     const btns=Array.from({length:k},(_,x)=>`<button ${x===t?'disabled':''} onclick="teamPin(${i},${x})" title="${escH(T.cfg.names[x])}" style="width:28px;height:28px;margin:2px;border:0;border-radius:50%;background:${TEAM_COLORS[x]};color:#fff;font-weight:700;opacity:${x===t?.3:1};cursor:pointer">${x+1}</button>`).join('');
     const pop=`<div style="min-width:170px"><b>${escH(ptLabel(p))}</b><br>${escH(T.cfg.names[t])} · ${isDDE(p)?'DDE':'ลูกถ้วยตั้ง'} · ${ptW(p)} นาที<div style="margin-top:6px">ย้ายไปทีม:</div><div>${btns}</div>${pin?`<div style="margin-top:4px"><a href="#" onclick="teamUnpin(${i});return false">↩ ยกเลิกการย้ายจุดนี้</a></div>`:''}</div>`;
-    L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html:`<div class="pin" style="background:${TEAM_COLORS[t]};color:#fff;${pin?'outline:3px solid #111;outline-offset:1px':''}">${p.pointNo}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).addTo(m).bindPopup(pop).bindTooltip(escH(T.cfg.names[t])+' · '+escH(ptLabel(p)));
+    L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html:`<div class="pin" style="background:${TEAM_COLORS[t]};color:#fff;${pin?'outline:3px solid #111;outline-offset:1px':''}">${dispNo(p)}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).addTo(m).bindPopup(pop).bindTooltip(escH(T.cfg.names[t])+' · '+escH(ptLabel(p)));
     b.push([p.lat,p.lng]);
   });
   if(window._tview){m.setView(window._tview.c,window._tview.z);window._tview=null}
@@ -747,7 +759,7 @@ function openDraw(){
   if(k<2)return toast('ต้องมีอย่างน้อย 2 ทีมถึงจะสุ่มได้');
   if(document.getElementById('drawov'))return;
   const planOf=Object.fromEntries(PLANS.map(p=>[p.planId,p]));
-  const rangeTxt=list=>{const by=new Map();list.forEach(p=>{(by.get(p.planId)||by.set(p.planId,[]).get(p.planId)).push(p.pointNo)});
+  const rangeTxt=list=>{const by=new Map();list.forEach(p=>{(by.get(p.planId)||by.set(p.planId,[]).get(p.planId)).push(dispNo(p))});
     return [...by].map(([pid,arr])=>{arr.sort((a,b)=>a-b);let a=arr[0],b=a;const out=[];for(let i=1;i<=arr.length;i++){if(i<arr.length&&arr[i]===b+1){b=arr[i];continue}out.push(a===b?a:a+'–'+b);a=arr[i];b=a}return planShort(planOf[pid])+' จุด '+out.join(', ')}).join(' · ')};
   const slots=T.teams.map((l,t)=>({name:T.cfg.names[t]||('ทีม '+(t+1)),rng:rangeTxt(l),min:l.reduce((a,p)=>a+ptW(p),0),n:l.length}));
   let saved=[];try{saved=JSON.parse(localStorage.getItem('ins_draw_names')||'[]')}catch(e){}
@@ -833,7 +845,7 @@ function teamReport(){
   const fN=x=>String(Math.round(x*10)/10),tName=t=>cfg.names[t]||('ทีม '+(t+1));
   const totalMin=mins(T.seq),avg=totalMin/k,now=new Date();
   const dateTxt=now.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})+' '+now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})+' น.';
-  const ranges=list=>{const by=new Map();list.forEach(p=>{(by.get(p.planId)||by.set(p.planId,[]).get(p.planId)).push(p.pointNo)});
+  const ranges=list=>{const by=new Map();list.forEach(p=>{(by.get(p.planId)||by.set(p.planId,[]).get(p.planId)).push(dispNo(p))});
     return [...by].map(([pid,arr])=>{arr.sort((a,b)=>a-b);let a=arr[0],b=a;const out=[];
       for(let i=1;i<=arr.length;i++){if(i<arr.length&&arr[i]===b+1){b=arr[i];continue}out.push(a===b?a:a+'–'+b);a=arr[i];b=a}
       return planShort(planOf[pid])+' จุด '+out.join(', ')}).join(' · ')};
@@ -847,7 +859,7 @@ function teamReport(){
     const X=p=>(ox+(p.lng*kx-x0)*sc).toFixed(1),Y=p=>(oy+(-p.lat-y0)*sc).toFixed(1);
     let out=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" class="svgmap"><rect width="${W}" height="${H}" fill="#f6f8fb" stroke="#d6dde6"/>`;
     const teamOf=p=>T.of.get(ptKey(p));
-    const lines=(t)=>{const l=T.teams[t].filter(hasLL);let d='',prev=null;l.forEach(p=>{if(prev&&prev.planId===p.planId&&Math.abs(prev.pointNo-p.pointNo)===1)d+=` L${X(p)} ${Y(p)}`;else d+=` M${X(p)} ${Y(p)}`;prev=p});return d?`<path d="${d}" fill="none" stroke="${TEAM_COLORS[t]}" stroke-width="2" opacity=".55"/>`:''};
+    const lines=(t)=>{const l=T.teams[t].filter(hasLL);let d='',prev=null;l.forEach(p=>{if(prev&&prev.planId===p.planId&&Math.abs(dispNo(prev)-dispNo(p))===1)d+=` L${X(p)} ${Y(p)}`;else d+=` M${X(p)} ${Y(p)}`;prev=p});return d?`<path d="${d}" fill="none" stroke="${TEAM_COLORS[t]}" stroke-width="2" opacity=".55"/>`:''};
     if(hi<0){for(let t=0;t<k;t++)out+=lines(t);G.forEach(p=>{out+=`<circle cx="${X(p)}" cy="${Y(p)}" r="3.6" fill="${TEAM_COLORS[teamOf(p)]}" stroke="#fff" stroke-width=".8"/>`})}
     else{G.filter(p=>teamOf(p)!==hi).forEach(p=>{out+=`<circle cx="${X(p)}" cy="${Y(p)}" r="2.4" fill="#c4ccd6"/>`});out+=lines(hi);
       T.teams[hi].filter(hasLL).forEach((p,i)=>{const dd=isDDE(p);out+=`<circle cx="${X(p)}" cy="${Y(p)}" r="${dd?6.5:5}" fill="${TEAM_COLORS[hi]}" stroke="${dd?'#111':'#fff'}" stroke-width="${dd?1.6:1}"/><text x="${X(p)}" y="${(+Y(p)+2.6).toFixed(1)}" text-anchor="middle" font-size="6.5" font-weight="700" fill="#fff">${i+1}</text>`})}
@@ -869,7 +881,7 @@ function teamReport(){
   /* หน้ารายทีม */
   T.teams.forEach((l,t)=>{
     const m=mins(l),by=l.length,rows=l.map((p,i)=>{const dd=isDDE(p),e=p.equip||{};
-      return `<tr class="${dd?'dde':''}"><td class="c">${i+1}</td><td>${E(planShort(planOf[p.planId]))} จุดที่ <b>${p.pointNo}</b></td><td>${E((p.head||[]).join(', ')||'-')}${dd?' <span class="tag">DDE</span>':''}</td><td class="c">${p.sysPhase?p.sysPhase+' Ph':'-'}</td><td class="c">${E((p.phase||[]).join(',')||'-')}</td>${EQ.map(x=>`<td class="n">${e[x[0]]?e[x[0]]:'<span class="mut">–</span>'}</td>`).join('')}<td class="n">${fN(ptW(p))}</td><td class="co">${hasLL(p)?`<a href="https://www.google.com/maps?q=${p.lat},${p.lng}">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</a>`:'<span class="mut">ไม่มีพิกัด</span>'}</td></tr>`}).join('');
+      return `<tr class="${dd?'dde':''}"><td class="c">${i+1}</td><td>${E(planShort(planOf[p.planId]))} จุดที่ <b>${dispNo(p)}</b></td><td>${E((p.head||[]).join(', ')||'-')}${dd?' <span class="tag">DDE</span>':''}</td><td class="c">${p.sysPhase?p.sysPhase+' Ph':'-'}</td><td class="c">${E((p.phase||[]).join(',')||'-')}</td>${EQ.map(x=>`<td class="n">${e[x[0]]?e[x[0]]:'<span class="mut">–</span>'}</td>`).join('')}<td class="n">${fN(ptW(p))}</td><td class="co">${hasLL(p)?`<a href="https://www.google.com/maps?q=${p.lat},${p.lng}">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</a>`:'<span class="mut">ไม่มีพิกัด</span>'}</td></tr>`}).join('');
     const wireN=sum(l,'wire');
     html+=`<section class="team"><div class="th" style="border-color:${TEAM_COLORS[t]}"><i class="dot big" style="background:${TEAM_COLORS[t]}"></i><div><h1>${E(tName(t))} <span class="mut">(ทีมที่ ${t+1} จาก ${k})</span></h1><div class="sub">${E(ranges(l))||'-'}</div></div></div>
       <div class="stats"><div><b>${l.length}</b>จุด</div><div><b>${sum(l,'standIns')}</b>ลูกถ้วยตั้ง</div><div><b>${sum(l,'hangIns')}</b>ลูกถ้วยแขวน</div><div><b>${l.filter(isDDE).length}</b>จุด DDE</div><div><b>${fmtHr(m,1)}</b>เวลางานประมาณ</div></div>
@@ -904,7 +916,7 @@ function teamExportCsv(){
   const q=v=>{v=String(v==null?'':v);return /[",\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
   const lines=[['ชื่อ','แผนงาน','ทีม','Latitude','Longitude','หัวเสา','ระบบ','เฟส',...EQ.map(e=>e[1]+' ('+e[2]+')'),'รูปถ่าย']];
   T.seq.filter(p=>p.lat!=null).forEach(p=>{const pl=planOf[p.planId];
-    lines.push([(multi?planShort(pl)+' ':'')+'จุดที่ '+p.pointNo,pl?pl.planName:'',T.cfg.names[T.of.get(ptKey(p))],p.lat,p.lng,(p.head||[]).join(','),p.sysPhase?p.sysPhase+' Phase':'',(p.phase||[]).join(','),...EQ.map(e=>(p.equip||{})[e[0]]||0),p.photoLink||'']);});
+    lines.push([(multi?planShort(pl)+' ':'')+'จุดที่ '+dispNo(p),pl?pl.planName:'',T.cfg.names[T.of.get(ptKey(p))],p.lat,p.lng,(p.head||[]).join(','),p.sysPhase?p.sysPhase+' Phase':'',(p.phase||[]).join(','),...EQ.map(e=>(p.equip||{})[e[0]]||0),p.photoLink||'']);});
   const blob=new Blob(['\ufeff'+lines.map(r=>r.map(q).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='แบ่งทีม_'+(multi?T.plans.length+'แผนงาน':(T.plans[0]?T.plans[0].planName:'plan')).replace(/[\\/:*?"<>|]/g,'_')+'.csv';
@@ -940,13 +952,13 @@ function renderList(){
   const a=myPts();
   $('pane').innerHTML='<div class="wrap">'+(a.length?a.map(p=>`<div class="card pcard" id="pc-${p.planId}_${p.pointNo}" onclick="openPoint('${p.planId}_${p.pointNo}')">
     ${p.photoThumb?`<img class="thumb" src="${esc(p.photoThumb)}" loading="lazy">`:'<div class="thumb no">📷</div>'}
-    <div class="grow"><b>จุดที่ ${p.pointNo}</b> <span class="sub">${esc(pTxt(p))}</span>${p.lat==null?' <span class="nocoord">📍 ไม่มีพิกัด</span>':''}<div>${EQ.filter(e=>(p.equip||{})[e[0]]).map(e=>`<span class="chip">${e[1]} ${p.equip[e[0]]}</span>`).join('')||'<span class="sub">ยังไม่ระบุอุปกรณ์</span>'}</div></div><button class="btn ghost delb" onclick="event.stopPropagation();quickDelPoint('${p.planId}_${p.pointNo}')">🗑️</button></div>`).join(''):'<div class="empty">ยังไม่มีจุดสำรวจ<br>กดปุ่ม + เพื่อเพิ่มจุดแรก</div>')+'</div>';
+    <div class="grow"><b>จุดที่ ${dispNo(p)}</b> <span class="sub">${esc(pTxt(p))}</span>${p.lat==null?' <span class="nocoord">📍 ไม่มีพิกัด</span>':''}<div>${EQ.filter(e=>(p.equip||{})[e[0]]).map(e=>`<span class="chip">${e[1]} ${p.equip[e[0]]}</span>`).join('')||'<span class="sub">ยังไม่ระบุอุปกรณ์</span>'}</div></div><button class="btn ghost delb" onclick="event.stopPropagation();quickDelPoint('${p.planId}_${p.pointNo}')">🗑️</button></div>`).join(''):'<div class="empty">ยังไม่มีจุดสำรวจ<br>กดปุ่ม + เพื่อเพิ่มจุดแรก</div>')+'</div>';
 }
 function viewPoint(key){if(map)map.closePopup();openPoint(key)}
 function navTo(lat,lng){window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`,'_blank')}
 function renderMap(){
   const miss=myPts().filter(p=>p.lat==null);
-  $('pane').innerHTML='<div style="position:relative"><div id="map"></div>'+(miss.length?`<div class="mapwarn">⚠️ ${miss.length} จุดยังไม่มีพิกัด จึงไม่แสดงบนแผนที่ (แตะเพื่อเปิดแก้ไข): ${miss.map(p=>`<a onclick="openPoint('${p.planId}_${p.pointNo}')">${p.pointNo}</a>`).join('')}</div>`:'')+'</div>';
+  $('pane').innerHTML='<div style="position:relative"><div id="map"></div>'+(miss.length?`<div class="mapwarn">⚠️ ${miss.length} จุดยังไม่มีพิกัด จึงไม่แสดงบนแผนที่ (แตะเพื่อเปิดแก้ไข): ${miss.map(p=>`<a onclick="openPoint('${p.planId}_${p.pointNo}')">${dispNo(p)}</a>`).join('')}</div>`:'')+'</div>';
   map=L.map('map',{zoomControl:false}).setView([16.8211,100.2659],12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
   map.attributionControl.setPosition('bottomleft');
@@ -968,8 +980,8 @@ function renderMap(){
   const b=[];
   myPts().filter(p=>p.lat!=null).forEach(p=>{
     const c=p.photoFileId?'#2ecc71':'#a9bdd1';
-    L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html:`<div class="pin" style="background:${c}">${p.pointNo}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).addTo(map)
-     .bindPopup(`<b>จุดที่ ${p.pointNo}</b><br>${esc(pTxt(p))}<br>ลูกถ้วยตั้ง ${p.equip.standIns||0} · แขวน ${p.equip.hangIns||0}<div class="pbtns"><button class="pbtn" onclick="viewPoint('${p.planId}_${p.pointNo}')">📋 ดูข้อมูล</button><button class="pbtn nav" onclick="navTo(${p.lat},${p.lng})">🧭 นำทาง</button></div>`);
+    L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html:`<div class="pin" style="background:${c}">${dispNo(p)}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).addTo(map)
+     .bindPopup(`<b>จุดที่ ${dispNo(p)}</b><br>${esc(pTxt(p))}<br>ลูกถ้วยตั้ง ${p.equip.standIns||0} · แขวน ${p.equip.hangIns||0}<div class="pbtns"><button class="pbtn" onclick="viewPoint('${p.planId}_${p.pointNo}')">📋 ดูข้อมูล</button><button class="pbtn nav" onclick="navTo(${p.lat},${p.lng})">🧭 นำทาง</button></div>`);
     b.push([p.lat,p.lng]);
   });
   if(b.length)map.fitBounds(b,{padding:[30,30],maxZoom:17});
@@ -977,7 +989,7 @@ function renderMap(){
 function renderSum(pl){
   const a=myPts(),n=a.length,withPh=a.filter(p=>p.photoFileId).length;
   const cnt=(k,list)=>list.map(v=>[v,a.filter(p=>p[k].includes(v)).length]).filter(x=>x[1]).map(x=>(k=='phase'?'เฟส ':'')+x[0]+' '+x[1]+' จุด').join(' · ')||'-';
-  const rows=a.map(p=>`<tr><td class="c">${p.pointNo}</td><td class="c">${p.photoThumb?`<img class="rthumb" src="${esc(p.photoThumb)}">`:'-'}</td><td class="c">${esc(p.head.join(',')||'-')}</td><td class="c">${p.sysPhase?p.sysPhase+' Phase':'-'}</td><td class="c">${esc(p.phase.join(',')||'-')}</td>${EQ.map(e=>`<td class="num">${(p.equip||{})[e[0]]||0}</td>`).join('')}<td>${p.lat!=null?p.lat+', '+p.lng:'-'}</td></tr>`).join('');
+  const rows=a.map(p=>`<tr><td class="c">${dispNo(p)}</td><td class="c">${p.photoThumb?`<img class="rthumb" src="${esc(p.photoThumb)}">`:'-'}</td><td class="c">${esc(p.head.join(',')||'-')}</td><td class="c">${p.sysPhase?p.sysPhase+' Phase':'-'}</td><td class="c">${esc(p.phase.join(',')||'-')}</td>${EQ.map(e=>`<td class="num">${(p.equip||{})[e[0]]||0}</td>`).join('')}<td>${p.lat!=null?p.lat+', '+p.lng:'-'}</td></tr>`).join('');
   const d=new Date().toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'});
   $('pane').innerHTML=`<div class="wrap">
   <div class="row no-print"><button class="btn rpdf" style="flex:1" onclick="doPrint()">🖨️ พิมพ์ / บันทึก PDF</button><button class="btn blue" style="flex:1" onclick="exportXlsx()">📥 Excel</button></div>
@@ -1003,11 +1015,11 @@ function renderSum(pl){
 }
 let rfit=null;
 function buildReportMap(a){
-  const pts=a.filter(p=>p.lat!=null),miss=a.filter(p=>p.lat==null).map(p=>p.pointNo),cap=$('rcap');
+  const pts=a.filter(p=>p.lat!=null),miss=a.filter(p=>p.lat==null).map(p=>dispNo(p)),cap=$('rcap');
   if(!pts.length){$('rmap').remove();cap.textContent='ยังไม่มีจุดที่ระบุพิกัด จึงไม่สามารถแสดงแผนที่ได้';return}
   map=L.map('rmap',{zoomControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false,touchZoom:false,zoomSnap:0.25});
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
-  pts.forEach(p=>L.marker([p.lat,p.lng],{interactive:false,keyboard:false,icon:L.divIcon({className:'',html:`<div class="pin" style="background:#f5a623">${p.pointNo}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).addTo(map));
+  pts.forEach(p=>L.marker([p.lat,p.lng],{interactive:false,keyboard:false,icon:L.divIcon({className:'',html:`<div class="pin" style="background:#f5a623">${dispNo(p)}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).addTo(map));
   const ll=pts.map(p=>[p.lat,p.lng]);
   rfit=()=>{map.invalidateSize(false);map.fitBounds(ll,{padding:[30,30],maxZoom:18})};
   rfit();
@@ -1068,7 +1080,7 @@ window.addEventListener('beforeprint',()=>{if(tab==='sum')buildPrint()});
 window.addEventListener('afterprint',teardownPrint);
 function exportXlsx(){
   const pl=PLANS.find(p=>p.planId===planId),a=myPts();
-  const rows=a.map(p=>{const r={'จุดที่':p.pointNo,'Lat':p.lat,'Long':p.lng,'ประเภทหัวเสา':p.head.join(','),'ระบบ':p.sysPhase?p.sysPhase+' Phase':'','เฟส':p.phase.join(',')};
+  const rows=a.map(p=>{const r={'จุดที่':dispNo(p),'Lat':p.lat,'Long':p.lng,'ประเภทหัวเสา':p.head.join(','),'ระบบ':p.sysPhase?p.sysPhase+' Phase':'','เฟส':p.phase.join(',')};
     EQ.forEach(e=>r[e[1]]=(p.equip||{})[e[0]]||0);r['รูปถ่าย']=p.photoLink||'';return r});
   const tot={'จุดที่':'รวม'};EQ.forEach(e=>tot[e[1]]=sumEq(a,e[0]));tot['ลวดกลม (กก.)']=wireKg(sumEq(a,'wire'));rows.push(tot);
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'สำรวจลูกถ้วย');
@@ -1134,7 +1146,7 @@ function setPhoto(ph){photo=ph||{};const has=!!photo.fileId;$('prev').style.disp
 function openPoint(key){
   editKey=key;const p=key?POINTS.find(x=>x.planId+'_'+x.pointNo===key):null;
   sel={head:[...(p?p.head:[])],phase:[...(p?p.phase:[])],sys:p?(p.sysPhase!=null?p.sysPhase:(p.phase.length===3?3:p.phase.length===2?1:0)):0};drawOpts();
-  $('pt-h').textContent=p?`จุดที่ ${p.pointNo}`:'เพิ่มจุดสำรวจ';
+  $('pt-h').textContent=p?`จุดที่ ${dispNo(p)}`:'เพิ่มจุดสำรวจ';
   const ll=$('pt-ll');ll.value=p&&p.lat!=null?`${p.lat}, ${p.lng}`:'';ll.dataset.lat=p&&p.lat!=null?p.lat:'';ll.dataset.lng=p&&p.lng!=null?p.lng:'';ll.style.borderColor='';
   $('eq').innerHTML=EQ.map(e=>`<div class="eq" style="margin-bottom:10px"><div class="grow">${e[1]} <span class="sub">(${e[2]})</span></div><div class="step"><button onclick="stepEq('${e[0]}',-1)">−</button><input class="f" type="number" min="0" inputmode="numeric" id="eq-${e[0]}" value="${p?(p.equip[e[0]]||0):0}"><button onclick="stepEq('${e[0]}',1)">+</button></div></div>`).join('');
   setPhoto(p?{link:p.photoLink,fileId:p.photoFileId,thumb:p.photoThumb}:{});
