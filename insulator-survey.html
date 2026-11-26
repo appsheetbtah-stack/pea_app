@@ -179,6 +179,7 @@ body{background:#fff}body.printing #app{display:none!important}
       <div><label class="lab">เฟส (เลือกได้หลายเฟส)</label><div class="opts" id="o-phase"></div></div>
     </div>
     <div class="blk"><b>🧰 อุปกรณ์ที่ใช้</b><div id="eq"></div><div class="sub" id="eq-hint">ลูกถ้วยตั้ง/ลวดกลม นับอัตโนมัติจากหัวเสา × เฟส (SP, CCB = 1 ลูก/เฟส · DP, DDE = 2 ลูก/เฟส · BA = 4 ลูก (คงที่) · ลวดกลม = จำนวนลูกถ้วยตั้ง) แก้ตัวเลขเองได้<br>เปลี่ยน DE SL เป็น DDE (ต่อสายไฟ 1 เส้น: ตั้ง 2 · แขวน 3 · อายนัท 1 · สเตรน 1 · ACSR 3 ม. · หลอดต่อ 1 · P.G. 2) × สายไฟ (ระบบ 1 Phase = 2 เส้น · 3 Phase = 3 เส้น)</div></div>
+    <div class="blk"><b>♻️ อุปกรณ์รื้อถอน / ส่งคืน</b><div id="rm"></div><div id="rm-oth"></div><button type="button" class="btn ghost" onclick="addRmo()">＋ เพิ่มรายการอื่นๆ</button></div>
     <div class="blk"><b>📷 รูปถ่าย</b>
       <img id="prev" class="prev">
       <div class="row" style="flex-wrap:wrap">
@@ -247,6 +248,8 @@ const icImg=(src,sz)=>`<img src="${src}" alt="" style="width:${sz}px;height:${sz
 const escH=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const HEADS=['SP','CCB','CSC','CTB','DP','DDE','DE','BA','DE SL','เปลี่ยน DE SL เป็น DDE'], PHASES=['A','B','C'];
 const EQ=[['standIns','ลูกถ้วยตั้ง','ลูก'],['hangIns','ลูกถ้วยแขวน','ลูก'],['eyeNut','อายนัท','ตัว'],['strain','สเตรนแคลมป์','ชุด'],['wire','ลวดกลม','เส้น'],['acsr','สาย ACSR 50 ต.มม.','เมตร'],['splice','หลอดต่อรับแรงดึง 50 ต.มม.','หลอด'],['pg','P.G. 2 สลัก 50 ต.มม.','หลอด']];
+const RM=[['pin','ลูกถ้วยตั้ง Pin type','ลูก'],['pinPost','ลูกถ้วยตั้ง Pin post type','ลูก'],['linePost','ลูกถ้วยตั้ง Line post type','ลูก'],['susp','ลูกถ้วยแขวน Suspension type','ลูก']]; /* อุปกรณ์รื้อถอน / ส่งคืน */
+let rmOther=[]; /* รายการอื่นๆ (พิมพ์เอง) [{name,qty}] */
 let planId=null,tab='list',editKey=null,sel={head:[],phase:[],sys:0},photo={},map=null,uploading=false;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -256,6 +259,9 @@ const myPts=()=>POINTS.filter(p=>p.planId===planId);
 const WIRE_M=2.8,WIRE_KG_PER_M=0.039; /* ลวดกลม 1 เส้น = 2.8 ม. · 1 ม. = 0.039 กก. (คลังพัสดุเบิกเป็น กก.) */
 const wireKg=n=>Math.round(n*WIRE_M*WIRE_KG_PER_M*100)/100;
 const sumEq=(arr,k)=>arr.reduce((a,p)=>a+((p.equip||{})[k]||0),0);
+const sumRm=(arr,k)=>arr.reduce((a,p)=>a+((p.removal||{})[k]||0),0);
+const rmoAgg=arr=>{const m=new Map();arr.forEach(p=>(p.removalOther||[]).forEach(o=>{const n=(o.name||'').trim();if(!n)return;const key=n.toLowerCase(),c=m.get(key)||{name:n,qty:0};c.qty+=o.qty||0;m.set(key,c)}));return[...m.values()]};
+const rmTxt=p=>[...RM.filter(e=>(p.removal||{})[e[0]]).map(e=>e[1]+' '+p.removal[e[0]]),...(p.removalOther||[]).filter(o=>o.name).map(o=>o.name+' '+(o.qty||0))].join(' · ');
 const pTxt=p=>[p.head.join(',')||'-',p.sysPhase?p.sysPhase+' Phase':'','เฟส '+(p.phase.join(',')||'-')].filter(Boolean).join(' · ');
 
 function goBack(){ if(planId){planId=null;tab='list';render()} else location.href='survey-hub.html'; }
@@ -914,9 +920,9 @@ addEventListener('message',e=>{if(e.data==='closeTeamReport'){const o=document.g
 function teamExportCsv(){
   const T=teamCalc(),multi=T.plans.length>1,planOf=Object.fromEntries(PLANS.map(p=>[p.planId,p]));
   const q=v=>{v=String(v==null?'':v);return /[",\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
-  const lines=[['ชื่อ','แผนงาน','ทีม','Latitude','Longitude','หัวเสา','ระบบ','เฟส',...EQ.map(e=>e[1]+' ('+e[2]+')'),'รูปถ่าย']];
+  const lines=[['ชื่อ','แผนงาน','ทีม','Latitude','Longitude','หัวเสา','ระบบ','เฟส',...EQ.map(e=>e[1]+' ('+e[2]+')'),...RM.map(e=>'รื้อถอน: '+e[1]),'รื้อถอน: อื่นๆ','รูปถ่าย']];
   T.seq.filter(p=>p.lat!=null).forEach(p=>{const pl=planOf[p.planId];
-    lines.push([(multi?planShort(pl)+' ':'')+'จุดที่ '+dispNo(p),pl?pl.planName:'',T.cfg.names[T.of.get(ptKey(p))],p.lat,p.lng,(p.head||[]).join(','),p.sysPhase?p.sysPhase+' Phase':'',(p.phase||[]).join(','),...EQ.map(e=>(p.equip||{})[e[0]]||0),p.photoLink||'']);});
+    lines.push([(multi?planShort(pl)+' ':'')+'จุดที่ '+dispNo(p),pl?pl.planName:'',T.cfg.names[T.of.get(ptKey(p))],p.lat,p.lng,(p.head||[]).join(','),p.sysPhase?p.sysPhase+' Phase':'',(p.phase||[]).join(','),...EQ.map(e=>(p.equip||{})[e[0]]||0),...RM.map(e=>(p.removal||{})[e[0]]||0),(p.removalOther||[]).filter(o=>o.name).map(o=>o.name+' '+(o.qty||0)).join(', '),p.photoLink||'']);});
   const blob=new Blob(['\ufeff'+lines.map(r=>r.map(q).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='แบ่งทีม_'+(multi?T.plans.length+'แผนงาน':(T.plans[0]?T.plans[0].planName:'plan')).replace(/[\\/:*?"<>|]/g,'_')+'.csv';
@@ -952,7 +958,7 @@ function renderList(){
   const a=myPts();
   $('pane').innerHTML='<div class="wrap">'+(a.length?a.map(p=>`<div class="card pcard" id="pc-${p.planId}_${p.pointNo}" onclick="openPoint('${p.planId}_${p.pointNo}')">
     ${p.photoThumb?`<img class="thumb" src="${esc(p.photoThumb)}" loading="lazy">`:'<div class="thumb no">📷</div>'}
-    <div class="grow"><b>จุดที่ ${dispNo(p)}</b> <span class="sub">${esc(pTxt(p))}</span>${p.lat==null?' <span class="nocoord">📍 ไม่มีพิกัด</span>':''}<div>${EQ.filter(e=>(p.equip||{})[e[0]]).map(e=>`<span class="chip">${e[1]} ${p.equip[e[0]]}</span>`).join('')||'<span class="sub">ยังไม่ระบุอุปกรณ์</span>'}</div></div><button class="btn ghost delb" onclick="event.stopPropagation();quickDelPoint('${p.planId}_${p.pointNo}')">🗑️</button></div>`).join(''):'<div class="empty">ยังไม่มีจุดสำรวจ<br>กดปุ่ม + เพื่อเพิ่มจุดแรก</div>')+'</div>';
+    <div class="grow"><b>จุดที่ ${dispNo(p)}</b> <span class="sub">${esc(pTxt(p))}</span>${p.lat==null?' <span class="nocoord">📍 ไม่มีพิกัด</span>':''}<div>${(EQ.filter(e=>(p.equip||{})[e[0]]).map(e=>`<span class="chip">${e[1]} ${p.equip[e[0]]}</span>`).join('')+RM.filter(e=>(p.removal||{})[e[0]]).map(e=>`<span class="chip">♻️ ${e[1]} ${p.removal[e[0]]}</span>`).join('')+(p.removalOther||[]).filter(o=>o.name).map(o=>`<span class="chip">♻️ ${esc(o.name)} ${o.qty||0}</span>`).join(''))||'<span class="sub">ยังไม่ระบุอุปกรณ์</span>'}</div></div><button class="btn ghost delb" onclick="event.stopPropagation();quickDelPoint('${p.planId}_${p.pointNo}')">🗑️</button></div>`).join(''):'<div class="empty">ยังไม่มีจุดสำรวจ<br>กดปุ่ม + เพื่อเพิ่มจุดแรก</div>')+'</div>';
 }
 function viewPoint(key){if(map)map.closePopup();openPoint(key)}
 function navTo(lat,lng){window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`,'_blank')}
@@ -989,7 +995,7 @@ function renderMap(){
 function renderSum(pl){
   const a=myPts(),n=a.length,withPh=a.filter(p=>p.photoFileId).length;
   const cnt=(k,list)=>list.map(v=>[v,a.filter(p=>p[k].includes(v)).length]).filter(x=>x[1]).map(x=>(k=='phase'?'เฟส ':'')+x[0]+' '+x[1]+' จุด').join(' · ')||'-';
-  const rows=a.map(p=>`<tr><td class="c">${dispNo(p)}</td><td class="c">${p.photoThumb?`<img class="rthumb" src="${esc(p.photoThumb)}">`:'-'}</td><td class="c">${esc(p.head.join(',')||'-')}</td><td class="c">${p.sysPhase?p.sysPhase+' Phase':'-'}</td><td class="c">${esc(p.phase.join(',')||'-')}</td>${EQ.map(e=>`<td class="num">${(p.equip||{})[e[0]]||0}</td>`).join('')}<td>${p.lat!=null?p.lat+', '+p.lng:'-'}</td></tr>`).join('');
+  const rows=a.map(p=>`<tr><td class="c">${dispNo(p)}</td><td class="c">${p.photoThumb?`<img class="rthumb" src="${esc(p.photoThumb)}">`:'-'}</td><td class="c">${esc(p.head.join(',')||'-')}</td><td class="c">${p.sysPhase?p.sysPhase+' Phase':'-'}</td><td class="c">${esc(p.phase.join(',')||'-')}</td>${EQ.map(e=>`<td class="num">${(p.equip||{})[e[0]]||0}</td>`).join('')}<td>${esc(rmTxt(p)||'-')}</td><td>${p.lat!=null?p.lat+', '+p.lng:'-'}</td></tr>`).join('');
   const d=new Date().toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'});
   $('pane').innerHTML=`<div class="wrap">
   <div class="row no-print"><button class="btn rpdf" style="flex:1" onclick="doPrint()">🖨️ พิมพ์ / บันทึก PDF</button><button class="btn blue" style="flex:1" onclick="exportXlsx()">📥 Excel</button></div>
@@ -1004,10 +1010,12 @@ function renderSum(pl){
     <div class="rsec">แผนที่ตำแหน่งจุดสำรวจ</div>
     <div class="rmapwrap"><div id="rmap"></div><div class="rcap" id="rcap"></div></div>
     <div class="rsec">รายละเอียดแต่ละจุดสำรวจ</div>
-    <div style="overflow-x:auto"><table class="rtable"><thead><tr><th>จุดที่</th><th>รูปถ่าย</th><th>หัวเสา</th><th>ระบบ</th><th>เฟส</th>${EQ.map(e=>`<th>${e[1]}</th>`).join('')}<th>พิกัด</th></tr></thead><tbody>${rows||'<tr><td colspan="14" class="c">ยังไม่มีจุดสำรวจ</td></tr>'}</tbody></table></div>
+    <div style="overflow-x:auto"><table class="rtable"><thead><tr><th>จุดที่</th><th>รูปถ่าย</th><th>หัวเสา</th><th>ระบบ</th><th>เฟส</th>${EQ.map(e=>`<th>${e[1]}</th>`).join('')}<th>รื้อถอน / ส่งคืน</th><th>พิกัด</th></tr></thead><tbody>${rows||'<tr><td colspan="15" class="c">ยังไม่มีจุดสำรวจ</td></tr>'}</tbody></table></div>
     <div class="rblock">
       <div class="rsec">สรุปอุปกรณ์รวมทั้งแผนงาน</div>
       <table class="rtable"><thead><tr><th>รายการอุปกรณ์</th><th class="num">จำนวนรวม</th><th>หน่วย</th></tr></thead><tbody>${EQ.map(e=>e[0]==='wire'?`<tr><td>${e[1]} <span style="color:#666;font-size:.9em">(${sumEq(a,'wire')} เส้น × ${WIRE_M} ม. × ${WIRE_KG_PER_M} กก./ม.)</span></td><td class="num">${wireKg(sumEq(a,'wire')).toFixed(2)}</td><td>กก.</td></tr>`:`<tr><td>${e[1]}</td><td class="num">${sumEq(a,e[0])}</td><td>${e[2]}</td></tr>`).join('')}</tbody></table>
+      <div class="rsec">สรุปอุปกรณ์รื้อถอน / ส่งคืนรวมทั้งแผนงาน</div>
+      <table class="rtable"><thead><tr><th>รายการอุปกรณ์</th><th class="num">จำนวนรวม</th><th>หน่วย</th></tr></thead><tbody>${RM.map(e=>`<tr><td>${e[1]}</td><td class="num">${sumRm(a,e[0])}</td><td>${e[2]}</td></tr>`).join('')}${rmoAgg(a).map(o=>`<tr><td>${esc(o.name)}</td><td class="num">${o.qty}</td><td>-</td></tr>`).join('')}</tbody></table>
       <div class="rsign"><div><div class="rline">ผู้สำรวจ</div></div><div><div class="rline">ผู้ตรวจสอบ</div></div><div><div class="rline">ผู้อนุมัติ</div></div></div>
     </div>
   </div></div>`;
@@ -1081,8 +1089,8 @@ window.addEventListener('afterprint',teardownPrint);
 function exportXlsx(){
   const pl=PLANS.find(p=>p.planId===planId),a=myPts();
   const rows=a.map(p=>{const r={'จุดที่':dispNo(p),'Lat':p.lat,'Long':p.lng,'ประเภทหัวเสา':p.head.join(','),'ระบบ':p.sysPhase?p.sysPhase+' Phase':'','เฟส':p.phase.join(',')};
-    EQ.forEach(e=>r[e[1]]=(p.equip||{})[e[0]]||0);r['รูปถ่าย']=p.photoLink||'';return r});
-  const tot={'จุดที่':'รวม'};EQ.forEach(e=>tot[e[1]]=sumEq(a,e[0]));tot['ลวดกลม (กก.)']=wireKg(sumEq(a,'wire'));rows.push(tot);
+    EQ.forEach(e=>r[e[1]]=(p.equip||{})[e[0]]||0);RM.forEach(e=>r['รื้อถอน: '+e[1]]=(p.removal||{})[e[0]]||0);r['รื้อถอน: อื่นๆ']=(p.removalOther||[]).filter(o=>o.name).map(o=>o.name+' '+(o.qty||0)).join(', ');r['รูปถ่าย']=p.photoLink||'';return r});
+  const tot={'จุดที่':'รวม'};EQ.forEach(e=>tot[e[1]]=sumEq(a,e[0]));tot['ลวดกลม (กก.)']=wireKg(sumEq(a,'wire'));RM.forEach(e=>tot['รื้อถอน: '+e[1]]=sumRm(a,e[0]));tot['รื้อถอน: อื่นๆ']=rmoAgg(a).map(o=>o.name+' '+o.qty).join(', ');rows.push(tot);
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'สำรวจลูกถ้วย');
   XLSX.writeFile(wb,`ลูกถ้วย_${(pl.planName||'plan').replace(/[\\/:*?"<>|]/g,'_')}.xlsx`);
 }
@@ -1142,6 +1150,17 @@ function tog(k,v){
   drawOpts();autoEq();
 }
 function stepEq(k,d){const el=$('eq-'+k);el.value=Math.max(0,(parseInt(el.value)||0)+d)}
+function stepRm(k,d){const el=$('rm-'+k);el.value=Math.max(0,(parseInt(el.value)||0)+d)}
+function drawRm(p){
+  const r=(p&&p.removal)||{};
+  $('rm').innerHTML=RM.map(e=>`<div class="eq" style="margin-bottom:10px"><div class="grow">${e[1]} <span class="sub">(${e[2]})</span></div><div class="step"><button type="button" onclick="stepRm('${e[0]}',-1)">−</button><input class="f" type="number" min="0" inputmode="numeric" id="rm-${e[0]}" value="${r[e[0]]||0}"><button type="button" onclick="stepRm('${e[0]}',1)">+</button></div></div>`).join('');
+}
+function drawRmo(){
+  $('rm-oth').innerHTML=rmOther.map((o,i)=>`<div class="eq" style="margin-bottom:10px"><input class="f" style="flex:1;min-width:0" placeholder="อื่นๆ (พิมพ์ชื่ออุปกรณ์เอง)" value="${esc(o.name)}" oninput="rmOther[${i}].name=this.value"><div class="step"><button type="button" onclick="stepRmo(${i},-1)">−</button><input class="f" type="number" min="0" inputmode="numeric" id="rmo-${i}" value="${o.qty||0}" oninput="rmOther[${i}].qty=parseInt(this.value)||0"><button type="button" onclick="stepRmo(${i},1)">+</button></div><button type="button" class="btn ghost" onclick="delRmo(${i})">🗑️</button></div>`).join('');
+}
+function addRmo(){rmOther.push({name:'',qty:0});drawRmo();const f=$('rm-oth').querySelector('.eq:last-child input');if(f)f.focus()}
+function stepRmo(i,d){const n=Math.max(0,(parseInt(rmOther[i].qty)||0)+d);rmOther[i].qty=n;$('rmo-'+i).value=n}
+function delRmo(i){rmOther.splice(i,1);drawRmo()}
 function setPhoto(ph){photo=ph||{};const has=!!photo.fileId;$('prev').style.display=has?'block':'none';if(has)$('prev').src=photo.thumb;$('ph-del').style.display=has?'':'none'}
 function openPoint(key){
   editKey=key;const p=key?POINTS.find(x=>x.planId+'_'+x.pointNo===key):null;
@@ -1149,6 +1168,7 @@ function openPoint(key){
   $('pt-h').textContent=p?`จุดที่ ${dispNo(p)}`:'เพิ่มจุดสำรวจ';
   const ll=$('pt-ll');ll.value=p&&p.lat!=null?`${p.lat}, ${p.lng}`:'';ll.dataset.lat=p&&p.lat!=null?p.lat:'';ll.dataset.lng=p&&p.lng!=null?p.lng:'';ll.style.borderColor='';
   $('eq').innerHTML=EQ.map(e=>`<div class="eq" style="margin-bottom:10px"><div class="grow">${e[1]} <span class="sub">(${e[2]})</span></div><div class="step"><button onclick="stepEq('${e[0]}',-1)">−</button><input class="f" type="number" min="0" inputmode="numeric" id="eq-${e[0]}" value="${p?(p.equip[e[0]]||0):0}"><button onclick="stepEq('${e[0]}',1)">+</button></div></div>`).join('');
+  rmOther=p&&p.removalOther?p.removalOther.map(o=>({name:o.name||'',qty:o.qty||0})):[];drawRm(p);drawRmo();
   setPhoto(p?{link:p.photoLink,fileId:p.photoFileId,thumb:p.photoThumb}:{});
   $('ph-st').textContent='';$('pt-del').style.display=p?'':'none';openM('m-pt');
 }
@@ -1170,7 +1190,17 @@ async function savePoint(){
   if(!parseLL())return toast('รูปแบบพิกัดไม่ถูกต้อง เช่น 16.8211, 100.2659');
   const ll=$('pt-ll'),old=editKey?POINTS.find(x=>x.planId+'_'+x.pointNo===editKey):null,no=old?old.pointNo:nextNo();
   const equip={};EQ.forEach(e=>equip[e[0]]=parseInt($('eq-'+e[0]).value)||0);
-  const data={planId,pointNo:no,head:sel.head,phase:sel.phase,sysPhase:sel.sys||0,equip,
+  const removal={};RM.forEach(e=>removal[e[0]]=parseInt($('rm-'+e[0]).value)||0);
+  const rmo=rmOther.map(o=>({name:(o.name||'').trim(),qty:parseInt(o.qty)||0})),removalOther=rmo.filter(o=>o.name||o.qty);
+  const miss=[];
+  if(!ll.dataset.lat)miss.push('พิกัด');
+  if(!sel.head.length)miss.push('ประเภทหัวเสา');
+  if(!sel.sys)miss.push('ระบบไฟฟ้า / เฟส');
+  if(!Object.values(equip).some(v=>v>0)&&!Object.values(removal).some(v=>v>0)&&!rmo.some(o=>o.qty>0))miss.push('อุปกรณ์ที่ใช้ / รื้อถอน-ส่งคืน');
+  if(rmo.some(o=>!o.name||!o.qty))miss.push('อุปกรณ์อื่นๆ (ชื่อหรือจำนวนยังไม่ครบ)');
+  if(!photo.fileId)miss.push('รูปถ่าย');
+  if(miss.length&&!confirm('ยังกรอกข้อมูลไม่ครบ แน่ใจนะว่าจะบันทึก แล้วแต่นะ\n\nที่ยังไม่ครบ:\n• '+miss.join('\n• ')))return;
+  const data={planId,pointNo:no,head:sel.head,phase:sel.phase,sysPhase:sel.sys||0,equip,removal,removalOther,
     lat:ll.dataset.lat?parseFloat(ll.dataset.lat):null,lng:ll.dataset.lng?parseFloat(ll.dataset.lng):null,
     photoLink:photo.link||'',photoFileId:photo.fileId||'',photoThumb:photo.thumb||'',createdAt:old?old.createdAt:Date.now(),updatedAt:Date.now()};
   await window._fs.setDoc(window._fs.doc(_db,'ins_points',planId+'_'+no),data);
