@@ -122,8 +122,12 @@ body{background:#fff}body.printing #app{display:none!important}
 .pbtns{display:flex;gap:6px;margin-top:8px}
 .pbtn{flex:1;padding:7px 8px;border-radius:8px;border:1px solid #ccc;background:#f2f4f7;color:#111;font:600 13px var(--sans);cursor:pointer;white-space:nowrap}
 .pbtn.nav{background:#3b9ede;border-color:#3b9ede;color:#fff}
+.pbtn.sv{background:#f5a623;border-color:#f5a623;color:#000}
 .card.flash{border-color:var(--accent);animation:flash 2.6s ease-out}
 @keyframes flash{0%,60%{box-shadow:0 0 0 4px rgba(245,166,35,.55)}100%{box-shadow:0 0 0 0 rgba(245,166,35,0)}}
+.cact{display:flex;gap:6px;align-items:center}
+.svb{padding:8px 11px;color:var(--accent);font-weight:600;flex-shrink:0;white-space:nowrap}
+@media(max-width:480px){.svt{display:none}}
 .delb{padding:8px 11px;color:var(--red);flex-shrink:0}
 .empty{padding:50px 20px;text-align:center;color:var(--text2)}
 .pin{width:26px;height:26px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font:700 11px var(--mono);color:#000;box-shadow:0 1px 4px rgba(0,0,0,.5)}
@@ -962,9 +966,10 @@ function renderList(){
   const a=myPts();
   $('pane').innerHTML='<div class="wrap">'+(a.length?a.map(p=>`<div class="card pcard ${isComplete(p)?'ok':'bad'}" id="pc-${p.planId}_${p.pointNo}" onclick="openPoint('${p.planId}_${p.pointNo}')">
     ${p.photoThumb?`<img class="thumb" src="${esc(p.photoThumb)}" loading="lazy">`:'<div class="thumb no">📷</div>'}
-    <div class="grow"><b>จุดที่ ${dispNo(p)}</b> <span class="sub">${esc(pTxt(p))}</span>${p.lat==null?' <span class="nocoord">📍 ไม่มีพิกัด</span>':''}<div>${(EQ.filter(e=>(p.equip||{})[e[0]]).map(e=>`<span class="chip">${e[1]} ${p.equip[e[0]]}</span>`).join('')+(p.noRemoval?'<span class="chip">♻️ ไม่มีรื้อถอน</span>':'')+RM.filter(e=>(p.removal||{})[e[0]]).map(e=>`<span class="chip">♻️ ${e[1]} ${p.removal[e[0]]}</span>`).join('')+(p.removalOther||[]).filter(o=>o.name).map(o=>`<span class="chip">♻️ ${esc(o.name)} ${o.qty||0}</span>`).join(''))||'<span class="sub">ยังไม่ระบุอุปกรณ์</span>'}</div>${p.note?`<div class="sub">📝 ${esc(p.note)}</div>`:''}</div><button class="btn ghost delb" onclick="event.stopPropagation();quickDelPoint('${p.planId}_${p.pointNo}')">🗑️</button></div>`).join(''):'<div class="empty">ยังไม่มีจุดสำรวจ<br>กดปุ่ม + เพื่อเพิ่มจุดแรก</div>')+'</div>';
+    <div class="grow"><b>จุดที่ ${dispNo(p)}</b> <span class="sub">${esc(pTxt(p))}</span>${p.lat==null?' <span class="nocoord">📍 ไม่มีพิกัด</span>':''}<div>${(EQ.filter(e=>(p.equip||{})[e[0]]).map(e=>`<span class="chip">${e[1]} ${p.equip[e[0]]}</span>`).join('')+(p.noRemoval?'<span class="chip">♻️ ไม่มีรื้อถอน</span>':'')+RM.filter(e=>(p.removal||{})[e[0]]).map(e=>`<span class="chip">♻️ ${e[1]} ${p.removal[e[0]]}</span>`).join('')+(p.removalOther||[]).filter(o=>o.name).map(o=>`<span class="chip">♻️ ${esc(o.name)} ${o.qty||0}</span>`).join(''))||'<span class="sub">ยังไม่ระบุอุปกรณ์</span>'}</div>${p.note?`<div class="sub">📝 ${esc(p.note)}</div>`:''}</div><div class="cact">${p.lat!=null?`<button class="btn ghost svb" title="ดูภาพ Street View" onclick="event.stopPropagation();streetView(${p.lat},${p.lng})">🛣️<span class="svt"> Street View</span></button>`:''}<button class="btn ghost delb" onclick="event.stopPropagation();quickDelPoint('${p.planId}_${p.pointNo}')">🗑️</button></div></div>`).join(''):'<div class="empty">ยังไม่มีจุดสำรวจ<br>กดปุ่ม + เพื่อเพิ่มจุดแรก</div>')+'</div>';
 }
 function viewPoint(key){if(map)map.closePopup();openPoint(key)}
+function streetView(lat,lng){window.open(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`,'_blank')}
 function navTo(lat,lng){window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`,'_blank')}
 function renderMap(){
   const miss=myPts().filter(p=>p.lat==null);
@@ -991,7 +996,7 @@ function renderMap(){
   myPts().filter(p=>p.lat!=null).forEach(p=>{
     const ok=isComplete(p),c=ok?'#2ecc71':'#e74c3c';
     L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html:`<div class="pin ${ok?'':'bad'}" style="background:${c}">${dispNo(p)}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).addTo(map)
-     .bindPopup(`<b>จุดที่ ${dispNo(p)}</b> ${ok?'<span style="color:#27ae60">✓ ข้อมูลครบ</span>':'<span style="color:#e74c3c">✗ ข้อมูลยังไม่ครบ</span>'}<br>${esc(pTxt(p))}<br>ลูกถ้วยตั้ง ${p.equip.standIns||0} · แขวน ${p.equip.hangIns||0}<div class="pbtns"><button class="pbtn" onclick="viewPoint('${p.planId}_${p.pointNo}')">📋 ดูข้อมูล</button><button class="pbtn nav" onclick="navTo(${p.lat},${p.lng})">🧭 นำทาง</button></div>`);
+     .bindPopup(`<b>จุดที่ ${dispNo(p)}</b> ${ok?'<span style="color:#27ae60">✓ ข้อมูลครบ</span>':'<span style="color:#e74c3c">✗ ข้อมูลยังไม่ครบ</span>'}<br>${esc(pTxt(p))}<br>ลูกถ้วยตั้ง ${p.equip.standIns||0} · แขวน ${p.equip.hangIns||0}<div class="pbtns"><button class="pbtn" onclick="viewPoint('${p.planId}_${p.pointNo}')">📋 ดูข้อมูล</button><button class="pbtn nav" onclick="navTo(${p.lat},${p.lng})">🧭 นำทาง</button></div><div class="pbtns"><button class="pbtn sv" onclick="streetView(${p.lat},${p.lng})">🛣️ Street View</button></div>`);
     b.push([p.lat,p.lng]);
   });
   if(b.length)map.fitBounds(b,{padding:[30,30],maxZoom:17});
