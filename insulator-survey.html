@@ -93,7 +93,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{border-bottom:1px
 .rcap{font-size:12px;color:#555;margin-top:6px}
 .rmapwrap{break-inside:avoid;page-break-inside:avoid}
 .rblock{break-inside:avoid;page-break-inside:avoid}
-.rsign{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12mm;margin-top:3mm;font-size:12.5px;text-align:center}
+.rsign{display:grid;grid-template-columns:1fr 1fr;gap:12mm;margin-top:3mm;font-size:12.5px;text-align:center}
 .rline{border-top:1px solid #333;margin-top:27mm;padding-top:6px}
 #printroot{position:absolute;left:-99999px;top:0;width:297mm;visibility:hidden;pointer-events:none;background:#fff;color:#111}
 .ppage{width:297mm;height:209mm;box-sizing:border-box;padding:14mm 12mm 12mm;position:relative;overflow:hidden;background:#fff;page-break-after:always;break-after:page}
@@ -1028,7 +1028,7 @@ function renderSum(pl){
       <table class="rtable"><thead><tr><th>รายการอุปกรณ์</th><th class="num">จำนวนรวม</th><th>หน่วย</th></tr></thead><tbody>${EQ.map(e=>e[0]==='wire'?`<tr><td>${e[1]} <span style="color:#666;font-size:.9em">(${sumEq(a,'wire')} เส้น × ${WIRE_M} ม. × ${WIRE_KG_PER_M} กก./ม.)</span></td><td class="num">${wireKg(sumEq(a,'wire')).toFixed(2)}</td><td>กก.</td></tr>`:`<tr><td>${e[1]}</td><td class="num">${sumEq(a,e[0])}</td><td>${e[2]}</td></tr>`).join('')}</tbody></table>
       <div class="rsec">สรุปอุปกรณ์รื้อถอน / ส่งคืนรวมทั้งแผนงาน</div>
       <table class="rtable"><thead><tr><th>รายการอุปกรณ์</th><th class="num">จำนวนรวม</th><th>หน่วย</th></tr></thead><tbody>${RM.map(e=>`<tr><td>${e[1]}</td><td class="num">${sumRm(a,e[0])}</td><td>${e[2]}</td></tr>`).join('')}${rmoAgg(a).map(o=>`<tr><td>${esc(o.name)}</td><td class="num">${o.qty}</td><td>-</td></tr>`).join('')}</tbody></table>
-      <div class="rsign"><div><div class="rline">ผู้สำรวจ</div></div><div><div class="rline">ผู้ตรวจสอบ</div></div><div><div class="rline">ผู้อนุมัติ</div></div></div>
+      <div class="rsign"><div><div class="rline">ผู้สำรวจ</div></div><div><div class="rline">ผู้ตรวจสอบ</div></div></div>
     </div>
   </div></div>`;
   buildReportMap(a);
