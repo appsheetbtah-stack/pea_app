@@ -86,7 +86,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{border-bottom:1px
 .rmeta{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:13px;padding-bottom:14px;border-bottom:1.5px solid #999}
 .rsec{font-size:15px;font-weight:700;margin:18px 0 10px;padding-bottom:6px;border-bottom:2px solid #333}
 .rtable td,.rtable th{line-height:1.7}.rtable{width:100%;border-collapse:collapse;font-size:12.5px}
-.rtable th,.rtable td{border:1px solid #ccc;padding:6px 8px;text-align:left;white-space:nowrap}
+.rtable th,.rtable td{border:1px solid #ccc;padding:6px 8px;text-align:left;white-space:normal;overflow-wrap:break-word}.rdet th:nth-child(-n+4),.rdet td:nth-child(-n+4){white-space:nowrap}.rtable td.num,.rtable td.co{white-space:nowrap;overflow-wrap:normal}.rtable th{line-height:1.3;vertical-align:middle}
 .rtable th{background:#f0f0f0;text-align:center}.rtable td.num,.rtable th.num{text-align:right;font-family:var(--mono)}.rtable td.c{text-align:center}
 .rthumb{width:38px;height:38px;object-fit:cover;border-radius:4px;border:1px solid #ccc;display:block;margin:auto}
 #rmap{height:380px;border:1px solid #ccc;border-radius:6px;background:#e5e5e5}
@@ -101,7 +101,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{border-bottom:1px
 .pcont{height:183mm;overflow:hidden}
 .pnum{position:absolute;top:6mm;right:12mm;font-size:11px;color:#444}
 #printroot #rmap{height:330px}
-#printroot .rtable{font-size:11px}#printroot .rtable tr{page-break-inside:avoid}
+#printroot .rtable{font-size:10.5px}#printroot .rtable th,#printroot .rtable td{padding:3px 4px;line-height:1.35}#printroot .rtable tr{page-break-inside:avoid}
 @media print{@page{size:A4 landscape;margin:0}
 *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .top,.bnav,.fab,.ov,.toast,.no-print{display:none!important}
@@ -1004,7 +1004,7 @@ function renderMap(){
 function renderSum(pl){
   const a=myPts(),n=a.length,withPh=a.filter(p=>p.photoFileId).length;
   const cnt=(k,list)=>list.map(v=>[v,a.filter(p=>p[k].includes(v)).length]).filter(x=>x[1]).map(x=>(k=='phase'?'เฟส ':'')+x[0]+' '+x[1]+' จุด').join(' · ')||'-';
-  const rows=a.map(p=>`<tr><td class="c">${dispNo(p)}</td><td class="c">${p.photoThumb?`<img class="rthumb" src="${esc(p.photoThumb)}">`:'-'}</td><td class="c">${esc(p.head.join(',')||'-')}</td><td class="c">${p.sysPhase?p.sysPhase+' Phase':'-'}</td><td class="c">${esc(p.phase.join(',')||'-')}</td>${EQ.map(e=>`<td class="num">${(p.equip||{})[e[0]]||0}</td>`).join('')}<td>${esc(rmTxt(p)||'-')}</td><td>${p.lat!=null?p.lat+', '+p.lng:'-'}</td><td>${esc(p.note||'-')}</td></tr>`).join('');
+  const rows=a.map(p=>`<tr><td class="c">${dispNo(p)}</td><td class="c">${esc(p.head.join(',')||'-')}</td><td class="c">${p.sysPhase?p.sysPhase+' Phase':'-'}</td><td class="c">${esc(p.phase.join(',')||'-')}</td>${EQ.map(e=>`<td class="num">${(p.equip||{})[e[0]]||0}</td>`).join('')}<td>${esc(rmTxt(p)||'-')}</td><td class="co">${p.lat!=null?p.lat+', '+p.lng:'-'}</td><td>${esc(p.note||'-')}</td></tr>`).join('');
   const d=new Date().toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'});
   $('pane').innerHTML=`<div class="wrap">
   <div class="row no-print"><button class="btn rpdf" style="flex:1" onclick="doPrint()">🖨️ พิมพ์ / บันทึก PDF</button><button class="btn blue" style="flex:1" onclick="exportXlsx()">📥 Excel</button></div>
@@ -1019,7 +1019,7 @@ function renderSum(pl){
     <div class="rsec">แผนที่ตำแหน่งจุดสำรวจ</div>
     <div class="rmapwrap"><div id="rmap"></div><div class="rcap" id="rcap"></div></div>
     <div class="rsec">รายละเอียดแต่ละจุดสำรวจ</div>
-    <div style="overflow-x:auto"><table class="rtable"><thead><tr><th>จุดที่</th><th>รูปถ่าย</th><th>หัวเสา</th><th>ระบบ</th><th>เฟส</th>${EQ.map(e=>`<th>${e[1]}</th>`).join('')}<th>รื้อถอน / ส่งคืน</th><th>พิกัด</th><th>หมายเหตุ</th></tr></thead><tbody>${rows||'<tr><td colspan="16" class="c">ยังไม่มีจุดสำรวจ</td></tr>'}</tbody></table></div>
+    <div style="overflow-x:auto"><table class="rtable rdet"><thead><tr><th>จุดที่</th><th>หัวเสา</th><th>ระบบ</th><th>เฟส</th>${EQ.map(e=>`<th>${e[1].split(' ').map(w=>`<span style="white-space:nowrap">${w}</span>`).join(' ')}</th>`).join('')}<th>รื้อถอน / ส่งคืน</th><th>พิกัด</th><th>หมายเหตุ</th></tr></thead><tbody>${rows||'<tr><td colspan="15" class="c">ยังไม่มีจุดสำรวจ</td></tr>'}</tbody></table></div>
     <div class="rblock">
       <div class="rsec">สรุปอุปกรณ์รวมทั้งแผนงาน</div>
       <table class="rtable"><thead><tr><th>รายการอุปกรณ์</th><th class="num">จำนวนรวม</th><th>หน่วย</th></tr></thead><tbody>${EQ.map(e=>e[0]==='wire'?`<tr><td>${e[1]} <span style="color:#666;font-size:.9em">(${sumEq(a,'wire')} เส้น × ${WIRE_M} ม. × ${WIRE_KG_PER_M} กก./ม.)</span></td><td class="num">${wireKg(sumEq(a,'wire')).toFixed(2)}</td><td>กก.</td></tr>`:`<tr><td>${e[1]}</td><td class="num">${sumEq(a,e[0])}</td><td>${e[2]}</td></tr>`).join('')}</tbody></table>
@@ -1059,7 +1059,7 @@ function buildPrint(){
   pin=newPage(); /* ตารางรายละเอียดเริ่มหน้าใหม่เสมอ */
   const tbl=q('.rtable'),rows=[...tbl.tBodies[0].rows];
   const start=withTitle=>{const f=document.createElement('div');if(withTitle)f.appendChild(secs[1].cloneNode(true));
-    const t=document.createElement('table');t.className='rtable';t.appendChild(tbl.tHead.cloneNode(true));const tb=document.createElement('tbody');t.appendChild(tb);f.appendChild(t);pin.appendChild(f);return{f,tb}};
+    const t=document.createElement('table');t.className='rtable rdet';t.appendChild(tbl.tHead.cloneNode(true));const tb=document.createElement('tbody');t.appendChild(tb);f.appendChild(t);pin.appendChild(f);return{f,tb}};
   let first=true,chunk=start(true);
   for(const row of rows){
     chunk.tb.appendChild(row.cloneNode(true));
