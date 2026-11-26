@@ -487,6 +487,18 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 .btn-rpt-pdf{background:linear-gradient(135deg,#f43f5e,#dc2626);color:#fff;box-shadow:0 3px 10px rgba(220,38,38,0.25)}
 .btn-rpt:hover{opacity:.9}
 .btn-rpt:disabled{opacity:.4;cursor:not-allowed}
+.rpt-layout{display:grid;grid-template-columns:minmax(300px,360px) minmax(0,1fr);gap:16px;align-items:start}
+#page-report .main{max-width:1280px}
+.rpt-left{position:sticky;top:84px;margin-bottom:0}
+.rpt-right{margin-bottom:0;min-width:0}
+.rpt-hint{font-size:12px;color:var(--text2);margin:-4px 0 14px;line-height:1.5}
+.rpt-preview-wrap{border-radius:12px;overflow:hidden;background:#f1f5f9;border:1px solid var(--border);position:relative;min-height:240px}
+.rpt-preview-scaler{width:840px;transform-origin:top left}
+.rpt-preview-scaler iframe{display:block;width:840px;height:900px;border:0;background:#f1f5f9}
+@media(max-width:860px){
+  .rpt-layout{grid-template-columns:1fr}
+  .rpt-left{position:static}
+}
 .rpt-status{font-size:12px;padding:10px 14px;border-radius:8px;margin-top:12px;display:none}
 .rpt-status.working{display:block;background:var(--info-bg);color:var(--blue-light);border:1px solid var(--chip-border)}
 .rpt-status.ok{display:block;background:#052e16;color:#86efac;border:1px solid #166534}
@@ -749,32 +761,47 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 <!-- ===== REPORT PAGE ===== -->
 <div class="page" id="page-report">
   <div class="main">
-    <div class="rpt-section">
-      <div class="section-title">เลือกรูปแบบรายงาน</div>
-      <div class="rpt-mode-row">
-        <label class="rpt-mode-opt active" id="rpt-mode-all-wrap">
-          <input type="radio" name="rpt-mode" value="all" checked onchange="onReportModeChange()">
-          <div class="rpt-mode-text">
-            <div class="rpt-mode-title">📊 รายงานทั้งหมดทุกบัญชี</div>
-            <div class="rpt-mode-sub">สรุปงบ/ใช้ไป/คงเหลือ ของทุกบัญชีในปีนี้ เป็นตารางเดียว</div>
-          </div>
-        </label>
-        <label class="rpt-mode-opt" id="rpt-mode-one-wrap">
-          <input type="radio" name="rpt-mode" value="one" onchange="onReportModeChange()">
-          <div class="rpt-mode-text">
-            <div class="rpt-mode-title">📄 รายงานเฉพาะบัญชี</div>
-            <div class="rpt-mode-sub">รายการตัดงบทั้งหมดของบัญชีที่เลือก</div>
-          </div>
-        </label>
+    <div class="rpt-layout">
+
+      <!-- ซ้าย: เลือกรูปแบบรายงาน -->
+      <div class="rpt-section rpt-left">
+        <div class="section-title">เลือกรูปแบบรายงาน</div>
+        <div class="rpt-mode-row">
+          <label class="rpt-mode-opt active" id="rpt-mode-all-wrap">
+            <input type="radio" name="rpt-mode" value="all" checked onchange="onReportModeChange()">
+            <div class="rpt-mode-text">
+              <div class="rpt-mode-title">📊 รายงานทั้งหมดทุกบัญชี</div>
+              <div class="rpt-mode-sub">สรุปงบ/ใช้ไป/คงเหลือ ของทุกบัญชีในปีนี้ เป็นตารางเดียว</div>
+            </div>
+          </label>
+          <label class="rpt-mode-opt" id="rpt-mode-one-wrap">
+            <input type="radio" name="rpt-mode" value="one" onchange="onReportModeChange()">
+            <div class="rpt-mode-text">
+              <div class="rpt-mode-title">📄 รายงานเฉพาะบัญชี</div>
+              <div class="rpt-mode-sub">รายการตัดงบทั้งหมดของบัญชีที่เลือก</div>
+            </div>
+          </label>
+        </div>
+
+        <select class="ny-year-input rpt-account-select" id="rpt-account-select" style="text-align:left;font-size:14px;padding:11px 14px"></select>
+
+        <div class="rpt-actions">
+          <button class="btn-rpt btn-rpt-print" id="btn-rpt-print" onclick="printReport()">🖨️ พิมพ์รายงาน</button>
+          <button class="btn-rpt btn-rpt-pdf" id="btn-rpt-pdf" onclick="saveReportPDF()">📥 บันทึกเป็น PDF</button>
+        </div>
+        <div class="rpt-status" id="rpt-status"></div>
       </div>
 
-      <select class="ny-year-input rpt-account-select" id="rpt-account-select" style="text-align:left;font-size:14px;padding:11px 14px"></select>
-
-      <div class="rpt-actions">
-        <button class="btn-rpt btn-rpt-print" id="btn-rpt-print" onclick="printReport()">🖨️ พิมพ์รายงาน</button>
-        <button class="btn-rpt btn-rpt-pdf" id="btn-rpt-pdf" onclick="saveReportPDF()">📥 บันทึกเป็น PDF</button>
+      <!-- ขวา: ตัวอย่างรายงาน -->
+      <div class="rpt-section rpt-right">
+        <div class="section-title">ตัวอย่างรายงาน</div>
+        <div class="rpt-preview-wrap" id="rpt-preview-wrap">
+          <div class="rpt-preview-scaler" id="rpt-preview-scaler">
+            <iframe id="rpt-preview-frame" title="ตัวอย่างรายงาน"></iframe>
+          </div>
+        </div>
       </div>
-      <div class="rpt-status" id="rpt-status"></div>
+
     </div>
   </div>
 </div>
@@ -1170,6 +1197,7 @@ function startRealtimeSync(year){
     // refresh UI ถ้ากำลังดูหน้าไหนอยู่
     if (currentCode) renderDetail();
     else { updateSummary(); renderList(); renderDashboard(); }
+    if (window.refreshReportPage) window.refreshReportPage();
   });
 }
 
@@ -2320,7 +2348,13 @@ function buildAllAccountsReportBody(){
 
 const REPORT_PRINT_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700;800&display=swap');
-@page{size:A4 portrait;margin:15mm}
+@page{size:A4 portrait;margin:15mm;
+  @top-left{content:"";}
+  @top-center{content:"";}
+  @top-right{content:counter(page) " / " counter(pages);font-family:'Sarabun','Tahoma',sans-serif;font-size:10px;color:#64748b;vertical-align:bottom;padding-bottom:4mm}
+  @bottom-left{content:"";}
+  @bottom-center{content:"";}
+  @bottom-right{content:"";}}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Sarabun','Noto Sans Thai','Leelawadee UI','Tahoma',sans-serif;font-size:13px;line-height:1.5;color:#1e293b;background:#f1f5f9}
 .r-page{max-width:800px;margin:24px auto;background:#fff;padding:36px 40px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.08)}
@@ -2380,8 +2414,10 @@ function openAccountReport(){
 /* ---- หน้า "ออกรายงาน" กลาง (เลือกทั้งหมด/รายบัญชี) ---- */
 function populateReportAccountSelect(){
   const sel = document.getElementById('rpt-account-select');
+  const prev = sel.value;
   const sorted = [...data].sort((a,b)=>a.code.localeCompare(b.code));
   sel.innerHTML = sorted.map(a=>`<option value="${a.code}">${a.code} — ${a.name}</option>`).join('');
+  if(prev && sorted.some(a=>a.code===prev)) sel.value = prev;
   syncCustomSelect('rpt-account-select');
 }
 
@@ -2391,6 +2427,7 @@ function onReportModeChange(){
   document.getElementById('rpt-mode-one-wrap').classList.toggle('active', mode==='one');
   const wrap = document.getElementById('rpt-account-select-fdd-wrap');
   if(wrap) wrap.style.display = (mode==='one') ? 'block' : 'none';
+  updateReportPreview();
 }
 
 function getReportBody(){
@@ -2401,16 +2438,53 @@ function getReportBody(){
   return { body: buildAccountReportBody(acc), name: `รายงานงบทำการ_${acc.code}_${currentYear}` };
 }
 
-function printReport(){
-  const { body, name } = getReportBody();
-  const html = `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>${name}</title>
-  <style>${REPORT_PRINT_CSS}</style></head><body>
-  <div class="no-print"><button class="btn-print" onclick="window.print()">🖨️ พิมพ์รายงาน</button></div>
-  ${body}
+// ===== ตัวอย่างรายงาน (แสดงด้านขวา ใช้ CSS ชุดเดียวกับตอนพิมพ์ จึงหน้าตาตรงกับของจริง) =====
+function updateReportPreview(){
+  const frame = document.getElementById('rpt-preview-frame');
+  if(!frame) return;
+  let r = null;
+  try{ r = getReportBody(); }catch(e){ r = null; }
+  frame.onload = fitReportPreview;
+  frame.srcdoc = `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8">
+  <style>${REPORT_PRINT_CSS}</style>
+  <style>@media screen{body{background:#f1f5f9}.r-page{margin:12px auto!important;box-shadow:none!important}}</style></head><body>
+  ${r ? r.body : '<div style="text-align:center;padding:60px 20px;color:#94a3b8;font-family:Sarabun,Tahoma,sans-serif">ยังไม่มีข้อมูลบัญชี</div>'}
   </body></html>`;
-  const win = window.open('','_blank');
-  win.document.write(html);
-  win.document.close();
+}
+function fitReportPreview(){
+  const frame  = document.getElementById('rpt-preview-frame');
+  const scaler = document.getElementById('rpt-preview-scaler');
+  const wrap   = document.getElementById('rpt-preview-wrap');
+  if(!frame || !scaler || !wrap) return;
+  const w = wrap.clientWidth;
+  if(w < 50) return;                       // หน้ารายงานยังซ่อนอยู่
+  const s = Math.min(1, w/840);
+  let h = 900;
+  try{ h = frame.contentDocument.documentElement.scrollHeight || 900; }catch(e){}
+  frame.style.height = h + 'px';
+  scaler.style.transform = `scale(${s})`;
+  wrap.style.height = Math.ceil(h*s) + 'px';
+}
+function refreshReportPage(){
+  if(!document.getElementById('page-report').classList.contains('active')) return;
+  populateReportAccountSelect();
+  updateReportPreview();
+}
+window.updateReportPreview = updateReportPreview;
+window.refreshReportPage = refreshReportPage;
+window.addEventListener('resize', ()=>{ clearTimeout(window.__rptFitT); window.__rptFitT=setTimeout(fitReportPreview,80); });
+
+function printReport(){
+  // พิมพ์ตรงจากตัวอย่างรายงาน → เปิดหน้าต่างเลือกเครื่องพิมพ์ทันที (ไม่เปิดแท็บใหม่)
+  const frame = document.getElementById('rpt-preview-frame');
+  if(!frame) return;
+  updateReportPreview();                       // สร้างใหม่ให้เวลาพิมพ์เป็นปัจจุบัน
+  frame.onload = () => {
+    fitReportPreview();
+    const w = frame.contentWindow;
+    const go = () => { w.focus(); w.print(); };
+    (w.document.fonts && w.document.fonts.ready ? w.document.fonts.ready : Promise.resolve()).then(()=>setTimeout(go,150));
+  };
 }
 window.printReport = printReport;
 
@@ -2676,6 +2750,7 @@ function showReport(){
   currentCode=null;
   populateReportAccountSelect();
   document.getElementById('rpt-status').style.display='none';
+  updateReportPreview();
 }
 window.showReport = showReport;
 
@@ -3201,6 +3276,7 @@ window.syncCustomSelect = syncCustomSelect;
 buildCustomSelect('year-badge', { wrapClass: 'year-badge-wrap', btnClass: 'year-badge-btn' });
 buildCustomSelect('ym-select');
 buildCustomSelect('rpt-account-select', { initiallyHidden: true });
+document.getElementById('rpt-account-select').addEventListener('change', updateReportPreview);
 buildCustomSelect('fuel-vehicle');
 
 fillPersonSelect('f-requester', REQUESTERS);
