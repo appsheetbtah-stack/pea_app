@@ -1004,7 +1004,10 @@ function renderMap(){
 function renderSum(pl){
   const a=myPts(),n=a.length,withPh=a.filter(p=>p.photoFileId).length;
   const cnt=(k,list)=>list.map(v=>[v,a.filter(p=>p[k].includes(v)).length]).filter(x=>x[1]).map(x=>(k=='phase'?'เฟส ':'')+x[0]+' '+x[1]+' จุด').join(' · ')||'-';
-  const rows=a.map(p=>`<tr><td class="c">${dispNo(p)}</td><td class="c">${esc(p.head.join(',')||'-')}</td><td class="c">${p.sysPhase?p.sysPhase+' Phase':'-'}</td><td class="c">${esc(p.phase.join(',')||'-')}</td>${EQ.map(e=>`<td class="num">${(p.equip||{})[e[0]]||0}</td>`).join('')}<td>${esc(rmTxt(p)||'-')}</td><td class="co">${p.lat!=null?p.lat+', '+p.lng:'-'}</td><td>${esc(p.note||'-')}</td></tr>`).join('');
+  /* คอลัมน์ที่ไม่มีข้อมูลเลย ไม่ต้องแสดงในตารางรายละเอียด */
+  const eqv=EQ.filter(e=>a.some(p=>((p.equip||{})[e[0]]||0)>0)),showRm=a.some(p=>rmTxt(p)),showNote=a.some(p=>p.note);
+  const ncol=5+eqv.length+(showRm?1:0)+(showNote?1:0);
+  const rows=a.map(p=>`<tr><td class="c">${dispNo(p)}</td><td class="c">${esc(p.head.join(',')||'-')}</td><td class="c">${p.sysPhase?p.sysPhase+' Phase':'-'}</td><td class="c">${esc(p.phase.join(',')||'-')}</td>${eqv.map(e=>`<td class="num">${(p.equip||{})[e[0]]||0}</td>`).join('')}${showRm?`<td>${esc(rmTxt(p)||'-')}</td>`:''}<td class="co">${p.lat!=null?p.lat+', '+p.lng:'-'}</td>${showNote?`<td>${esc(p.note||'-')}</td>`:''}</tr>`).join('');
   const d=new Date().toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'});
   $('pane').innerHTML=`<div class="wrap">
   <div class="row no-print"><button class="btn rpdf" style="flex:1" onclick="doPrint()">🖨️ พิมพ์ / บันทึก PDF</button><button class="btn blue" style="flex:1" onclick="exportXlsx()">📥 Excel</button></div>
@@ -1019,7 +1022,7 @@ function renderSum(pl){
     <div class="rsec">แผนที่ตำแหน่งจุดสำรวจ</div>
     <div class="rmapwrap"><div id="rmap"></div><div class="rcap" id="rcap"></div></div>
     <div class="rsec">รายละเอียดแต่ละจุดสำรวจ</div>
-    <div style="overflow-x:auto"><table class="rtable rdet"><thead><tr><th>จุดที่</th><th>หัวเสา</th><th>ระบบ</th><th>เฟส</th>${EQ.map(e=>`<th>${e[1].split(' ').map(w=>`<span style="white-space:nowrap">${w}</span>`).join(' ')}</th>`).join('')}<th>รื้อถอน / ส่งคืน</th><th>พิกัด</th><th>หมายเหตุ</th></tr></thead><tbody>${rows||'<tr><td colspan="15" class="c">ยังไม่มีจุดสำรวจ</td></tr>'}</tbody></table></div>
+    <div style="overflow-x:auto"><table class="rtable rdet"><thead><tr><th>จุดที่</th><th>หัวเสา</th><th>ระบบ</th><th>เฟส</th>${eqv.map(e=>`<th>${e[1].split(' ').map(w=>`<span style="white-space:nowrap">${w}</span>`).join(' ')}</th>`).join('')}${showRm?'<th>รื้อถอน / ส่งคืน</th>':''}<th>พิกัด</th>${showNote?'<th>หมายเหตุ</th>':''}</tr></thead><tbody>${rows||`<tr><td colspan="${ncol}" class="c">ยังไม่มีจุดสำรวจ</td></tr>`}</tbody></table></div>
     <div class="rblock">
       <div class="rsec">สรุปอุปกรณ์รวมทั้งแผนงาน</div>
       <table class="rtable"><thead><tr><th>รายการอุปกรณ์</th><th class="num">จำนวนรวม</th><th>หน่วย</th></tr></thead><tbody>${EQ.map(e=>e[0]==='wire'?`<tr><td>${e[1]} <span style="color:#666;font-size:.9em">(${sumEq(a,'wire')} เส้น × ${WIRE_M} ม. × ${WIRE_KG_PER_M} กก./ม.)</span></td><td class="num">${wireKg(sumEq(a,'wire')).toFixed(2)}</td><td>กก.</td></tr>`:`<tr><td>${e[1]}</td><td class="num">${sumEq(a,e[0])}</td><td>${e[2]}</td></tr>`).join('')}</tbody></table>
