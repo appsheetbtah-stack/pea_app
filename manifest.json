@@ -1,6 +1,6 @@
 {
   "name": "PEA ระบบจัดการผู้ใช้ไฟฟ้า",
-  "short_name": "PEA",
+  "short_name": "PEA ทุ่งอ้ายโห้",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0f1923",
