@@ -186,7 +186,7 @@ body{background:#fff}body.printing #app{display:none!important}
       <div><label class="lab">ระบบไฟฟ้า</label><div class="opts" id="o-sys"></div></div>
       <div><label class="lab">เฟส (เลือกได้หลายเฟส)</label><div class="opts" id="o-phase"></div></div>
     </div>
-    <div class="blk"><b>🧰 อุปกรณ์ที่ใช้</b><div id="eq"></div><div class="sub" id="eq-hint">ลูกถ้วยตั้ง/ลวดกลม นับอัตโนมัติจากหัวเสา × เฟส (SP, CCB = 1 ลูก/เฟส · DP, DDE = 2 ลูก/เฟส · BA = 4 ลูก (คงที่) · ลวดกลม = จำนวนลูกถ้วยตั้ง) แก้ตัวเลขเองได้<br>เปลี่ยน DE SL เป็น DDE (ต่อสายไฟ 1 เส้น: ตั้ง 2 · แขวน 3 · อายนัท 1 · สเตรน 1 · ACSR 3 ม. · หลอดต่อ 1 · P.G. 2) × สายไฟ (ระบบ 1 Phase = 2 เส้น · 3 Phase = 3 เส้น)</div></div>
+    <div class="blk"><b>🧰 อุปกรณ์ที่ใช้</b><div id="eq"></div><div class="sub" id="eq-hint">ลูกถ้วยตั้ง/ลวดกลม นับอัตโนมัติจากหัวเสา × เฟส (SP, CCB = 1 ลูก/เฟส · DP, DDE = 2 ลูก/เฟส · BA = 4 ลูก (คงที่) · ลวดกลม (เปลือย) = จำนวนลูกถ้วยตั้ง · ลวดกลม (หุ้มฉนวน) = กรอกเอง 3 ม./เส้น) แก้ตัวเลขเองได้<br>เปลี่ยน DE SL เป็น DDE (ต่อสายไฟ 1 เส้น: ตั้ง 2 · แขวน 3 · อายนัท 1 · สเตรน 1 · ACSR 3 ม. · หลอดต่อ 1 · P.G. 2) × สายไฟ (ระบบ 1 Phase = 2 เส้น · 3 Phase = 3 เส้น)</div></div>
     <div class="blk"><b>♻️ อุปกรณ์รื้อถอน / ส่งคืน</b><div id="rm"></div><div id="rm-oth"></div><button type="button" class="btn ghost" id="rm-add" onclick="addRmo()">＋ เพิ่มรายการอื่นๆ</button><label class="chk" id="rm-none-l"><input type="checkbox" id="rm-none" onchange="toggleNoRm()">ยืนยันว่าไม่มี อุปกรณ์รื้อถอน / ส่งคืน</label></div>
     <div class="blk"><b>📷 รูปถ่าย</b>
       <img id="prev" class="prev">
@@ -255,7 +255,7 @@ const IC_POLE='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXH
 const icImg=(src,sz)=>`<img src="${src}" alt="" style="width:${sz}px;height:${sz}px;object-fit:contain">`;
 const escH=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const HEADS=['SP','CCB','CSC','CTB','DP','DDE','DE','BA','DE SL','เปลี่ยน DE SL เป็น DDE'], PHASES=['A','B','C'];
-const EQ=[['standIns','ลูกถ้วยตั้ง','ลูก'],['hangIns','ลูกถ้วยแขวน','ลูก'],['eyeNut','อายนัท','ตัว'],['strain','สเตรนแคลมป์','ชุด'],['wire','ลวดกลม','เส้น'],['acsr','สาย ACSR 50 ต.มม.','เมตร'],['splice','หลอดต่อรับแรงดึง 50 ต.มม.','หลอด'],['pg','P.G. 2 สลัก 50 ต.มม.','หลอด']];
+const EQ=[['standIns','ลูกถ้วยตั้ง','ลูก'],['hangIns','ลูกถ้วยแขวน','ลูก'],['eyeNut','อายนัท','ตัว'],['strain','สเตรนแคลมป์','ชุด'],['wire','ลวดกลม (เปลือย)','เส้น'],['wireIns','ลวดกลม (หุ้มฉนวน)','เส้น'],['acsr','สาย ACSR 50 ต.มม.','เมตร'],['splice','หลอดต่อรับแรงดึง 50 ต.มม.','หลอด'],['pg','P.G. 2 สลัก 50 ต.มม.','หลอด']];
 const RM=[['pin','ลูกถ้วยตั้ง Pin type','ลูก'],['pinPost','ลูกถ้วยตั้ง Pin post type','ลูก'],['linePost','ลูกถ้วยตั้ง Line post type','ลูก'],['susp','ลูกถ้วยแขวน Suspension type','ลูก']]; /* อุปกรณ์รื้อถอน / ส่งคืน */
 let rmOther=[]; /* รายการอื่นๆ (พิมพ์เอง) [{name,qty}] */
 let planId=null,tab='list',editKey=null,sel={head:[],phase:[],sys:0},photo={},map=null,uploading=false;
@@ -265,6 +265,7 @@ const toast=m=>{const t=$('toast');t.textContent=m;t.classList.add('on');setTime
 const openM=id=>$(id).classList.add('on'), closeM=id=>$(id).classList.remove('on');
 const myPts=()=>POINTS.filter(p=>p.planId===planId);
 const WIRE_M=2.8,WIRE_KG_PER_M=0.039; /* ลวดกลม 1 เส้น = 2.8 ม. · 1 ม. = 0.039 กก. (คลังพัสดุเบิกเป็น กก.) */
+const WIRE_INS_M=3; /* ลวดกลม (หุ้มฉนวน) 1 เส้น = 3 ม. */
 const wireKg=n=>Math.round(n*WIRE_M*WIRE_KG_PER_M*100)/100;
 const sumEq=(arr,k)=>arr.reduce((a,p)=>a+((p.equip||{})[k]||0),0);
 const isComplete=p=>p.lat!=null&&(p.head||[]).length>0&&!!(p.sysPhase||(p.phase||[]).length)&&(p.noRemoval||Object.values(p.removal||{}).some(v=>v>0)||(p.removalOther||[]).some(o=>o.qty>0))&&(p.removalOther||[]).every(o=>o.name&&o.qty); /* ข้อมูลครบ = พิกัด+หัวเสา+ระบบ/เฟส+(มีรายการรื้อถอน/ส่งคืน ≥1 หรือติ๊กยืนยันว่าไม่มี) (ไม่นับรูปถ่าย) */
@@ -881,7 +882,7 @@ function teamReport(){
     return out+'</svg>';
   };
   const legend=Array.from({length:k},(_,t)=>`<span class="lg"><i style="background:${TEAM_COLORS[t]}"></i>${E(tName(t))}</span>`).join('');
-  const SH=['ตั้ง','แขวน','อายนัท','สเตรน','ลวดกลม','ACSR (ม.)','หลอดต่อ','P.G.'];
+  const SH=['ตั้ง','แขวน','อายนัท','สเตรน','ลวดกลม (เปลือย)','ลวดกลม (หุ้มฉนวน)','ACSR (ม.)','หลอดต่อ','P.G.'];
   const modeTxt={geo:'แบ่งตามพื้นที่ (งานเท่ากัน + จุดอยู่ใกล้กัน)',even:'แบ่งเท่ากันตามจำนวนจุด',weight:'ถ่วงตามปริมาณงาน',manual:'ปรับช่วงเอง'}[cfg.mode]||cfg.mode;
   /* หน้าสรุป */
   const planRows=T.plans.map(pl=>{const n=POINTS.filter(p=>p.planId===pl.planId).length;return `<tr><td>${E(pl.planName||'')}</td><td>${E(planShort(pl))}</td><td class="n">${n}</td></tr>`}).join('');
@@ -903,8 +904,8 @@ function teamReport(){
       <div class="grid2 map"><div>${svgMap(t)}<div class="note">วงกลมสี = จุดของทีมนี้ (เลขตามลำดับในตาราง) · วงกลมขอบดำ = จุด DDE · จุดเทา = จุดของทีมอื่น</div></div></div>
       <h2>รายละเอียดงานรายจุด <span class="mut">(เรียงตามลำดับเส้นทางปฏิบัติงาน)</span></h2>
       <table class="pt"><thead><tr><th>ลำดับ</th><th>จุด</th><th>หัวเสา / งาน</th><th>ระบบ</th><th>เฟส</th>${SH.map(x=>`<th>${x}</th>`).join('')}<th>เวลา (นาที)</th><th>พิกัด (แตะเพื่อเปิดแผนที่)</th></tr></thead><tbody>${rows}
-        <tr class="tot"><td colspan="5">รวมวัสดุ/อุปกรณ์ของทีม</td>${EQ.map(x=>{const v=sum(l,x[0]);return `<td class="n">${v}${x[0]==='wire'&&v?`<br><span class="mut">≈ ${wireKg(v)} กก.</span>`:''}</td>`}).join('')}<td class="n">${fN(m)}<br><span class="mut">${fmtHr(m,1)}</span></td><td></td></tr></tbody></table>
-      <div class="note">หน่วย: ลูกถ้วยตั้ง/แขวน = ลูก · อายนัท = ตัว · สเตรนแคลมป์ = ชุด · ลวดกลม = เส้น · สาย ACSR 50 ต.มม. = เมตร · หลอดต่อรับแรงดึง/P.G. 2 สลัก = หลอด · แถวสีส้ม = งานเปลี่ยน DE SL เป็น DDE</div>
+        <tr class="tot"><td colspan="5">รวมวัสดุ/อุปกรณ์ของทีม</td>${EQ.map(x=>{const v=sum(l,x[0]);return `<td class="n">${v}${x[0]==='wire'&&v?`<br><span class="mut">≈ ${wireKg(v)} กก.</span>`:x[0]==='wireIns'&&v?`<br><span class="mut">≈ ${v*WIRE_INS_M} ม.</span>`:''}</td>`}).join('')}<td class="n">${fN(m)}<br><span class="mut">${fmtHr(m,1)}</span></td><td></td></tr></tbody></table>
+      <div class="note">หน่วย: ลูกถ้วยตั้ง/แขวน = ลูก · อายนัท = ตัว · สเตรนแคลมป์ = ชุด · ลวดกลม (เปลือย/หุ้มฉนวน) = เส้น · สาย ACSR 50 ต.มม. = เมตร · หลอดต่อรับแรงดึง/P.G. 2 สลัก = หลอด · แถวสีส้ม = งานเปลี่ยน DE SL เป็น DDE</div>
       <div class="sign"><div>หัวหน้าทีม ____________________________</div><div>วันที่ปฏิบัติงาน ____ / ____ / ________</div><div>ผู้อนุมัติ ____________________________</div></div></section>`;
   });
   const css=`@page{size:A4 landscape;margin:9mm}*{box-sizing:border-box}body{margin:0;font:12px/1.5 'Sarabun','Noto Sans Thai','Leelawadee UI',Tahoma,sans-serif;color:#111;background:#e9edf2}
@@ -1026,7 +1027,7 @@ function renderSum(pl){
     <div style="overflow-x:auto"><table class="rtable rdet"><thead><tr><th>จุดที่</th><th>หัวเสา</th><th>ระบบ</th><th>เฟส</th>${eqv.map(e=>`<th>${e[1].split(' ').map(w=>`<span style="white-space:nowrap">${w}</span>`).join(' ')}</th>`).join('')}${showRm?'<th>รื้อถอน / ส่งคืน</th>':''}<th>พิกัด</th>${showNote?'<th>หมายเหตุ</th>':''}</tr></thead><tbody>${rows||`<tr><td colspan="${ncol}" class="c">ยังไม่มีจุดสำรวจ</td></tr>`}</tbody></table></div>
     <div class="rblock">
       <div class="rsec">สรุปอุปกรณ์รวมทั้งแผนงาน</div>
-      <table class="rtable"><thead><tr><th>รายการอุปกรณ์</th><th class="num">จำนวนรวม</th><th>หน่วย</th></tr></thead><tbody>${EQ.map(e=>e[0]==='wire'?`<tr><td>${e[1]} <span style="color:#666;font-size:.9em">(${sumEq(a,'wire')} เส้น × ${WIRE_M} ม. × ${WIRE_KG_PER_M} กก./ม.)</span></td><td class="num">${wireKg(sumEq(a,'wire')).toFixed(2)}</td><td>กก.</td></tr>`:`<tr><td>${e[1]}</td><td class="num">${sumEq(a,e[0])}</td><td>${e[2]}</td></tr>`).join('')}</tbody></table>
+      <table class="rtable"><thead><tr><th>รายการอุปกรณ์</th><th class="num">จำนวนรวม</th><th>หน่วย</th></tr></thead><tbody>${EQ.map(e=>e[0]==='wireIns'?`<tr><td>${e[1]} <span style="color:#666;font-size:.9em">(${sumEq(a,'wireIns')} เส้น × ${WIRE_INS_M} ม.)</span></td><td class="num">${sumEq(a,'wireIns')*WIRE_INS_M}</td><td>เมตร</td></tr>`:e[0]==='wire'?`<tr><td>${e[1]} <span style="color:#666;font-size:.9em">(${sumEq(a,'wire')} เส้น × ${WIRE_M} ม. × ${WIRE_KG_PER_M} กก./ม.)</span></td><td class="num">${wireKg(sumEq(a,'wire')).toFixed(2)}</td><td>กก.</td></tr>`:`<tr><td>${e[1]}</td><td class="num">${sumEq(a,e[0])}</td><td>${e[2]}</td></tr>`).join('')}</tbody></table>
       <div class="rsec">สรุปอุปกรณ์รื้อถอน / ส่งคืนรวมทั้งแผนงาน</div>
       <table class="rtable"><thead><tr><th>รายการอุปกรณ์</th><th class="num">จำนวนรวม</th><th>หน่วย</th></tr></thead><tbody>${RM.map(e=>`<tr><td>${e[1]}</td><td class="num">${sumRm(a,e[0])}</td><td>${e[2]}</td></tr>`).join('')}${rmoAgg(a).map(o=>`<tr><td>${esc(o.name)}</td><td class="num">${o.qty}</td><td>-</td></tr>`).join('')}</tbody></table>
       <div class="rsign"><div><div class="rline">ผู้สำรวจ</div></div><div><div class="rline">ผู้ตรวจสอบ</div></div></div>
@@ -1103,7 +1104,7 @@ function exportXlsx(){
   const pl=PLANS.find(p=>p.planId===planId),a=myPts();
   const rows=a.map(p=>{const r={'จุดที่':dispNo(p),'Lat':p.lat,'Long':p.lng,'ประเภทหัวเสา':p.head.join(','),'ระบบ':p.sysPhase?p.sysPhase+' Phase':'','เฟส':p.phase.join(',')};
     EQ.forEach(e=>r[e[1]]=(p.equip||{})[e[0]]||0);RM.forEach(e=>r['รื้อถอน: '+e[1]]=(p.removal||{})[e[0]]||0);r['รื้อถอน: อื่นๆ']=(p.removalOther||[]).filter(o=>o.name).map(o=>o.name+' '+(o.qty||0)).join(', ');r['รูปถ่าย']=p.photoLink||'';r['หมายเหตุ']=p.note||'';return r});
-  const tot={'จุดที่':'รวม'};EQ.forEach(e=>tot[e[1]]=sumEq(a,e[0]));tot['ลวดกลม (กก.)']=wireKg(sumEq(a,'wire'));RM.forEach(e=>tot['รื้อถอน: '+e[1]]=sumRm(a,e[0]));tot['รื้อถอน: อื่นๆ']=rmoAgg(a).map(o=>o.name+' '+o.qty).join(', ');rows.push(tot);
+  const tot={'จุดที่':'รวม'};EQ.forEach(e=>tot[e[1]]=sumEq(a,e[0]));tot['ลวดกลม เปลือย (กก.)']=wireKg(sumEq(a,'wire'));tot['ลวดกลม หุ้มฉนวน (ม.)']=sumEq(a,'wireIns')*WIRE_INS_M;RM.forEach(e=>tot['รื้อถอน: '+e[1]]=sumRm(a,e[0]));tot['รื้อถอน: อื่นๆ']=rmoAgg(a).map(o=>o.name+' '+o.qty).join(', ');rows.push(tot);
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'สำรวจลูกถ้วย');
   XLSX.writeFile(wb,`ลูกถ้วย_${(pl.planName||'plan').replace(/[\\/:*?"<>|]/g,'_')}.xlsx`);
 }
@@ -1157,7 +1158,7 @@ function setSys(n){
 function tog(k,v){
   if(k==='phase'&&!sel.sys)return toast('กรุณาเลือกระบบ 1 Phase หรือ 3 Phase ก่อน');
   const i=sel[k].indexOf(v);
-  if(i>=0){sel[k].splice(i,1);if(v===CONV)['hangIns','eyeNut','strain','standIns','wire','acsr','splice','pg'].forEach(k=>$('eq-'+k).value=0)}
+  if(i>=0){sel[k].splice(i,1);if(v===CONV)['hangIns','eyeNut','strain','standIns','wire','wireIns','acsr','splice','pg'].forEach(k=>$('eq-'+k).value=0)}
   else{sel[k].push(v);if(k==='phase'&&sel.sys===1&&sel.phase.length>2)sel.phase.shift()}
   if(k==='phase')sel.phase.sort();
   drawOpts();autoEq();
